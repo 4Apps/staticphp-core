@@ -37,3 +37,7 @@ Desktop.ini
 # Design notes and scratch work, kept locally rather than in the package
 ###################################################################################################
 /specs/
+
+# Agent worktrees and local session state
+###################################################################################################
+/.claude/
