@@ -20,6 +20,22 @@ class RouterTest extends TestCase
     protected function tearDown(): void
     {
         Config::set('allowed_hosts', []);
+        Config::set('trust_proxy_headers', false);
+        Config::set('trusted_proxy_hops', 1);
+
+        // SERVER_PORT among them: requestIsSecure() falls back to it, so a test that leaves
+        // 443 behind makes every later request look encrypted
+        unset(
+            $_SERVER['HTTPS'],
+            $_SERVER['HTTP_X_FORWARDED_PROTO'],
+            $_SERVER['HTTP_X_FORWARDED_PORT'],
+            $_SERVER['HTTP_X_FORWARDED_FOR'],
+            $_SERVER['SERVER_PORT'],
+            $_SERVER['REMOTE_ADDR']
+        );
+
+        Router::$domain_url = null;
+        Router::$base_url = null;
     }
 
     /*
@@ -214,6 +230,339 @@ class RouterTest extends TestCase
     public function testPlainHostIsAcceptedWithoutAnAllowlist()
     {
         $this->assertEquals('localhost:8080', Router::validateHost('localhost:8080'));
+    }
+
+    /*
+    | Forwarded headers
+    |
+    | base_url is built from the connection this process sees, which behind a proxy is the
+    | internal hop rather than the request the client made.
+    */
+
+    public function testForwardedHeadersAreIgnoredByDefault()
+    {
+        $this->assertNull(Router::forwardedHeader('HTTP_X_FORWARDED_PROTO'));
+    }
+
+    public function testForwardedHeaderIsReadWhenTrusted()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+
+        $this->assertEquals('https', Router::forwardedHeader('HTTP_X_FORWARDED_PROTO'));
+    }
+
+    public function testChainedProxiesLeaveTheOriginalRequestLeftmost()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https, http';
+
+        $this->assertEquals('https', Router::forwardedHeader('HTTP_X_FORWARDED_PROTO'));
+    }
+
+    public function testAbsentHeaderIsNullRatherThanEmpty()
+    {
+        Config::set('trust_proxy_headers', true);
+
+        $this->assertNull(Router::forwardedHeader('HTTP_X_FORWARDED_PORT'));
+    }
+
+    public function testDirectTlsIsSecure()
+    {
+        $_SERVER['HTTPS'] = 'on';
+
+        $this->assertTrue(Router::requestIsSecure());
+    }
+
+    public function testProxiedTlsIsNotSecureWithoutTrust()
+    {
+        // The connection this process sees is the proxy's plain http hop
+        unset($_SERVER['HTTPS']);
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+
+        $this->assertFalse(Router::requestIsSecure());
+    }
+
+    public function testProxiedTlsIsSecureWhenTrusted()
+    {
+        Config::set('trust_proxy_headers', true);
+        unset($_SERVER['HTTPS']);
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
+
+        $this->assertTrue(Router::requestIsSecure());
+    }
+
+    public function testTrustedPlainProxyHopOverridesAStaleHttpsFlag()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['HTTPS'] = 'on';
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'http';
+
+        $this->assertFalse(Router::requestIsSecure());
+    }
+
+    public function testInternalPortIsNotAdvertisedWhenTrusted()
+    {
+        Config::set('trust_proxy_headers', true);
+
+        // The container listens on plain http 8080, the client connected to tls 443
+        $this->assertEquals('https://example.com', $this->buildDomainUrl([
+            'HTTP_HOST' => 'example.com',
+            'SERVER_PORT' => '8080',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_PORT' => '443',
+        ]));
+    }
+
+    public function testInternalPortLeaksWithoutTrust()
+    {
+        $this->assertEquals('http://example.com:8080', $this->buildDomainUrl([
+            'HTTP_HOST' => 'example.com',
+            'SERVER_PORT' => '8080',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+            'HTTP_X_FORWARDED_PORT' => '443',
+        ]));
+    }
+
+    public function testNonStandardForwardedPortIsKept()
+    {
+        Config::set('trust_proxy_headers', true);
+
+        $this->assertEquals('http://example.com:8000', $this->buildDomainUrl([
+            'HTTP_HOST' => 'example.com',
+            'SERVER_PORT' => '8080',
+            'HTTP_X_FORWARDED_PROTO' => 'http',
+            'HTTP_X_FORWARDED_PORT' => '8000',
+        ]));
+    }
+
+    public function testGarbageForwardedPortFallsBackToTheRealOne()
+    {
+        Config::set('trust_proxy_headers', true);
+
+        // Never reachable through a proxy that rewrites the header, but a config item is
+        // easier to get wrong than to get right
+        $this->assertEquals('http://example.com:8080', $this->buildDomainUrl([
+            'HTTP_HOST' => 'example.com',
+            'SERVER_PORT' => '8080',
+            'HTTP_X_FORWARDED_PORT' => '443; rm -rf /',
+        ]));
+    }
+
+    /**
+     * The setup the whole feature exists for. nginx and traefik set X-Forwarded-Proto by
+     * default and X-Forwarded-Port only when told to, so the port has to come from the
+     * forwarded scheme rather than from the port this process happens to listen on.
+     */
+    public function testProtoWithoutForwardedPortDoesNotAdvertiseTheInternalPort()
+    {
+        Config::set('trust_proxy_headers', true);
+
+        $this->assertEquals('https://example.com', $this->buildDomainUrl([
+            'HTTP_HOST' => 'example.com',
+            'SERVER_PORT' => '8080',
+            'HTTP_X_FORWARDED_PROTO' => 'https',
+        ]));
+    }
+
+    public function testPlainProtoWithoutForwardedPortDoesNotAdvertiseTheInternalPort()
+    {
+        Config::set('trust_proxy_headers', true);
+
+        $this->assertEquals('http://example.com', $this->buildDomainUrl([
+            'HTTP_HOST' => 'example.com',
+            'SERVER_PORT' => '8080',
+            'HTTP_X_FORWARDED_PROTO' => 'http',
+        ]));
+    }
+
+    /**
+     * php documents HTTPS as "a non-empty value", not as "on". iis sets the literal "off"
+     * for a plain request, which is why emptiness alone cannot be the test either.
+     */
+    public function testNonOnHttpsValuesAreStillSecure()
+    {
+        $_SERVER['HTTPS'] = '1';
+
+        $this->assertTrue(Router::requestIsSecure());
+    }
+
+    public function testIisStyleOffIsNotSecure()
+    {
+        $_SERVER['HTTPS'] = 'off';
+
+        $this->assertFalse(Router::requestIsSecure());
+    }
+
+    /**
+     * A server terminating tls without setting HTTPS. The session cookie's Secure flag and
+     * the error page's absolute urls both read this, so they cannot be allowed to disagree.
+     */
+    public function testPort443WithoutTheHttpsVariableIsSecure()
+    {
+        unset($_SERVER['HTTPS']);
+        $_SERVER['SERVER_PORT'] = '443';
+
+        $this->assertTrue(Router::requestIsSecure());
+    }
+
+    public function testTrustedPlainProxyHopBeatsThePort443Fallback()
+    {
+        Config::set('trust_proxy_headers', true);
+        unset($_SERVER['HTTPS']);
+        $_SERVER['SERVER_PORT'] = '443';
+        $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'http';
+
+        $this->assertFalse(Router::requestIsSecure());
+    }
+
+    public function testDirectTlsStillWorksWhenTrustIsOnButNothingForwards()
+    {
+        Config::set('trust_proxy_headers', true);
+
+        $this->assertEquals('https://example.com', $this->buildDomainUrl([
+            'HTTP_HOST' => 'example.com',
+            'SERVER_PORT' => '443',
+            'HTTPS' => 'on',
+        ]));
+    }
+
+    /*
+    | Client address
+    |
+    | REMOTE_ADDR is the proxy when one sits in front. X-Forwarded-For carries the client,
+    | but is appended to rather than overwritten, so which end is trustworthy matters.
+    */
+
+    public function testClientIpIsRemoteAddrByDefault()
+    {
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7';
+
+        $this->assertEquals('10.0.0.9', Router::clientIp());
+    }
+
+    public function testClientIpComesFromForwardedForWhenTrusted()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7';
+
+        $this->assertEquals('203.0.113.7', Router::clientIp());
+    }
+
+    /**
+     * The reason entries are counted from the right. nginx appends the peer it saw with
+     * $proxy_add_x_forwarded_for, so a client that sends its own X-Forwarded-For puts a
+     * value of its choosing leftmost - and applications gate on this value.
+     */
+    public function testSpoofedLeftmostEntryIsNotTrusted()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '127.0.0.1, 203.0.113.7';
+
+        $this->assertEquals('203.0.113.7', Router::clientIp());
+    }
+
+    public function testExtraHopIsCountedFromTheRight()
+    {
+        Config::set('trust_proxy_headers', true);
+        Config::set('trusted_proxy_hops', 2);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+
+        // client, cdn, ingress - two proxies in front, so the client is second from right
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '127.0.0.1, 203.0.113.7, 198.51.100.4';
+
+        $this->assertEquals('203.0.113.7', Router::clientIp());
+    }
+
+    public function testShorterChainThanConfiguredDoesNotUnderflow()
+    {
+        Config::set('trust_proxy_headers', true);
+        Config::set('trusted_proxy_hops', 5);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7';
+
+        $this->assertEquals('203.0.113.7', Router::clientIp());
+    }
+
+    public function testGarbageForwardedForFallsBackToRemoteAddr()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = 'not-an-address';
+
+        $this->assertEquals('10.0.0.9', Router::clientIp());
+    }
+
+    public function testForwardedForPortIsStripped()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7:41234';
+
+        $this->assertEquals('203.0.113.7', Router::clientIp());
+    }
+
+    public function testForwardedForAcceptsIpv6()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '2001:db8::1';
+
+        $this->assertEquals('2001:db8::1', Router::clientIp());
+    }
+
+    public function testForwardedForAcceptsBracketedIpv6WithPort()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '[2001:db8::1]:41234';
+
+        $this->assertEquals('2001:db8::1', Router::clientIp());
+    }
+
+    public function testEmptyForwardedForFallsBackToRemoteAddr()
+    {
+        Config::set('trust_proxy_headers', true);
+        $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
+        $_SERVER['HTTP_X_FORWARDED_FOR'] = '';
+
+        $this->assertEquals('10.0.0.9', Router::clientIp());
+    }
+
+    public function testNoAddressAtAllIsNullRatherThanEmptyString()
+    {
+        unset($_SERVER['REMOTE_ADDR']);
+
+        $this->assertNull(Router::clientIp());
+    }
+
+    /**
+     * Run splitSegments() against a synthetic request and return the domain it derived.
+     */
+    private function buildDomainUrl(array $server): string
+    {
+        $backup = $_SERVER;
+        $_SERVER = array_merge($_SERVER, $server);
+
+        Config::set('base_url', null);
+        Config::set('request_uri', '/');
+        Config::set('script_name', '/index.php');
+        Config::set('routing', []);
+        Config::set('url_prefixes', []);
+
+        Router::$domain_url = null;
+        Router::$base_url = null;
+
+        try {
+            Router::splitSegments(true);
+
+            return (string) Router::$domain_url;
+        } finally {
+            $_SERVER = $backup;
+        }
     }
 
     /*

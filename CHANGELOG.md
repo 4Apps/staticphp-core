@@ -27,6 +27,14 @@ installation vendors its own copy of `System/`.
 -   The `$project` argument to `Load::` and the autoload lists names an entry in
     `$config['module_paths']` rather than a directory beside the application. `staticphp`
     is reserved and resolves to the framework's own modules. An unknown name throws.
+-   `$config['debug_ips']` is gone. It let a request header turn on `display_errors`, full
+    exception traces and the query log, because it compared an address the request could
+    influence against a list. `$config['debug_check']`, a `callable(): bool` the
+    application supplies, decides instead - the framework makes no trust decision of its
+    own. It runs before sessions and the database exist, fails closed, and only a strict
+    `true` opens the gate.
+-   `$config['client_ip']` defaults to `null`, meaning "work it out", the way `base_url`
+    does. An application that sets it explicitly keeps its value.
 -   `twig/twig` is suggested rather than required. See "Optional dependencies" below.
 -   `Load::view()` without a view engine is a real renderer rather than a stub: it extracts
     `$data`, honours `$return = true`, and provides `$config` and `$env` the way twig does.
@@ -39,6 +47,13 @@ installation vendors its own copy of `System/`.
     transaction handling that follows what the engine can actually do.
 -   Rewritten i18n: catalogs, locale negotiation, ICU message formatting and a `staticphp
     i18n` command to scan and manage keys.
+-   Proxy awareness behind `$config['trust_proxy_headers']`, off by default:
+    `Router::requestIsSecure()`, `Router::clientIp()` and `Router::forwardedHeader()`.
+    Without it, behind tls termination `base_url` advertised the internal port, the
+    session cookie lost its `Secure` flag, and every request looked like it came from the
+    proxy. `X-Forwarded-For` entries are counted from the right, one per
+    `$config['trusted_proxy_hops']`, because the header is appended to rather than
+    overwritten and its leftmost entry is whatever the client claimed.
 -   `.gitattributes` keeps tests, tooling and CI out of the dist archive.
 
 ### Fixed
@@ -49,6 +64,10 @@ installation vendors its own copy of `System/`.
     matched on `ColumnType::INT` and `ColumnType::DECIMAL`, and covered by tests.
 -   `uuid4()` uses `random_bytes()` rather than `openssl_random_pseudo_bytes()`: core
     rather than an extension, and it throws instead of returning possibly weak bytes.
+-   Whether a request counted as encrypted was decided three different ways in three
+    places, so the error page could build `https://` urls for a request whose session
+    cookie had just been sent without `Secure`. `Router::requestIsSecure()` is now the one
+    answer, and it accepts the non-`on` values php documents for `$_SERVER['HTTPS']`.
 -   Injection, path traversal, dispatch and escaping issues found in a security audit of
     the 1.x tree.
 

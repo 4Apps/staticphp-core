@@ -22,23 +22,27 @@ Request::populateFromCli();
 // Load default config file and routing
 Config::load(['Config', 'Routing']);
 
+// Resolve the client address now that the configuration governing it is loaded. Left to
+// whatever the application set if it set anything, so an install with its own idea of
+// where the address comes from keeps it; null means "work it out", as base_url does.
+if (Config::get('client_ip', null) === null) {
+    Config::$items['client_ip'] = Router::clientIp();
+}
+
 // Set debug
 Config::$items['now'] = time();
 Config::$items['date_time'] = new ExtendedDateTime();
-Config::$items['debug'] = (
-    Config::get('debug')
-    || in_array(
-        Config::get('client_ip', '127.0.0.1'),
-        (array)Config::get('debug_ips', [])
-    )
-);
+
+// Resolved here rather than read straight from config: the application decides who may
+// see debug output, through $config['debug_check']. See Config::resolveDebug()
+Config::$items['debug'] = Config::resolveDebug();
 ini_set(
     'error_reporting',
     // E_STRICT was folded into E_ALL long ago and the constant itself is deprecated as of
     // PHP 8.4, so referencing it here would emit a deprecation of its own
-    (!empty(Config::$items['debug']) ? E_ALL : E_ALL & ~E_DEPRECATED)
+    (Config::$items['debug'] ? E_ALL : E_ALL & ~E_DEPRECATED)
 );
-ini_set('display_errors', (int)Config::get('debug'));
+ini_set('display_errors', (int) Config::$items['debug']);
 
 // Autoload additional config files
 $autoload_configs = Config::get('autoload_configs');

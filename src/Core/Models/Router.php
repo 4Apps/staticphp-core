@@ -601,6 +601,161 @@ class Router
     }
 
     /**
+     * Read a header a reverse proxy set to describe the original request.
+     *
+     * Behind a proxy the connection this process sees is the proxy's, not the client's,
+     * so HTTPS and SERVER_PORT describe the internal hop - a container listening on plain
+     * http port 8080 behind tls termination builds urls like https://example.com:8080/,
+     * a port nothing outside can reach.
+     *
+     * Only honoured when $config['trust_proxy_headers'] is enabled, and it defaults to
+     * off: these headers are client supplied unless something in front overwrites them,
+     * and base_url ends up in redirects, emails and cached pages. Enable it only when a
+     * proxy that rewrites the header is the sole route to the application.
+     *
+     * @param string $name Header name as it appears in $_SERVER
+     *
+     * @access public
+     * @static
+     *
+     * @return string|null Null when not trusted or not present
+     */
+    public static function forwardedHeader(string $name): ?string
+    {
+        if (empty(Config::get('trust_proxy_headers', false))) {
+            return null;
+        }
+
+        // Chained proxies append to the list, the leftmost entry is the original request.
+        // That is right for the headers describing the request itself - a proxy sets
+        // X-Forwarded-Proto outright - but not for X-Forwarded-For, whose leftmost entry
+        // the client supplies; clientIp() counts from the other end for that reason.
+        $value = trim(explode(',', (string) ($_SERVER[$name] ?? ''))[0]);
+
+        return $value === '' ? null : $value;
+    }
+
+    /**
+     * The address the request came from.
+     *
+     * REMOTE_ADDR is the proxy's address when one sits in front, so without this every
+     * request on a proxied deployment appears to come from the proxy. X-Forwarded-For
+     * carries the real client, but unlike X-Forwarded-Proto it is *appended* to rather
+     * than overwritten - nginx's $proxy_add_x_forwarded_for tacks the peer onto whatever
+     * the client sent. So the leftmost entry is attacker controlled even behind a
+     * correctly configured proxy, and reading it would let a client write its own address
+     * into the logs, into an audit trail, or into whatever an application gates on it.
+     *
+     * Entries are therefore counted from the right, one per trusted hop: with a single
+     * proxy the rightmost entry is the one it appended itself, which is the peer it saw
+     * and cannot be forged. $config['trusted_proxy_hops'] says how many proxies are in
+     * front - 2 for a cdn ahead of an ingress - and anything that does not parse as an
+     * address falls back to REMOTE_ADDR rather than being passed on.
+     *
+     * @access public
+     * @static
+     *
+     * @return string|null Null when there is no usable address at all, as under cli
+     */
+    public static function clientIp(): ?string
+    {
+        $remote = self::validateIp((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+
+        if (empty(Config::get('trust_proxy_headers', false))) {
+            return $remote;
+        }
+
+        $entries = array_values(array_filter(
+            array_map('trim', explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))),
+            fn(string $entry): bool => $entry !== ''
+        ));
+
+        if ($entries === []) {
+            return $remote;
+        }
+
+        $hops = (int) Config::get('trusted_proxy_hops', 1);
+        if ($hops < 1) {
+            $hops = 1;
+        }
+
+        // Fewer entries than hops means the chain is shorter than configured; the leftmost
+        // is then the furthest back anything claimed, and no more trustworthy than that
+        $index = max(0, count($entries) - $hops);
+
+        return self::validateIp($entries[$index]) ?? $remote;
+    }
+
+    /**
+     * Normalise one X-Forwarded-For entry to a bare address.
+     *
+     * Load balancers vary on whether they append the source port, and ipv6 with a port is
+     * bracketed, so both spellings have to be unwrapped before validating.
+     *
+     * @param string $value
+     *
+     * @access private
+     * @static
+     *
+     * @return string|null Null when it is not an address
+     */
+    private static function validateIp(string $value): ?string
+    {
+        $value = trim($value);
+        if ($value === '') {
+            return null;
+        }
+
+        if (filter_var($value, FILTER_VALIDATE_IP) !== false) {
+            return $value;
+        }
+
+        // "[2001:db8::1]:443", and the bare bracketed form some proxies still emit
+        if (preg_match('/^\[(.+)\](?::\d+)?$/', $value, $matches) === 1) {
+            $value = $matches[1];
+        } elseif (substr_count($value, ':') === 1) {
+            // "192.0.2.1:443" - a single colon cannot be ipv6, which always has at least two
+            $value = substr($value, 0, (int) strpos($value, ':'));
+        }
+
+        return filter_var($value, FILTER_VALIDATE_IP) !== false ? $value : null;
+    }
+
+    /**
+     * Whether the client's request arrived over tls.
+     *
+     * Where tls is terminated by a proxy the connection reaching this process is plain
+     * http, so HTTPS is unset and only X-Forwarded-Proto knows otherwise. Anything
+     * deciding on the scheme - absolute urls, the Secure cookie flag - has to ask here
+     * rather than read $_SERVER directly.
+     *
+     * @access public
+     * @static
+     *
+     * @return bool
+     */
+    public static function requestIsSecure(): bool
+    {
+        $proto = self::forwardedHeader('HTTP_X_FORWARDED_PROTO');
+        if ($proto !== null) {
+            return strtolower($proto) === 'https';
+        }
+
+        // php sets HTTPS to "a non-empty value" rather than to "on" specifically: apache
+        // and nginx say "on", but iis says "off" for a plain request and some setups say
+        // "1". Testing for "on" alone read those last as plain http
+        $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+        if ($https !== '' && $https !== 'off') {
+            return true;
+        }
+
+        // Last resort for a server that terminates tls without setting HTTPS at all. Only
+        // reached when no trusted proxy spoke, so SERVER_PORT is the port the client
+        // actually connected to
+        return ((string) ($_SERVER['SERVER_PORT'] ?? '')) === '443';
+    }
+
+    /**
      * Check whether a controller method may be reached directly from a url.
      *
      * ReflectionClass::hasMethod() also matches private and protected methods, and since
@@ -876,17 +1031,36 @@ class Router
 
         // Set some variables
         if (empty(self::$base_url) && !empty($_SERVER['HTTP_HOST'])) {
-            $https = (isset($_SERVER['HTTPS']) && strtolower($_SERVER['HTTPS']) == 'on');
+            $https = self::requestIsSecure();
             $host = self::validateHost($_SERVER['HTTP_HOST']);
             self::$domain_url = 'http' . (empty($https) ? '' : 's') . '://' . $host;
 
+            // The port the client connected to, which is not the one this process listens
+            // on when a proxy sits in front
+            $port = self::forwardedHeader('HTTP_X_FORWARDED_PORT');
+            if ($port !== null && ctype_digit($port) === false) {
+                $port = null;
+            }
+
+            if ($port === null) {
+                // X-Forwarded-Proto without X-Forwarded-Port is the common proxy setup -
+                // nginx and traefik set the first by default and the second only if asked.
+                // Falling back to SERVER_PORT there advertises the internal hop, which is
+                // the whole bug: https://example.com:8080, a port nothing outside reaches.
+                // Once a trusted proxy has named the scheme, its default port is the only
+                // safe assumption
+                $port = self::forwardedHeader('HTTP_X_FORWARDED_PROTO') !== null
+                    ? (empty($https) ? '80' : '443')
+                    : (string) ($_SERVER['SERVER_PORT'] ?? '');
+            }
+
             // preg_match returns 0 or 1, never false, so this used to never run
-            if (preg_match('/:[0-9]+$/', $host) === 0 && !empty($_SERVER['SERVER_PORT'])) {
+            if (preg_match('/:[0-9]+$/', $host) === 0 && !empty($port)) {
                 if (
-                    (empty($https) && $_SERVER['SERVER_PORT'] != 80)
-                    || (!empty($https) && $_SERVER['SERVER_PORT'] != 443)
+                    (empty($https) && $port != 80)
+                    || (!empty($https) && $port != 443)
                 ) {
-                    self::$domain_url .= ':' . (int) $_SERVER['SERVER_PORT'];
+                    self::$domain_url .= ':' . (int) $port;
                 }
             }
 
@@ -962,8 +1136,12 @@ class Router
         // Set URL
         self::$segments_url = implode('/', self::$segments);
 
-        // Define base_url
-        define('BASE_URL', self::$base_url);
+        // Define base_url. splitSegments() is re-runnable through $force, and a second
+        // define() is a warning, so the first request through wins - Router::$base_url
+        // stays the live value either way.
+        if (defined('BASE_URL') === false) {
+            define('BASE_URL', self::$base_url);
+        }
     }
 
 

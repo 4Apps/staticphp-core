@@ -213,7 +213,7 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
     $reference = ErrorPage::requestId();
 
     // Current url
-    $url  = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] == 'on' ? 'https://' : 'http://');
+    $url  = (Router::requestIsSecure() ? 'https://' : 'http://');
     $url .= (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '[unknown host name]');
     $url .= (!empty($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '[unknown url]');
 

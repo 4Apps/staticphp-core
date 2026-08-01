@@ -59,6 +59,52 @@ class Config
     }
 
     /**
+     * Work out whether this request runs in debug mode.
+     *
+     * Debug turns on display_errors, verbose exception output, twig's debug mode, the
+     * query log and the timing panel. Who may see all that is a question only the
+     * application can answer, so the framework asks rather than deciding: set
+     * $config['debug'] outright, or hand it $config['debug_check'], a callable returning
+     * bool. The framework itself makes no trust decision - it used to compare a client
+     * address against a list, which meant a request header could turn on the query log.
+     *
+     * The callback runs during bootstrap, before sessions, the database and routing
+     * exist, because query logging has to be armed before the first query runs. It can
+     * read $_SERVER, $_COOKIE and configuration, and nothing else. A signed cookie is the
+     * natural fit: real authentication, no session needed, works from any network.
+     *
+     * Only consulted when $config['debug'] is falsy, so an explicit true still wins.
+     *
+     * @access public
+     * @static
+     * @return bool
+     */
+    public static function resolveDebug(): bool
+    {
+        if (!empty(self::get('debug'))) {
+            return true;
+        }
+
+        $check = self::get('debug_check');
+        if (is_callable($check) === false) {
+            return false;
+        }
+
+        try {
+            // Strictly true, so that a check accidentally returning a string or a row
+            // count cannot open the panel
+            return $check() === true;
+        } catch (\Throwable $e) {
+            // A gate that fails is a gate that says no. Letting the exception through
+            // would take down the request; treating it as a yes would turn a bug in the
+            // application's own check into a query log on a production page
+            error_log('debug_check failed, debug stays off: ' . $e->getMessage());
+
+            return false;
+        }
+    }
+
+    /**
      * Get view data value.
      *
      * Optionally set default value if there are no config value by $key found.

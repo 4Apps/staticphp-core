@@ -125,7 +125,70 @@ Config::load(['Db'], 'Utils', 'staticphp');
 An unknown name now throws `InvalidArgumentException` rather than silently building a path
 that does not exist.
 
-## 5. Twig is optional
+## 5. `debug_ips` is gone; the application decides who sees debug output
+
+`$config['debug_ips']` is no longer read. It compared `client_ip` against a list, and
+`client_ip` comes from the request - so behind a proxy that appends to `X-Forwarded-For`,
+a client could put a listed address in the header and turn on debug output for itself.
+Debug is not just the timing panel: it is `display_errors`, full exception traces, twig's
+debug mode and the query log.
+
+The framework now makes no trust decision of its own. `$config['debug']` still forces it
+on, and `$config['debug_check']` - any `callable(): bool` - decides for everyone else:
+
+```php
+// Application/Config/Config.php
+$config['debug_check'] = function (): bool {
+    // php's variables_order is usually GPCS, so $_ENV holds what dotenv put there rather
+    // than the process environment, and getenv() is the other way round. Read both
+    $secret = $_ENV['DEBUG_SECRET'] ?? getenv('DEBUG_SECRET') ?: '';
+    $token = $_COOKIE['sp_debug'] ?? '';
+    if ($token === '' || $secret === '') {
+        return false;
+    }
+
+    return hash_equals(hash_hmac('sha256', 'debug', $secret), $token);
+};
+```
+
+It runs during bootstrap, **before sessions, the database and routing exist**, because
+query logging has to be armed before the first query runs. It can read `$_SERVER`,
+`$_COOKIE` and configuration, and nothing else - a check that reaches for `$_SESSION` will
+not find it. Anything it throws is logged and treated as "no", and only a strict `true`
+opens the gate.
+
+To keep the old behaviour exactly, say so out loud:
+
+```php
+$config['debug_check'] = fn(): bool => in_array(
+    StaticPHP\Core\Models\Router::clientIp(),
+    ['::1', '127.0.0.1'],
+    true
+);
+```
+
+That is no more trustworthy than it was before - see `trust_proxy_headers` below - but it
+is now a choice the application made rather than one the framework made for it.
+
+## 6. Proxy awareness is opt-in
+
+`$config['trust_proxy_headers']` (default `false`) makes the framework read
+`X-Forwarded-Proto`, `X-Forwarded-Port` and `X-Forwarded-For` instead of the connection
+this process sees. Turn it on when a reverse proxy terminates tls or listens on another
+port, and only when that proxy is the sole route in.
+
+Without it, behind tls termination: `base_url` advertises the internal port, the session
+cookie loses its `Secure` flag, and `client_ip` is the proxy for every request.
+
+`$config['trusted_proxy_hops']` (default `1`) says how many proxies are in front.
+`X-Forwarded-For` is appended to rather than overwritten, so entries are counted from the
+right - the rightmost is the address your own proxy saw and cannot be forged. Use `2` for
+a cdn in front of an ingress.
+
+`$config['client_ip']` now defaults to `null`, meaning "work it out", the way `base_url`
+does. An application that set it explicitly keeps whatever it set.
+
+## 7. Twig is optional
 
 `4apps/staticphp-core` suggests `twig/twig` instead of requiring it. If your application
 renders templates, require it explicitly:

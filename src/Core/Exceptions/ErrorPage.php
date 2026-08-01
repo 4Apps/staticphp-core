@@ -668,9 +668,10 @@ class ErrorPage
             return null;
         }
 
-        $scheme = (($_SERVER['HTTPS'] ?? '') === 'on' || ($_SERVER['SERVER_PORT'] ?? '') === '443')
-            ? 'https'
-            : 'http';
+        // The port-443 fallback for a server that terminates tls without setting HTTPS now
+        // lives in requestIsSecure(), so that the error page, the session cookie's Secure
+        // flag and base_url cannot disagree about whether a request was encrypted
+        $scheme = Router::requestIsSecure() ? 'https' : 'http';
 
         return $scheme . '://' . $host . ($_SERVER['REQUEST_URI'] ?? '');
     }

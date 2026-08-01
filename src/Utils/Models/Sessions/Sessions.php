@@ -10,6 +10,8 @@
 
 namespace StaticPHP\Utils\Models\Sessions;
 
+use StaticPHP\Core\Models\Router;
+
 class Sessions implements \SessionHandlerInterface
 {
     protected ?Sessions $backupHandler = null;
@@ -60,8 +62,10 @@ class Sessions implements \SessionHandlerInterface
             'path' => '/',
             'domain' => '',
             // Only send the cookie over https when the request itself arrived over https,
-            // so that plain http development setups keep working
-            'secure' => (isset($_SERVER['HTTPS']) && strtolower((string) $_SERVER['HTTPS']) === 'on'),
+            // so that plain http development setups keep working. Read through Router,
+            // which knows about tls terminated by a proxy - testing $_SERVER['HTTPS'] here
+            // dropped the flag on every proxied deployment, the one place it matters most.
+            'secure' => Router::requestIsSecure(),
             'httponly' => true,
             'samesite' => $sameSite,
         ];
