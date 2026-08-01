@@ -1,6 +1,36 @@
 ---
 title: StaticPHP
 description: A lightweight PHP framework.
+template: splash
+hero:
+    tagline: A lightweight PHP framework. No magic, no container, no annotations - just the pieces an application actually loads.
+    actions:
+        - text: Get started
+          link: /staticphp-core/getting-started/installation/
+          icon: right-arrow
+        - text: View on GitHub
+          link: https://github.com/gintsmurans/staticphp-core
+          icon: external
+          variant: minimal
 ---
 
-Placeholder.
+import { Card, CardGrid } from '@astrojs/starlight/components';
+
+<CardGrid stagger>
+    <Card title="Core" icon="setting">
+        Bootstrap, routing, controllers, configuration and error handling.
+        [Read the core reference](/staticphp-core/core/router/)
+    </Card>
+    <Card title="Database" icon="document">
+        The `Db` wrapper, `RecordObject`, and a migration runner with MySQL, Postgres and
+        SQLite drivers. [Read the database reference](/staticphp-core/database/db/)
+    </Card>
+    <Card title="Internationalisation" icon="translate">
+        Locale negotiation, catalogs, string extraction and formatting.
+        [Read the i18n reference](/staticphp-core/i18n/overview/)
+    </Card>
+    <Card title="Presentation" icon="list-format">
+        Data tables with filtering, sorting, pagination and HTML or Excel output.
+        [Read the presentation reference](/staticphp-core/presentation/tables/)
+    </Card>
+</CardGrid>
