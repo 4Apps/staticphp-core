@@ -174,9 +174,9 @@ Everything else - text, dates, booleans, and every other
 [`ColumnType`](/staticphp-core/presentation/columns/#columntype) - is written as
 `TYPE_STRING`. A `null` becomes `0` in a numeric column and `''` everywhere else.
 
-A real run over three columns and two rows, the second of them all nulls:
+A real run over three columns and two rows, the second one carrying `null` in both numeric
+cells and an ordinary string in the text cell:
 
-<!-- captured:excel-types -->
 ```text
 phpoffice/phpspreadsheet 3.10.7
 
@@ -191,7 +191,6 @@ A3     TEXT         DataType::TYPE_STRING  'Gadget'
 B3     INT          DataType::TYPE_NUMERIC 0
 C3     DECIMAL      DataType::TYPE_NUMERIC 0
 ```
-<!-- /captured:excel-types -->
 
 Row 1 is the header, written with `setValue()` rather than `setValueExplicit()`, so
 phpspreadsheet infers its type instead of being told one.

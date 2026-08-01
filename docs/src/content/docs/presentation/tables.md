@@ -90,10 +90,22 @@ trait TableInstance
 use it, which is why they are all constructed the same way and all reach their data through
 `$this->tableInstance`.
 
-:::caution[The reference parameter needs a variable]
-`&$tableInstance` is a by-reference parameter, so the argument has to be something PHP can
-take a reference to. `new Html($table)` works; `new Html(new Table($columns))` raises
-`Error: Argument #1 ($tableInstance) could not be passed by reference`.
+:::note[Bind the table to a variable first]
+`&$tableInstance` is a by-reference parameter, so the argument should be something PHP can
+take a reference to. Passing an expression is not fatal - PHP emits a notice and constructs
+the object anyway:
+
+```text
+
+Notice: Only variables should be passed by reference in /srv/example/byref.php on line 12
+constructed: StaticPHP\Presentation\Models\Tables\Output\Html
+constructed: StaticPHP\Presentation\Models\Tables\Output\Html
+```
+
+Line 12 is `new Html(new Table($columns))`; the second construction, from a `$table`
+variable, is silent. So the working advice is to bind the table first - not because the
+alternative breaks, but because the notice is noise and because you almost always need the
+variable afterwards to set rows and an output generator on it.
 :::
 
 ## The Table class
@@ -217,13 +229,11 @@ and the current page: the output generator only has to `str_replace()` one place
 
 With `$urlPrefix = '/users/'` and `initData('name=an', 'age=desc', 3)`:
 
-<!-- captured:urls -->
 ```text
 filter->url()     -> '/users/%filter/age=desc'
 sort->url()       -> '/users/name=an/%sort'
 pagination->url() -> '/users/name=an/age=desc/%pagination'
 ```
-<!-- /captured:urls -->
 
 An empty string is not `null`, so `initData('', '', 1)` builds all three objects with no
 filter and no sort applied. That is the usual call for a first page load.
@@ -266,7 +276,6 @@ The script below is a single file. It builds an `SQLTable`, produces the SQL a r
 controller would run, feeds a fixed result set back in and renders it. Only step 4 stands
 in for a database.
 
-<!-- captured:worked-source -->
 ```php
 <?php
 
@@ -352,17 +361,14 @@ $table->sumRowPosition = RowPosition::BODY_TOP;
 $table->outputGenerator = new Html($table);
 echo $table->makeOutput();
 ```
-<!-- /captured:worked-source -->
 
 Steps 1 to 4 print the query that would be sent to the database:
 
-<!-- captured:worked-sql -->
 ```text
 SQL: SELECT * FROM users u WHERE u.name::TEXT ILIKE ? ORDER BY u.balance DESC NULLS LAST OFFSET 0
 LIMIT 50
 params: ["%an%"]
 ```
-<!-- /captured:worked-sql -->
 
 The `OFFSET` before `LIMIT`, and the `::TEXT ILIKE` and `NULLS LAST` clauses, are
 PostgreSQL syntax. See
@@ -370,7 +376,6 @@ PostgreSQL syntax. See
 
 Steps 5 to 7 print the markup:
 
-<!-- captured:worked-html -->
 ```html
 <div class="block block-rounded">
     <div class="block-content block-content-full">
@@ -423,7 +428,6 @@ Steps 5 to 7 print the markup:
     </div>
 </div>
 ```
-<!-- /captured:worked-html -->
 
 Reading that back:
 
@@ -496,7 +500,6 @@ onto method arguments under [routing](/staticphp-core/core/router/).
 
 Every line below was produced by calling the code:
 
-<!-- captured:errors -->
 ```text
 unknown Column setting: Exception: "tittle" does not exists on Column
 non-Column in the array: Exception: Not all columns are instances of Column
@@ -508,7 +511,6 @@ render with no filter: Exception: Filter is not initialized
 paginationLinks() with no pagination: Exception: Pagination is not initialized
 expandable + editable: Exception: Expandable text is not supported for editable columns
 ```
-<!-- /captured:errors -->
 
 The two `TypeError`s are the interesting ones, because neither is a guard the framework put
 there deliberately:

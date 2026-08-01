@@ -143,6 +143,84 @@ contains only the two error views. Every menu type you use needs a template writ
 application, and it has to render the four `$viewData` keys above.
 :::
 
+### End to end
+
+Since the template is yours, here is the whole loop with one written for the occasion. A
+plain PHP view, because no `view_engine` was configured:
+
+```html
+<ul class="nav">
+<?php foreach ($menu_items as $item): ?>
+    <li class="<?= $item['nav_class'] ?>">
+        <a class="<?= $item['link_class'] ?>" href="<?= $item['url'] ?>"><?= $item['title'] ?></a>
+        <?= $item['contents'] ?>
+    </li>
+<?php endforeach; ?>
+</ul>
+```
+
+The menu, with `Router::$base_url` set to `https://example.test`, `Router::$module` to
+`Admin` and `Router::$controller` to `users`:
+
+```php
+<?php
+
+$menu = new Menu();
+$menu->type = MenuType::MAIN_MENU;
+$menu->menuList = [
+    ['title' => 'Dashboard', 'url' => '%base_url/'],
+    ['title' => 'Users', 'url' => '%base_url/%module/%controller', 'nav_class' => 'active'],
+    ['title' => 'Hidden', 'url' => '%base_url/secret', 'show' => fn() => false],
+    ['title' => 'Reports', 'url' => '%base_url/reports', 'contents' => fn($item) => '<span class="badge">4</span>'],
+    [],
+];
+```
+
+`$menu->html()` returns:
+
+```html
+<ul class="nav">
+    <li class="">
+        <a class="" href="https://example.test/">Dashboard</a>
+            </li>
+    <li class="active">
+        <a class="" href="https://example.test/Admin/users">Users</a>
+            </li>
+    <li class="">
+        <a class="" href="https://example.test/reports">Reports</a>
+        <span class="badge">4</span>    </li>
+    <li class="">
+        <a class="" href="">No Title</a>
+            </li>
+</ul>
+```
+
+Four things that only show up when you run it:
+
+- The `Hidden` item is gone, because its `show` closure returned a hard `false`.
+- The empty `[]` item is still rendered, with every default filled in - hence
+  `No Title` and an empty `href`. There is no validation of an item.
+- `%module` expanded to `Admin`, the raw `Router::$module`, not a url segment. Use
+  `%module_url` for the url form.
+- The `contents` closure's markup lands wherever the template puts it, unescaped.
+
+:::caution[prepareUrl() needs a dispatched request]
+`prepareUrl()` builds its replacement array eagerly, calling `Controller::moduleUrl()`,
+`controllerUrl()` and `methodUrl()` for **every** item url whether or not it contains those
+placeholders. Each one passes a `Router::$*_url` static to `Router::siteUrl()`, which is
+typed `string` and those statics start as `null`:
+
+```text
+Router::$module_url -> NULL
+
+html(): TypeError: StaticPHP\Core\Models\Router::siteUrl(): Argument #1 ($url) must be of type string, null given, called in /srv/app/src/Core/Controllers/Controller.php on line 60
+```
+
+Inside a dispatched request the router has filled them in and this never comes up. Building
+a menu from a script, a test or a CLI command means setting `Router::$module_url`,
+`$controller_url` and `$method_url` first, even for a menu whose urls are all literal.
+:::
+
 `Load::view()` renders through Twig when `$config['view_engine']` is set and falls back to
 plain PHP includes otherwise, so the `.html` extension is a naming convention rather than a
 constraint. See [Load](/staticphp-core/core/load/).
@@ -219,7 +297,6 @@ The intent is a bitmask: pass one or more menu types and those menus disappear f
 view data for this request. It does not work, because the values are not powers of two and
 their bit patterns overlap:
 
-<!-- captured:menu-flags -->
 ```text
 case                             value binary
 MenuType::MAIN_MENU              100   1100100
@@ -233,7 +310,6 @@ hideMenus(MenuType::SUB_MENU->value)            hides: MAIN_MENU, SUB_MENU, TABS
 hideMenus(MenuType::SUB_MENU_NEXT_LEVEL->value) hides: MAIN_MENU, SUB_MENU, TABS
 hideMenus(MenuType::TABS->value)                hides: MAIN_MENU, SUB_MENU, TABS
 ```
-<!-- /captured:menu-flags -->
 
 Every case shares at least one bit with every other, so **any** argument removes all three
 menus. `hideMenus(MenuType::TABS->value)` hides the main menu and the submenu as well.

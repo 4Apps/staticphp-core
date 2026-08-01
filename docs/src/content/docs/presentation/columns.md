@@ -118,9 +118,10 @@ no arguments. Only an exact `false` hides the column.
 | `$sortLinkAttribute` | `?string` | `null` |
 
 `$sortEnabled: false` renders the plain title instead of a link. `$sortLinkAttribute` is
-spliced raw into the `<a>` tag. Exactly one column in a table must set
-`$sortDefaultColumn: true`. All of this is covered on
-[sorting](/staticphp-core/presentation/sorting/).
+spliced raw into the `<a>` tag. At least one column in a table has to set
+`$sortDefaultColumn: true` or `Sort`'s constructor throws; it breaks at the first match, so
+setting it on several is not an error and the first one declared wins. All of this is
+covered on [sorting](/staticphp-core/presentation/sorting/).
 
 ### Filtering
 
@@ -258,12 +259,10 @@ source says why:
 
 Turning it off, on two columns fed the same `<b>bold</b>` value:
 
-<!-- captured:escaping -->
 ```text
 <td  class="data-col field_raw"  >&lt;b&gt;bold&lt;/b&gt;</td>
 <td  class="data-col field_trusted"  ><b>bold</b></td>
 ```
-<!-- /captured:escaping -->
 
 ## ColumnType
 
@@ -342,7 +341,6 @@ one; `Html::formatData()` applies it to the cell value before escaping.
 
 Real output, from a run against `Html::formatData()`:
 
-<!-- captured:formatters -->
 ```text
 TEXT      '1234.5678'                      -> '1234.5678'
 INT       '1234.5678'                      -> '1235'
@@ -356,7 +354,6 @@ DATE      DateTime(2026-08-01 13:45:00)    -> '2026-08-01'
 DATETIME  DateTime(2026-08-01 13:45:00)    -> '2026-08-01 13:45:00'
 closure   'ab'                             -> 'AB'
 ```
-<!-- /captured:formatters -->
 
 | Case | Value | Behaviour |
 | --- | --- | --- |
@@ -372,9 +369,9 @@ closure   'ab'                             -> 'AB'
 | `DATETIME` | `datetime` | `ExtendedDateTime::formatDateTime()`, or `Y-m-d H:i:s` |
 
 `$dataFormatter` is typed `FormatterType`, so those ten are the only values a column can
-carry. `formatData()` itself is looser - it returns the value unchanged for `null` and calls
-any callable as `$formatter($data)` - but that is only reachable by calling the method
-directly, not through a column.
+carry. `formatData($data, $formatter)` itself is looser: a **`$formatter` of `null`** returns
+`$data` unchanged, and a callable `$formatter` is invoked as `$formatter($data)`. Neither is
+reachable through a column, only by calling the method directly.
 
 The two date cases only reformat `DateTime` instances. A date that arrives from the
 database as a string passes through untouched. `ExtendedDateTime` is covered under
@@ -386,7 +383,6 @@ database as a string passes through untouched. `ExtendedDateTime` is covered und
 a thousands separator makes PHP parse only the leading digits. Captured with `LC_NUMERIC`
 set to `lv_LV.UTF-8`:
 
-<!-- captured:decimal-locale -->
 ```text
 setlocale(LC_NUMERIC, 'lv_LV.UTF-8') -> 'lv_LV.UTF-8'
 localeconv()['thousands_sep']        -> ' '
@@ -395,7 +391,6 @@ localeNumberFormat(1234.5678, 2)     -> '1 234,57'
 formatData('1234.5678', DECIMAL)     -> '1'
 formatData('1234.5678', DECIMAL2)    -> '1 234,57'
 ```
-<!-- /captured:decimal-locale -->
 
 `DECIMAL2` produces the same number of decimals with none of this. Prefer it.
 :::

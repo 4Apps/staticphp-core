@@ -91,7 +91,6 @@ It sets `$recordCount`, optionally replaces `$currentPage`, then:
 
 613 records, 50 per page, a window of 10:
 
-<!-- captured:pagination -->
 ```text
 page  recordCount pageCount  limitFrom  prevPage  nextPage  pagesFrom  pagesTo
 1     613         13         0          0         2         1          10
@@ -103,7 +102,6 @@ page  recordCount pageCount  limitFrom  prevPage  nextPage  pagesFrom  pagesTo
 13    613         13         600        12        0         4          13
 1     613         13         0          0         2         1          10
 ```
-<!-- /captured:pagination -->
 
 The last row is page 99, which does not exist and so came back as page 1. Page 13 is the
 last real page, so `$nextPage` is `0` and the window is pulled back to end at 13.

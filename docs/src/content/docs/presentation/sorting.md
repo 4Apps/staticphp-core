@@ -62,6 +62,10 @@ if (empty($this->defaultColumn)) {
 Exception: No default column was found
 ```
 
+Note the `break`. The requirement is *at least* one such column, not exactly one: a second
+column with `$sortDefaultColumn: true` is silently ignored, and it is the first in
+declaration order that wins.
+
 This runs before the sort string is parsed, so the check is unconditional: a table that
 passes anything other than `null` as the second argument of `initData()` must have a
 default sort column. It fires from `initData()`, well before any output generator is
@@ -103,14 +107,12 @@ ever honoured. Comma-separated input parses as a single pair whose value is
 Four sort strings against a table whose columns are `name` (the default, `SortDirection::ASC`)
 and `age`:
 
-<!-- captured:sort-state -->
 ```text
 sortData ''             currentColumn name  currentDirection 'ASC'  sortBy 'u.name' sortDirection 'ASC'
 sortData 'age=desc'     currentColumn age   currentDirection 'DESC' sortBy 'u.age' sortDirection 'DESC'
 sortData 'age=asc'      currentColumn age   currentDirection 'ASC'  sortBy 'u.age' sortDirection 'ASC'
 sortData 'unknown=desc' currentColumn name  currentDirection 'ASC'  sortBy 'u.name' sortDirection 'ASC'
 ```
-<!-- /captured:sort-state -->
 
 ## Reading the state back
 
@@ -156,13 +158,11 @@ Because the expression now carries its own direction, `sortDirection()` returns
 `SortDirection::NONE` for a callable `$sortBy` so the SQL builder does not append a second
 one:
 
-<!-- captured:sort-closure -->
 ```text
 sort->sortBy()       -> 'lower(u.name) DESC, u.id ASC'
 sort->sortDirection() -> SortDirection::NONE
 sqlSort->sortQuery() -> ORDER BY lower(u.name) DESC, u.id ASC  NULLS LAST 
 ```
-<!-- /captured:sort-closure -->
 
 The double space in the generated clause is `NONE`'s empty value being interpolated. It is
 harmless, but note that the `NULLS LAST` suffix is still appended after your expression, and
@@ -284,7 +284,6 @@ $columns = [
 
 Sorting by `age=desc` and then by `name=asc` produces:
 
-<!-- captured:sort-nulls -->
 ```text
 column 'age' sortNulls = SortNulls::FIRST
 sqlSort->sortNulls()  -> SortNulls::FIRST
@@ -294,7 +293,6 @@ column 'name' sortNulls = SortNulls::LAST (the default)
 sqlSort->sortNulls()  -> SortNulls::LAST
 sqlSort->sortQuery()  -> ORDER BY u.name ASC NULLS LAST 
 ```
-<!-- /captured:sort-nulls -->
 
 The nulls clause follows the column, not the direction: `age` keeps `NULLS FIRST` whether it
 is sorted up or down.

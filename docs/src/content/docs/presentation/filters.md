@@ -77,7 +77,6 @@ filter returns.
 Given the columns `name` (plain), `state` (`filterDefaultValue: 'open'`) and `note`, and the
 filter string `name=an;note=x%3By`:
 
-<!-- captured:filters-parsed -->
 ```text
 filterData() -> 'name=an;note=x%3By'
 parsedData() -> array (
@@ -102,7 +101,6 @@ hasFilter('other') -> false
 filterValue('state') -> 'open'
 filterValue('other') -> false
 ```
-<!-- /captured:filters-parsed -->
 
 Two things to read out of that:
 
@@ -116,7 +114,6 @@ it tests is the two key **array**, not the value inside it. An array holding
 `['title' => '', 'value' => '']` is not empty, so the method reports `true` for any key that
 was parsed, whatever its value:
 
-<!-- captured:filters-empty -->
 ```text
 filter string: 'a=0;b=;c=1'
 
@@ -125,7 +122,6 @@ hasFilter('b') -> true    filterValue('b') -> ''
 hasFilter('c') -> true    filterValue('c') -> '1'
 hasFilter('d') -> false   filterValue('d') -> false
 ```
-<!-- /captured:filters-empty -->
 
 Read it as "was this filter supplied", not "does this filter have a usable value". For the
 latter, test `filterValue($key)` yourself - remembering that it is `false` for a missing key
@@ -162,10 +158,17 @@ it:
 ```php
 <?php
 
-return (strpos($this->urlPrefix, '%filter') === false ?
-    $this->urlPrefix . '%filter' :
-    $this->urlPrefix
-);
+public function url(): ?string
+{
+    if ($this->urlPrefix === null) {
+        return null;
+    }
+
+    return (strpos($this->urlPrefix, '%filter') === false ?
+        $this->urlPrefix . '%filter' :
+        $this->urlPrefix
+    );
+}
 ```
 
 `initData()` always supplies a prefix that already contains the placeholder, so in practice
@@ -174,9 +177,26 @@ and a prefix of `/users/`, that is `/users/%filter/age=desc`. Replace `%filter` 
 filter string and you have the url that applies it while keeping the current sort.
 
 Nothing in `src/` generates filter links; the filter row is a form and submitting it is the
-application's job. `setUrl()` replaces the prefix, and accepts `null` - after which `url()`
-returns `null` rather than a string, despite the `?string` return type being the only reason
-that is not a `TypeError`.
+application's job. `setUrl()` replaces the prefix.
+
+:::note[The null branch in url() cannot be reached]
+`$urlPrefix` is declared `protected string $urlPrefix = ''` - not nullable. `setUrl()`
+assigns its argument straight into it, so the `?string` in its signature buys nothing: passing
+`null` raises a `TypeError` at the assignment, not later.
+
+```text
+filter->setUrl(null): TypeError: Cannot assign null to property StaticPHP\Presentation\Models\Tables\Filters::$urlPrefix of type string
+sort->setUrl(null):   TypeError: Cannot assign null to property StaticPHP\Presentation\Models\Tables\Sort::$sortUrlPrefix of type string
+```
+
+Nothing else writes the property, so `$urlPrefix` is never `null` and the
+`if ($this->urlPrefix === null) return null;` guard at the top of `url()` is dead code.
+`url()` always returns a string, whatever its `?string` return type suggests.
+
+`Sort::setUrl()` has the same shape - `protected string $sortUrlPrefix = '/'` and a
+`?string` parameter assigned straight in - and, as the capture shows, the same `TypeError`.
+`Sort::url()` is declared `: string` and has no null branch to be dead.
+:::
 
 ## Writing to the filter state
 

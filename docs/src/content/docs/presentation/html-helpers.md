@@ -81,13 +81,11 @@ html_css();
 html_js();
 ```
 
-<!-- captured:helpers-assets -->
 ```text
 <link rel="stylesheet" type="text/css" href="/css/app.css" />
 <style>body { margin: 0 }</style><script type="text/javascript" src="/js/app.js"></script>
 <script type="text/javascript">console.info("ready");</script>
 ```
-<!-- /captured:helpers-assets -->
 
 A value prefixed with `i:` is emitted inline - `<style>` or
 `<script type="text/javascript">` - with the prefix stripped. Everything else becomes a
@@ -109,7 +107,6 @@ define('HTML_CSS_VERSION', 'v=3');
 define('HTML_JS_VERSION', 'v=3');
 ```
 
-<!-- captured:helpers-versioned -->
 ```text
 <link rel="stylesheet" type="text/css" href="/css/app.css?v=3" />
 <link rel="stylesheet" type="text/css" href="/css/print.css?media=print&v=3" />
@@ -118,7 +115,6 @@ define('HTML_JS_VERSION', 'v=3');
 <link rel="stylesheet" type="text/css" href="/css/print.css?media=print&v=3" />
 <script type="text/javascript" src="/js/app.js?v=3"></script>
 ```
-<!-- /captured:helpers-versioned -->
 
 :::caution[The queue is never emptied]
 Outputting does not reset the static array, as the second no-argument call above shows.
@@ -161,7 +157,6 @@ echo html_dropdown(
 echo html_dropdown(['<img src=x onerror=alert(1)>' => '<script>alert(1)</script>']);
 ```
 
-<!-- captured:helpers-dropdown -->
 ```text
 <select><option value="lv">Latvia</option><option value="ee" selected="selected">Estonia</option></select>
 
@@ -171,7 +166,6 @@ echo html_dropdown(['<img src=x onerror=alert(1)>' => '<script>alert(1)</script>
 
 <select><option value="&lt;img src=x onerror=alert(1)&gt;">&lt;script&gt;alert(1)&lt;/script&gt;</option></select>
 ```
-<!-- /captured:helpers-dropdown -->
 
 Four things worth noticing in that output:
 
@@ -220,7 +214,6 @@ Keep using whichever name reads better at the call site; they behave identically
 to interpolate. Both take the current value **by reference** - so it has to be a variable,
 not an expression - and both accept an array, matching either a key or a value in it.
 
-<!-- captured:helpers-escape -->
 ```text
 html_escape('<a href="x">&</a>')        -> '&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;'
 html_escape(['a'])                      -> ''
@@ -233,7 +226,6 @@ html_set_selected($keyed, 'ee')         -> ' selected="selected"'
 html_set_checked($array, 'lv')          -> ' checked="checked"'
 html_set_checked($array, 'fi')          -> NULL
 ```
-<!-- /captured:helpers-escape -->
 
 ```php
 <?php

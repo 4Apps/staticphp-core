@@ -91,7 +91,6 @@ right choice for an ajax refresh that replaces the table body in place - and the
 to render a table that was built without a `Pagination`, since `paginationLinks()` throws
 when there is none.
 
-<!-- captured:table-only -->
 ```text
         <table id="table_27a6dc755af3c1b3" class="table table-striped" data-url="/users/update" >
             <thead>
@@ -129,7 +128,6 @@ when there is none.
             </tfoot>
         </table>
 ```
-<!-- /captured:table-only -->
 
 That was produced with `$classNames = 'table table-striped'` and
 `$tableAttributes = ['data-url="/users/update"']`, on a table with one editable
@@ -171,10 +169,38 @@ The pagination one only fires in `FULL_HTML` mode, because that is the only bran
 calls `paginationLinks()`.
 
 Before any of it, `makeOutput()` walks the columns and adds a `data-field_{id}_options`
-attribute to the `<table>` for every editable column whose `$editFieldType` is one of the
-three select types, holding `json_encode()` of the options. Grouped options add
+attribute to the `<table>` for every column whose `$editFieldType` is one of the three
+select types, holding `json_encode()` of the options. Grouped options add
 `data-field_{id}_options_groupped="true"`. These exist for client-side editing scripts to
 read; nothing server side uses them.
+
+:::caution[The options attribute uses a different editability test from the cells]
+The loop skips a column with `if ($column->isEditable === false) { continue; }` - a literal
+identity check. Two consequences:
+
+- A `$isEditable` **closure** is not `=== false` whatever it returns, so it never skips. The
+  closure is not called here.
+- `Table::$isEditable`, the table-wide switch, is not consulted at all. The per-cell path
+  does consult it, as `Utils::expandClosure($column->isEditable) && Utils::expandClosure($this->tableInstance->isEditable)`.
+
+So a table with editing switched off can still publish its option lists in the markup:
+
+```text
+Table::$isEditable = false, and neither column is editable.
+
+the <table> tag makeOutput() produced:
+<table class="table" data-field_b_options="{&quot;1&quot;:&quot;Draft&quot;,&quot;2&quot;:&quot;Sent&quot;}" >
+
+cells rendered for row 0:
+  <td  class="data-col field_a"  >1</td>
+  <td  class="data-col field_b"  >2</td>
+```
+
+Column `a` set `isEditable: false` literally and is skipped. Column `b` set
+`isEditable: fn() => false` and its options are emitted regardless, even though the table's
+own switch is off and neither cell renders a control. Do not put anything in
+`$editSelectOptions` that a reader of the page should not see.
+:::
 
 `showOutput()` sends `Content-Type: text/html; charset=utf-8` and echoes the result.
 
@@ -201,7 +227,6 @@ than returning an empty string, which is the failure mode that turns a mis-encod
 a silently blank cell. Arrays and objects become the empty string; `null` becomes `''` and
 `true` becomes `'1'`:
 
-<!-- captured:escape -->
 ```text
 '<b>&"x"</b>'      -> '&lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;'
 "O'Neil"           -> 'O&#039;Neil'
@@ -210,7 +235,6 @@ true               -> '1'
 ['a']              -> ''
 42                 -> '42'
 ```
-<!-- /captured:escape -->
 
 Cell values are escaped at exactly one place, at the end of the per-cell work in
 `htmlDataRow()`:
@@ -277,8 +301,55 @@ against `value` and handling the array case that a multiple select produces.
 The select branches build their options from `$filterSelectOptions`, or from
 `[0 => 'No', 1 => 'Yes']` for `SWITCH`, `CHECKBOX` and `SELECT_NO_YES`. An empty option
 carrying `$filterTitle` is prepended unless `$filterSelectSkipEmptyDefault` is set, and
-`$filterSelectDefaultDisabled` makes that option `disabled`. `$filterSelectOptionsGroups`
-turns the options into `<optgroup>`s keyed by group.
+`$filterSelectDefaultDisabled` makes that option `disabled`.
+
+### Grouped options
+
+`$filterSelectOptionsGroups` switches the branch to `<optgroup>`s. It is a second array
+whose **keys** index into `$filterSelectOptions`: each group key is looked up there for that
+group's options, and a group with no matching key emits an empty `<optgroup>`. The four
+properties work together:
+
+| Property | Role |
+| --- | --- |
+| `$filterSelectOptionsGroups` | `[groupKey => group]`, in render order |
+| `$filterSelectOptionsGroupTitleKey` | Key to read the label out of a group; the group itself is the label when unset |
+| `$filterSelectOptionsIdKey` | Key to read an option's value; the array key is used when unset |
+| `$filterSelectOptionsTitleKey` | Key to read an option's label; the option itself is used when unset |
+
+```php
+<?php
+
+new Column(
+    'country',
+    title: 'Country',
+    dataKey: 'country',
+    sortBy: 'country',
+    sortDefaultColumn: true,
+    filterTitle: 'Any country',
+    filterFieldType: FieldType::SELECT,
+    filterSelectOptions: [
+        'baltics' => [['id' => 'lv', 'name' => 'Latvia'], ['id' => 'ee', 'name' => 'Estonia']],
+        'nordics' => [['id' => 'fi', 'name' => 'Finland']],
+    ],
+    filterSelectOptionsIdKey: 'id',
+    filterSelectOptionsTitleKey: 'name',
+    filterSelectOptionsGroups: [
+        'baltics' => ['label' => 'Baltics'],
+        'nordics' => ['label' => 'Nordics'],
+    ],
+    filterSelectOptionsGroupTitleKey: 'label',
+);
+```
+
+`filterInputField()` on that column, with `country=ee` in the filter, returns one line:
+
+```html
+<select class="form-control form-control-sm input-xs filter   form-select form-select-sm" id="filter_country"   ><option value="">Any country</option><optgroup label="Baltics"><option value="lv">Latvia</option><option value="ee" selected="selected">Estonia</option></optgroup><optgroup label="Nordics"><option value="fi">Finland</option></optgroup></select>
+```
+
+The empty `$filterTitle` option is emitted before the first `<optgroup>`, and the active
+option carries `selected="selected"` exactly as in the flat case.
 
 `inputValue($value, $compare = null, $checkbox = false)` is the same idea without the filter
 lookup, used by the editable-cell branches.
@@ -352,7 +423,6 @@ keeps its formatted text and instead gains
 - a `table_edit_field_trigger` class,
 - a `<span class="table_edit_display field_{columnId}">` wrapper around the value.
 
-<!-- captured:by-field -->
 ```text
         <table id="table_f1a3eca848e960bd" class="table"  >
             <thead>
@@ -377,7 +447,6 @@ keeps its formatted text and instead gains
             </tfoot>
         </table>
 ```
-<!-- /captured:by-field -->
 
 Note that `SWITCH` and `CHECKBOX` have no `BY_FIELD` early exit, so those two render their
 checkbox in both modes.

@@ -87,7 +87,6 @@ $rows = Db::fetchAll("SELECT * FROM tickets u{$where}", $params);
 
 With a `name` column filtered by `an` and a `tag` column whose `$filterBy` is a closure:
 
-<!-- captured:sql-prepare -->
 ```text
 hasQuery()      -> true
 queries()       -> [
@@ -100,7 +99,6 @@ querySql()      -> ' WHERE u.name::TEXT ILIKE ? AND u.id IN (SELECT ticket_id FR
 querySql('AND') -> ' AND u.name::TEXT ILIKE ? AND u.id IN (SELECT ticket_id FROM tags WHERE name = ?)'
 filter->parsedData()['tag'] -> {"title":"BUG","value":"bug"}
 ```
-<!-- /captured:sql-prepare -->
 
 `params()` returns the parameters in the order the fragments were collected, which is the
 order of `parsedData()`, which is the order of the filter string followed by any defaults.
@@ -176,7 +174,6 @@ public static function valueToQuery(
 
 Every line below is captured output from calling it with `$fieldName` of `u.name`:
 
-<!-- captured:filters-operators -->
 ```text
 'ann'    -> u.name = ?   params: ["ann"]
 '=ann'   -> u.name = ?   params: ["ann"]
@@ -193,7 +190,6 @@ Every line below is captured output from calling it with `$fieldName` of `u.name
 nullQuery -> u.parent_id IS NULL   params: []
 nullQuery '!' -> u.parent_id IS NOT NULL   params: []
 ```
-<!-- /captured:filters-operators -->
 
 | Leading character | Query |
 | --- | --- |
@@ -236,7 +232,6 @@ Chooses the comparison and the value formatter from the column's
 [`ColumnType`](/staticphp-core/presentation/columns/#columntype), then delegates to
 `valueToQuery()` for everything except the date cases:
 
-<!-- captured:filters-runfilter -->
 ```text
 text      'ann' -> u.name::TEXT ILIKE ?   params: ["%ann%"]
 exact     'Ann' -> u.name = ?   params: ["Ann"]
@@ -247,7 +242,6 @@ date      '01.08.2026' -> u.created >= ? AND u.created <= ?    params: ["2026-08
 range     '01.08.2026 - 31.08.2026' -> u.created >= ? AND u.created <= ?    params: ["2026-08-01 00:00:00","2026-08-31 23:59:59"]
 no match  '1' -> NULL
 ```
-<!-- /captured:filters-runfilter -->
 
 - `TEXT` passes `'%'`, so an unprefixed value becomes a contains-match. Every other type
   passes `'='`. The user can still override with a leading operator character.
@@ -265,6 +259,10 @@ pair spanning the day, or an `=` for a value that already carries a time.
 timestamps**; `DATE_NATIVE` and `DATETIME_NATIVE` bind the `Y-m-d H:i:s` strings. Setting
 `Column::$filterSqlDate: true` makes the plain pair behave like the native pair:
 
+`strtotime()` resolves against PHP's `date.timezone`, and nothing in `src/` sets one, so the
+integers below depend on the runtime's ini. They were captured under **`Europe/Riga`**
+(UTC+3 on that date); the same input under `UTC` gives values 10800 higher.
+
 ```php
 <?php
 
@@ -274,7 +272,6 @@ public static function strtotime(string $value, bool $sqlDate = false)
 }
 ```
 
-<!-- captured:filters-dates -->
 ```text
 DATE_NATIVE      '01.08.2026'                         -> u.created >= ? AND u.created <= ?   params: ["2026-08-01 00:00:00","2026-08-01 23:59:59"]
 DATE_NATIVE      '01.08.2026 - 31.08.2026'            -> u.created >= ? AND u.created <= ?   params: ["2026-08-01 00:00:00","2026-08-31 23:59:59"]
@@ -284,7 +281,6 @@ DATE             '01.08.2026'                         -> u.created >= ? AND u.cr
 DATETIME         '01.08.2026 10:00'                   -> u.created = ?   params: [1785567600]
 DATE_NATIVE      '2026-08-01'                         -> u.created >= ? AND u.created <= ?   params: ["2026-08-01 00:00:00","2026-08-01 23:59:59"]
 ```
-<!-- /captured:filters-dates -->
 
 :::caution[A date-and-time range silently collapses]
 Look at the fourth line. `01.08.2026 10:00 - 31.08.2026 18:00` should be a two-day range and
