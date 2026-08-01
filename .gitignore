@@ -33,3 +33,7 @@ Desktop.ini
 .*.swp
 .idea
 .flymake*
+
+# Design notes and scratch work, kept locally rather than in the package
+###################################################################################################
+/specs/
