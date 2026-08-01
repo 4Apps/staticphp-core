@@ -29,7 +29,7 @@ final class Store
     private const IDENTIFIER = '/^[A-Za-z_][A-Za-z0-9_]*$/';
 
     /**
-     * @var ?string
+     * @var 'pgsql'|'mysql'|'sqlite'|null
      * @access private
      */
     private ?string $driver = null;
@@ -63,7 +63,7 @@ final class Store
 
     /**
      * @access public
-     * @return string One of: pgsql, mysql, sqlite
+     * @return 'pgsql'|'mysql'|'sqlite'
      * @throws TranslationError When the driver is not one this class writes sql for
      */
     public function driver(): string

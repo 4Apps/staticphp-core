@@ -37,9 +37,11 @@ class CacheFiles extends Cache
      *
      * @access protected
      * @static
+     * @param  string $key
+     * @param  bool   $create Create the sub directory when it is missing
      * @return string
      */
-    protected function filename($key)
+    protected function filename($key, $create = false)
     {
         $key = md5($key);
 
@@ -49,7 +51,7 @@ class CacheFiles extends Cache
             $subpath .= '/';
         }
 
-        if (is_dir($subpath) === false) {
+        if ($create === true && is_dir($subpath) === false) {
             mkdir($subpath, 0770, true);
         }
 
@@ -61,7 +63,7 @@ class CacheFiles extends Cache
      *
      * @access public
      * @static
-     * @return void
+     * @return bool
      */
     public function setValue(string $key, mixed $value, ?int $ttl = null): bool
     {
@@ -75,7 +77,7 @@ class CacheFiles extends Cache
             throw new Exception('Data type is not yet supported');
         }
 
-        return file_put_contents($filename, $value);
+        return file_put_contents($filename, $value) !== false;
     }
 
     /**

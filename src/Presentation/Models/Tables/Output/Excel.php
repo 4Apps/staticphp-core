@@ -5,6 +5,7 @@ namespace StaticPHP\Presentation\Models\Tables\Output;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
+use StaticPHP\Presentation\Models\Tables\Column;
 use StaticPHP\Presentation\Models\Tables\Enums\ColumnType;
 use StaticPHP\Presentation\Models\Tables\Interfaces\OutputInterface;
 use StaticPHP\Presentation\Models\Tables\Traits\TableInstance;

@@ -261,7 +261,7 @@ class Fv
     public static function translit($string)
     {
         // Cache current locale, set new one as UTF8
-        $current_locale = setlocale(LC_ALL, 0);
+        $current_locale = setlocale(LC_ALL, '0');
         setlocale(LC_ALL, 'en_US.UTF8');
 
         // Do some magick
@@ -519,12 +519,10 @@ class Fv
         switch (true) {
             case ($to == '>'):
                 return ($len >= $from);
-                break;
 
             // This tested '>' a second time, so the "at most" form was unreachable
             case ($to == '<'):
                 return ($len <= $from);
-                break;
 
             // Cast before testing: ctype_digit() interprets an int between -128 and 255 as
             // an ascii codepoint, so a numeric bound like 10 tested chr(10) and fell
@@ -532,12 +530,10 @@ class Fv
             // in PHP 8.4.
             case ($to !== null && ctype_digit((string) $to)):
                 return ($len >= $from && $len <= $to);
-                break;
 
             case ($to == '='):
             default:
                 return ($len == $from);
-                break;
         }
     }
 
@@ -632,7 +628,7 @@ class Fv
             return false;
         }
 
-        return ' value="' . (!empty($field) ? htmlspecialchars($field) : '') . '"';
+        return ' value="' . htmlspecialchars($field) . '"';
     }
 
     public function setSelected($name, $test = '')
@@ -651,7 +647,7 @@ class Fv
             return false;
         }
 
-        return (!empty($field) ? ' checked="checked"' : '');
+        return ' checked="checked"';
     }
 
 

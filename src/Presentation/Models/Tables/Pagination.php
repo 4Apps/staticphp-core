@@ -15,10 +15,10 @@ class Pagination implements PaginationInterface
      *
      * (default value: '')
      *
-     * @var Table
+     * @var TableInterface
      * @access protected
      */
-    protected Table $tableInstance;
+    protected TableInterface $tableInstance;
 
 
     /**
@@ -34,9 +34,9 @@ class Pagination implements PaginationInterface
     /**
      * Start limit from this number - use this in SQL query
      *
-     * (default value: '')
+     * (default value: 0)
      *
-     * @var string
+     * @var int
      * @access public
      */
     public int $limitFrom = 0;
@@ -44,9 +44,9 @@ class Pagination implements PaginationInterface
     /**
      * Per page limit - this is how many records to show on a page
      *
-     * (default value: '')
+     * (default value: 50)
      *
-     * @var string
+     * @var int
      * @access public
      */
     public int $limitPerPage = 50;
@@ -65,8 +65,11 @@ class Pagination implements PaginationInterface
      * Construct tableFilters
      *
      * @access public
-     * @param  Table  $tableInstance
-     * @param  string $url_prefix (default: [empty string])
+     * @param  TableInterface $tableInstance
+     * @param  string         $urlPrefix (default: [empty string])
+     * @param  int            $currentPage (default: 1)
+     * @param  int            $limitPerPage (default: 50)
+     * @param  int            $pagesToShow (default: 10)
      * @return void
      */
     public function __construct(
@@ -85,10 +88,6 @@ class Pagination implements PaginationInterface
 
     public function url(): string
     {
-        if ($this->urlPrefix === null) {
-            return '';
-        }
-
         return (strpos($this->urlPrefix, '%pagination') === false ?
             $this->urlPrefix . '%pagination' :
             $this->urlPrefix

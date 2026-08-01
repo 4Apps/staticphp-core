@@ -1,0 +1,17 @@
+<?php
+
+/**
+ * Optional hooks an application may define as global functions. The framework calls them
+ * behind function_exists(), so nothing here ships with the package - these declarations
+ * exist only so static analysis knows the shape of a hook it cannot see.
+ */
+
+/**
+ * Returns a scrubbed view of the session for the error page and error mail, in place of
+ * the raw $_SESSION.
+ *
+ * @return array<string, mixed>
+ */
+function formatSession(): array
+{
+}

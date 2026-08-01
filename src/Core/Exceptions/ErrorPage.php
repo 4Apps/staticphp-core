@@ -546,11 +546,11 @@ class ErrorPage
         $groups = [
             'Request' => self::requestSummary(),
             'Headers' => self::requestHeaders(),
-            'Query' => self::redact($_GET ?? []),
-            'Body' => self::redact($_POST ?? []),
-            'Cookies' => self::redact($_COOKIE ?? []),
+            'Query' => self::redact($_GET),
+            'Body' => self::redact($_POST),
+            'Cookies' => self::redact($_COOKIE),
             'Session' => self::sessionData(),
-            'Server' => self::redact($_SERVER ?? []),
+            'Server' => self::redact($_SERVER),
             'Runtime' => self::runtimeSummary(),
         ];
 
@@ -594,7 +594,7 @@ class ErrorPage
     {
         $headers = [];
 
-        foreach (($_SERVER ?? []) as $key => $value) {
+        foreach ($_SERVER as $key => $value) {
             if (str_starts_with((string) $key, 'HTTP_') === false) {
                 continue;
             }
@@ -613,13 +613,13 @@ class ErrorPage
      */
     private static function sessionData(): array
     {
-        if (isset($_SESSION) === false || is_array($_SESSION) === false) {
+        if (isset($_SESSION) === false) {
             return [];
         }
 
         // The application may publish a scrubbed view of its own session
-        if (is_callable('formatSession')) {
-            return (array) self::redact(call_user_func('formatSession'));
+        if (function_exists('formatSession')) {
+            return (array) self::redact(formatSession());
         }
 
         return (array) self::redact($_SESSION);
@@ -648,8 +648,8 @@ class ErrorPage
                 ),
                 'Timezone' => date_default_timezone_get(),
             ],
-            static function ($value): bool {
-                return $value !== null && $value !== '';
+            static function (string $value): bool {
+                return $value !== '';
             }
         );
     }

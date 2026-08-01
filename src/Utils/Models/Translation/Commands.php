@@ -544,7 +544,7 @@ final class Commands
         $rows = [];
         $first = true;
         while (($row = fgetcsv($handle, null, ',', '"', '')) !== false) {
-            if ($row === [null] || $row === []) {
+            if ($row === [null]) {
                 continue;
             }
 

@@ -19,7 +19,7 @@ class Db
      * @access private
      * @static
      */
-    private static $dbLinks;
+    private static array $dbLinks = [];
 
     /**
      * Holds references to db configuration arrays.
@@ -124,8 +124,9 @@ class Db
             }
         }
 
-        // Open new connection to DB
-        self::$dbLinks[$name] = new PDO($dsn, $config['username'], $config['password'], $options);
+        // Open new connection to DB. Credentials are optional - a sqlite dsn carries none,
+        // and requiring the keys made every sqlite config warn twice per connect
+        self::$dbLinks[$name] = new PDO($dsn, $config['username'] ?? null, $config['password'] ?? null, $options);
 
         return self::$dbLinks[$name];
     }
@@ -155,7 +156,7 @@ class Db
             return self::init($name);
         }
 
-        $known = implode(', ', array_keys(self::$dbLinks ?? []));
+        $known = implode(', ', array_keys(self::$dbLinks));
 
         throw new \Exception(
             "No connection to database \"{$name}\""
@@ -622,18 +623,21 @@ class Db
     public static function lastInsertId(string $sequence_name = '', bool $sql = false, string $name = 'default'): ?int
     {
         if (empty($sql)) {
-            return self::$dbLinks[$name]->lastInsertId($sequence_name);
-        } else {
-            if (empty($sequence_name)) {
-                $res = self::fetch('SELECT LAST_INSERT_ID() as id', [], $name);
-            } else {
-                $res = self::fetch('SELECT currval(?) as id', [$sequence_name], $name);
-            }
+            // PDO reports the id as a string, and false when the driver has none to give
+            $id = self::$dbLinks[$name]->lastInsertId($sequence_name);
 
-            $res = (array) $res;
-
-            return (empty($res['id']) ? null : (int) $res['id']);
+            return ($id === false || $id === '' ? null : (int) $id);
         }
+
+        if (empty($sequence_name)) {
+            $res = self::fetch('SELECT LAST_INSERT_ID() as id', [], $name);
+        } else {
+            $res = self::fetch('SELECT currval(?) as id', [$sequence_name], $name);
+        }
+
+        $res = (array) $res;
+
+        return (empty($res['id']) ? null : (int) $res['id']);
     }
 
 
@@ -643,7 +647,7 @@ class Db
      * @access public
      * @static
      * @param  string   $name          (default: 'default')
-     * @return null
+     * @return void
      */
     public static function close(string $name = 'default'): void
     {

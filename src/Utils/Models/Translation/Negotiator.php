@@ -86,7 +86,7 @@ final class Negotiator
 
             $candidates[] = [
                 'language' => $matches[1],
-                'region' => isset($matches[2]) === true && $matches[2] !== '' ? strtolower($matches[2]) : null,
+                'region' => isset($matches[2]) === true ? strtolower($matches[2]) : null,
                 'quality' => $quality,
                 // Equal q values keep header order, which is the order of preference the
                 // browser wrote them in

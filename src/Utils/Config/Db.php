@@ -5,6 +5,8 @@
  * http://php.net/manual/en/pdo.construct.php for more information
  */
 
+/** @var array<string, mixed> $config Bound to Config::$items by Load::config() */
+
 $config['db']['pdo']['default'] = [
     'string' => 'mysql:host=localhost;dbname=',
     'username' => '',

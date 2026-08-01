@@ -15,7 +15,6 @@ use StaticPHP\Utils\Models\Db;
 class SessionsPgsql extends Sessions
 {
     public string $dbConfigName = 'sessions';
-    private $db_link = null;
 
     public function __construct(array $dbConfig, $sessionName = 'SMC', ?Sessions $backupHandler = null)
     {

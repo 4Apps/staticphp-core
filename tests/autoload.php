@@ -19,5 +19,6 @@ define('PUBLIC_PATH', SP_PATH . '/Public');
 define('APP_PATH', SP_PATH);
 define('APP_MODULES_PATH', SP_PATH);
 define('BASE_PATH', dirname(SP_PATH));
+define('VENDOR_PATH', dirname(__DIR__) . '/vendor');
 
 require StaticPHP\Core\Bootstrap::AUTOLOAD;

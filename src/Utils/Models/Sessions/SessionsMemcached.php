@@ -17,7 +17,7 @@ class SessionsMemcached extends Sessions
     private $memcached = null;
 
     /**
-     * @var $servers List of servers. Example: [[127.0.0.1, 112211], [192.168.1.10, 112211]]
+     * @param array $servers List of servers. Example: [[127.0.0.1, 112211], [192.168.1.10, 112211]]
      */
     public function __construct(
         array $servers,

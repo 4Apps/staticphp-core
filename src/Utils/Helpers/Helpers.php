@@ -1,6 +1,49 @@
 <?php
 
 /**
+ * Returns true if $input is an empty string
+ *
+ * Only strings can be blank - null, 0 and [] are not, which is what separates this from
+ * empty(). Use it where "the user submitted nothing" has to stay distinct from "the user
+ * submitted a zero".
+ *
+ * @param mixed $input
+ * @return bool
+ */
+function isBlank($input)
+{
+    return (is_string($input) && trim($input) === '');
+}
+
+
+/**
+ * Returns true if $input is an empty string or null
+ *
+ * @param mixed $input
+ * @return bool
+ */
+function isBlankOrNull($input)
+{
+    return $input === null || (is_string($input) && trim($input) === '');
+}
+
+
+/**
+ * Returns the value, or null when it is empty
+ *
+ * Handy when writing to a nullable column: an empty form field arrives as '' and would
+ * otherwise be stored as an empty string rather than NULL.
+ *
+ * @param mixed $input
+ * @return mixed
+ */
+function valueOrNull($input)
+{
+    return (empty($input) ? null : $input);
+}
+
+
+/**
  * Returns fixed floating number with precision of $precision. Replaces "," to "." and " " to "".
  *
  * @param mixed $input
@@ -18,11 +61,16 @@ function fixFloat($input, $precision = -1)
 /**
  * Trim characters, can be used with array_walk
  *
+ * array_walk() calls the callback as ($value, $key), so the key has to occupy the second
+ * parameter - without it the key lands in $character_mask and every element gets trimmed
+ * of whatever its own key happens to be.
+ *
  * @param mixed $value
+ * @param int|string|null $key Unused, present so the signature matches array_walk
  * @param string $character_mask Characters to trim
- * @return mixed
+ * @return void
  */
-function trimChars(&$value, $character_mask = " \t\n\r\0\x0B")
+function trimChars(&$value, $key = null, $character_mask = " \t\n\r\0\x0B")
 {
     /*
         Unicode variant:
@@ -40,7 +88,7 @@ function trimChars(&$value, $character_mask = " \t\n\r\0\x0B")
  * generated in the container - so on a stock image this formatted every number the C way
  * while the rest of the page was in Latvian.
  *
- * @param int|float $number
+ * @param int|float|null $number
  * @param int $decimals Precision
  * @return string
  */
@@ -52,6 +100,84 @@ function localeNumberFormat($number, $decimals = 2)
 
     $locale = localeconv();
     return number_format($number ?? 0, $decimals, $locale['decimal_point'], $locale['thousands_sep']);
+}
+
+
+/**
+ * number_format with explicit separators and an optional "at most n decimals" mode
+ *
+ * A negative $decimals rounds to that many places and then drops trailing zeros, so 5.10
+ * with -2 prints as "5.1" rather than "5.10". Quantities read better that way; money does
+ * not, so pass a positive value for money.
+ *
+ * @param int|float|null $number
+ * @param int $decimals Negative for "at most this many"
+ * @param string $dec_point
+ * @param string $thousands_sep
+ * @return string
+ */
+function cNumberFormat($number, $decimals = 0, $dec_point = '.', $thousands_sep = ' ')
+{
+    $number = ($number ?? 0);
+
+    if ($decimals < 0) {
+        $number = round($number, abs($decimals));
+        $decimals = strlen(substr(strrchr((string)$number, '.') ?: '', 1));
+    }
+
+    return number_format($number, abs($decimals), $dec_point, $thousands_sep);
+}
+
+
+/**
+ * Locale specific date formatting, using an ICU pattern
+ *
+ * The replacement for strftime(), which is deprecated as of php 8.1. Note that $pattern is
+ * an ICU pattern rather than a set of % codes - 'dd.MM.yyyy', not '%d.%m.%Y'. See
+ * https://unicode-org.github.io/icu/userguide/format_parse/datetime/#datetime-format-syntax
+ *
+ * @param string $pattern ICU date pattern
+ * @param int|\DateTimeInterface|null $when Timestamp or date object, defaults to now
+ * @param string|null $locale Defaults to the i18n locale, then to setlocale()
+ * @param string|null $timezone Defaults to the current default timezone
+ * @return string
+ */
+function localeDateFormat($pattern, $when = null, $locale = null, $timezone = null)
+{
+    if ($locale === null) {
+        $locale = \StaticPHP\Utils\Models\ExtendedDateTime::$defaultLocale
+            ?: (setlocale(LC_TIME, '0') ?: \Locale::getDefault());
+
+        // setlocale() reports things like lv_LV.UTF-8, ICU wants lv_LV
+        $locale = explode('.', (string)$locale)[0];
+    }
+
+    if ($when instanceof \DateTimeInterface) {
+        $date = $when;
+    } elseif ($when === null) {
+        $date = new \DateTimeImmutable('now');
+    } else {
+        // An '@' timestamp is always UTC and carries no zone of its own, which is why the
+        // formatter below is handed the target zone rather than the date being shifted
+        $date = new \DateTimeImmutable('@' . $when);
+    }
+
+    if ($timezone === null) {
+        $timezone = date_default_timezone_get();
+    }
+
+    $formatter = new \IntlDateFormatter(
+        $locale,
+        \IntlDateFormatter::FULL,
+        \IntlDateFormatter::FULL,
+        new \DateTimeZone($timezone),
+        \IntlDateFormatter::GREGORIAN,
+        $pattern
+    );
+
+    $formatted = $formatter->format($date);
+
+    return ($formatted === false ? '' : $formatted);
 }
 
 
@@ -120,6 +246,27 @@ function weekRange($week, $year = null)
 
 
 /**
+ * Returns which week of its own month a date falls in, counting ISO weeks
+ *
+ * @param int|null $when A timestamp, defaults to now
+ * @return int
+ */
+function weekOfMonth($when = null)
+{
+    if ($when === null) {
+        $when = time();
+    }
+
+    $week = (int)date('W', $when); // note that ISO weeks start on Monday
+    $firstWeekOfMonth = (int)date('W', (int)strtotime(date('Y-m-01', $when)));
+
+    // The first days of January can still carry the previous year's week 52 or 53, which
+    // would otherwise give a negative offset
+    return 1 + ($week < $firstWeekOfMonth ? $week : $week - $firstWeekOfMonth);
+}
+
+
+/**
  * Returns array containing month's start and end timestamps
  *
  * @param int $timestamp A timestamp for which date to calculate first and last day
@@ -148,6 +295,44 @@ function monthRangeDateTime($timestamp = null)
 
 
 /**
+ * Returns array containing a year's start and end
+ *
+ * @param int|null $year A year, defaults to the current one
+ * @return \StaticPHP\Utils\Models\ExtendedDateTime[]
+ */
+function yearRangeDateTime($year = null)
+{
+    if (empty($year)) {
+        $year = (int)date('Y');
+    }
+
+    $start = new \StaticPHP\Utils\Models\ExtendedDateTime("{$year}-01-01 00:00:00");
+
+    $end = clone $start;
+    $end->modify('last day of december this year');
+    $end->setTime(23, 59, 59);
+
+    return [$start, $end];
+}
+
+
+/**
+ * Turns a timestamp coming out of the database into a date object, passing null through
+ *
+ * @param string|null $timestamp
+ * @return \StaticPHP\Utils\Models\ExtendedDateTime|null
+ */
+function sqlTimestampToDatetime(?string $timestamp = null): ?\StaticPHP\Utils\Models\ExtendedDateTime
+{
+    if (empty($timestamp)) {
+        return null;
+    }
+
+    return new \StaticPHP\Utils\Models\ExtendedDateTime($timestamp);
+}
+
+
+/**
  * Returns how many weeks there will be or was in a specific year.
  *
  * @param int $year A year
@@ -165,16 +350,16 @@ function getIsoWeeksInYear($year)
  * Also can return false if $required is specified and any of $keys are missing.
  * Also can fill missing keys with $fill_missing, if its other than false
  *
- * @param array $array Original array
+ * @param mixed $array Original array - anything else returns false
  * @param array $keys Array of keys
  * @param bool $required Whether return false if there are missing keys
  * @param bool|mixed $fill_missing Fill missing keys with this value
+ * @param callable|null $callback Applied to each extracted value
  * @return array|bool
  */
-function extractArrayByKeys($array, $keys, $required = false, $fill_missing = false)
+function extractArrayByKeys($array, $keys, $required = false, $fill_missing = false, $callback = null)
 {
-    // Check if input is an array
-    if (is_array($array) == false) {
+    if (is_array($array) === false) {
         return false;
     }
 
@@ -182,7 +367,7 @@ function extractArrayByKeys($array, $keys, $required = false, $fill_missing = fa
     $new_array = [];
     foreach ($keys as $key) {
         if (isset($array[$key])) {
-            $new_array[$key] = $array[$key];
+            $new_array[$key] = (is_callable($callback) ? $callback($array[$key]) : $array[$key]);
         } elseif ($required === true) {
             return false;
         } elseif ($fill_missing !== false) {
@@ -216,6 +401,51 @@ function anyEmpty($array)
 function allEmpty($array)
 {
     return (count(array_filter($array)) === 0);
+}
+
+
+/**
+ * Returns true when $key is present in $array and holds a blank string
+ *
+ * A missing key is not blank - that is the point of the distinction. It tells "the field
+ * was cleared" apart from "the field was not submitted" in a partial update.
+ *
+ * @param array $array
+ * @param string|int $key
+ * @return bool
+ */
+function isArrayKeyBlank($array, $key)
+{
+    return (array_key_exists($key, $array) && isBlank($array[$key]));
+}
+
+
+/**
+ * Returns true when $key is present in $array and holds a blank string or null
+ *
+ * @param array $array
+ * @param string|int $key
+ * @return bool
+ */
+function isArrayKeyBlankOrNull($array, $key)
+{
+    return (array_key_exists($key, $array) && isBlankOrNull($array[$key]));
+}
+
+
+/**
+ * Prepends an empty option to a key => value list, giving a dropdown its placeholder row
+ *
+ * @param array $array
+ * @param string|int $key
+ * @param string $value
+ * @return array
+ */
+function padEmptyArrayForDropdown($array, $key = '', $value = '')
+{
+    // Union rather than array_merge: merge renumbers integer keys, which would turn an
+    // id => label list into a 0..n list and quietly post the wrong id back
+    return [$key => $value] + $array;
 }
 
 
@@ -257,16 +487,40 @@ function tmpFilename($prefix = 'tmp_', $postfix = '')
 
 
 /**
+ * Translates a $_FILES error code into readable text
+ *
+ * @param int $code One of the UPLOAD_ERR_* constants
+ * @return string
+ */
+function uploadCodeToMessage($code)
+{
+    return match ($code) {
+        UPLOAD_ERR_OK => 'The file was uploaded successfully',
+        UPLOAD_ERR_INI_SIZE => 'The uploaded file exceeds the upload_max_filesize directive in php.ini',
+        UPLOAD_ERR_FORM_SIZE => 'The uploaded file exceeds the MAX_FILE_SIZE directive specified in the HTML form',
+        UPLOAD_ERR_PARTIAL => 'The uploaded file was only partially uploaded',
+        UPLOAD_ERR_NO_FILE => 'No file was uploaded',
+        UPLOAD_ERR_NO_TMP_DIR => 'Missing a temporary folder',
+        UPLOAD_ERR_CANT_WRITE => 'Failed to write file to disk',
+        UPLOAD_ERR_EXTENSION => 'File upload stopped by extension',
+        default => 'Unknown upload error',
+    };
+}
+
+
+/**
  * Group $array by $keys.
  * When $keys == ['id', 'name'], Turns [['id' => 1, 'name' => 'Name 1'], ['id' => 2, 'name' => 'Name 2'] into
  * [1 => ['Name 1' => ['id' => 1, 'name' => 'Name 1']], 2 => ['Name 2' => ['id' => 2, 'name' => 'Name 2']]]
  *
- * @param  \Iterator $array
+ * @param  iterable $array
  * @param  mixed    $keys
  * @param  bool     $unique Describes whether last key of input array is unique
+ * @param  callable|null $keys_callback Called as ($key, $item), returns the value to group under
+ * @param  callable|null $values_callback Called as ($item), returns what to store
  * @return array[]  Returns array grouped by keys
  */
-function groupArray($array, $keys = [], $unique = false)
+function groupArray($array, $keys = [], $unique = false, $keys_callback = null, $values_callback = null)
 {
     $keys = (array)$keys;
     $result = [];
@@ -274,13 +528,64 @@ function groupArray($array, $keys = [], $unique = false)
     foreach ($array as $item) {
         $x = &$result;
         foreach ($keys as $key) {
-            $x = &$x[$item[$key]];
+            $group = (is_callable($keys_callback) ? $keys_callback($key, $item) : $item[$key]);
+            $x = &$x[$group];
+        }
+
+        if (is_callable($values_callback)) {
+            $item = $values_callback($item);
         }
 
         if ($unique === true) {
             $x = $item;
         } else {
             $x[] = $item;
+        }
+    }
+
+    return $result;
+}
+
+
+/**
+ * Flattens a list of rows into a key => value array, the shape a dropdown wants.
+ * Turns [['id' => 1, 'name' => 'One'], ['id' => 2, 'name' => 'Two']] into [1 => 'One', 2 => 'Two']
+ *
+ * @param  iterable $array
+ * @param  string|null $keys Column to take the key from, null to keep the existing key
+ * @param  string $values Column to take the value from
+ * @param  callable|null $keys_callback Called as ($item), returns the key
+ * @param  callable|null $values_callback Called as ($item), returns the value - null skips the row
+ * @param  bool $skip_missing Whether a row missing the $values column is skipped or throws
+ * @return array
+ */
+function simpleArray(
+    $array,
+    $keys,
+    $values,
+    $keys_callback = null,
+    $values_callback = null,
+    $skip_missing = true
+) {
+    $result = [];
+
+    foreach ($array as $key => $item) {
+        if (is_callable($keys_callback)) {
+            $key = $keys_callback($item);
+        } elseif ($keys !== null) {
+            $key = $item[$keys];
+        }
+
+        if (is_callable($values_callback)) {
+            $value = $values_callback($item);
+            if ($value === null) {
+                continue;
+            }
+            $result[$key] = $value;
+        } elseif (isset($item[$values])) {
+            $result[$key] = $item[$values];
+        } elseif ($skip_missing === false) {
+            throw new \InvalidArgumentException("Missing column: {$values}");
         }
     }
 

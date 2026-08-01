@@ -15,7 +15,7 @@ class ExtendedDateTime extends \DateTime
     /**
      * Locale handed to ICU, overriding whatever setlocale() reports.
      *
-     * i18n::init() sets this. Without it the locale comes from setlocale(LC_TIME, 0), which
+     * i18n::init() sets this. Without it the locale comes from setlocale(LC_TIME, '0'), which
      * stays "C" unless something set it - and the locale has to be generated in the
      * container for setlocale() to do anything at all, whereas ICU brings its own data.
      */
@@ -49,7 +49,7 @@ class ExtendedDateTime extends \DateTime
         }
         $timeZone = new \DateTimeZone($timeZoneString);
 
-        $locale = self::$defaultLocale ?? setlocale(LC_TIME, 0);
+        $locale = self::$defaultLocale ?? setlocale(LC_TIME, '0');
         $this->locale = explode('.', (string) $locale)[0];
         $this->timeZoneString = $timeZoneString;
 
@@ -80,6 +80,7 @@ class ExtendedDateTime extends \DateTime
             'dateTime' => [\IntlDateFormatter::SHORT, \IntlDateFormatter::SHORT, self::$dateTimeFormat],
             'date' => [\IntlDateFormatter::SHORT, \IntlDateFormatter::NONE, self::$dateFormat],
             'time' => [\IntlDateFormatter::NONE, \IntlDateFormatter::SHORT, self::$timeFormat],
+            default => throw new \InvalidArgumentException("Unknown formatter \"{$which}\""),
         };
 
         return $this->formatters[$which] = new \IntlDateFormatter(

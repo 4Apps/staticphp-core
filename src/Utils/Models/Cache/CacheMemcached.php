@@ -23,7 +23,7 @@ class CacheMemcached extends Cache
     {
         parent::__construct($config);
 
-        if (isset($this->config['timeout']) && $this->config['timeout'] !== null) {
+        if (isset($this->config['timeout'])) {
             ini_set('memcached.default_connect_timeout', $this->config['timeout'] * 1000);
         }
 
@@ -31,7 +31,7 @@ class CacheMemcached extends Cache
         $this->memcached = new Memcached($persistentId);
         $this->memcached->setOption(Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
         if (!count($this->memcached->getServerList())) {
-            if (isset($this->config['timeout']) && $this->config['timeout'] !== null) {
+            if (isset($this->config['timeout'])) {
                 $this->memcached->setOption(Memcached::OPT_RECV_TIMEOUT, $this->config['timeout'] * 1000);
                 $this->memcached->setOption(Memcached::OPT_SEND_TIMEOUT, $this->config['timeout'] * 1000);
             }

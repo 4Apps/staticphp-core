@@ -32,6 +32,16 @@ class Table implements TableInterface
     public ?array $afterDataRow = null;
 
     public bool|\Closure $isEditable = false;
+
+    /**
+     * Render non-editable rows as disabled inputs rather than as plain text.
+     *
+     * When isEditable resolves per row, the editable rows are inputs and the rest are bare
+     * text, so column widths jump about between rows. This keeps every row the same shape
+     * and lets the disabled state carry the meaning instead.
+     */
+    public bool $showReadonlyInputs = false;
+
     public null|string|\Closure $idKey = null;
 
     /**

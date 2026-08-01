@@ -49,22 +49,41 @@ class Logger
     */
 
     /**
-     * Compare string error levels
+     * Is the event severe enough for the configured threshold?
      *
-     * @param  string $errorLevel1 Set error level
-     * @param  string $errorLevel2 Error level to compare to
+     * Replaces contains(), whose name said nothing about which way round its arguments
+     * went - and both of them were error levels, so getting them backwards was silent.
+     *
+     * @param  string $eventLevel   Level of the event being reported
+     * @param  string $currentLevel Configured threshold
      * @return bool
      */
-    public static function contains(string $errorLevel1, string $errorLevel2): bool
+    public static function above(string $eventLevel, string $currentLevel): bool
     {
         // These returned null against a `: bool` signature, so a mistyped log level in
         // config raised a TypeError from inside the error handler rather than simply not
         // logging. An unknown level means "do not log at this level".
-        if (empty(self::ERROR_LEVELS[$errorLevel1]) || empty(self::ERROR_LEVELS[$errorLevel2])) {
+        if (empty(self::ERROR_LEVELS[$eventLevel]) || empty(self::ERROR_LEVELS[$currentLevel])) {
             return false;
         }
 
-        return (self::ERROR_LEVELS[$errorLevel1] <= self::ERROR_LEVELS[$errorLevel2]);
+        return (self::ERROR_LEVELS[$eventLevel] >= self::ERROR_LEVELS[$currentLevel]);
+    }
+
+    /**
+     * The mirror of above() - is the event at or under the configured threshold?
+     *
+     * @param  string $eventLevel   Level of the event being reported
+     * @param  string $currentLevel Configured threshold
+     * @return bool
+     */
+    public static function below(string $eventLevel, string $currentLevel): bool
+    {
+        if (empty(self::ERROR_LEVELS[$eventLevel]) || empty(self::ERROR_LEVELS[$currentLevel])) {
+            return false;
+        }
+
+        return (self::ERROR_LEVELS[$eventLevel] <= self::ERROR_LEVELS[$currentLevel]);
     }
 
     /*
@@ -183,8 +202,8 @@ class Logger
     /**
      * Logs with an arbitrary level.
      *
-     * @param  mixed  $level
-     * @param  string $message
+     * @param  string $level
+     * @param  mixed  $message
      * @param  array  $context
      * @return void
      */

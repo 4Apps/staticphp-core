@@ -13,12 +13,12 @@ class Request
         // Create command array
         $cmd_arr = ['php', PUBLIC_PATH . '/index.php'];
 
-        if (!empty($post) && is_array($post)) {
+        if (!empty($post)) {
             array_push($cmd_arr, '--post');
             array_push($cmd_arr, http_build_query($post));
         }
 
-        if (!empty($query) && is_array($query)) {
+        if (!empty($query)) {
             array_push($cmd_arr, '--query');
             array_push($cmd_arr, http_build_query($query));
         }

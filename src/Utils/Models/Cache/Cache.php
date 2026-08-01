@@ -36,7 +36,7 @@ class Cache implements CacheInterface
      *
      * (default value: [])
      *
-     * @var Cache[]
+     * @var CacheInterface[]
      * @access private
      * @static
      */
@@ -48,9 +48,9 @@ class Cache implements CacheInterface
      *
      * @access private
      * @static
-     * @return Cache
+     * @return CacheInterface
      */
-    protected static function &getBackend(string $name): Cache
+    protected static function &getBackend(string $name): CacheInterface
     {
         if (isset(self::$backends[$name]) === false) {
             throw new \Exception('Backend does not exist');
@@ -164,8 +164,11 @@ class Cache implements CacheInterface
             return $backend->removeKey($key);
         }
 
+        // True when the key was present in at least one backend - a backend that never
+        // held it reports false, which is not a failure
+        $status = false;
         foreach (self::$backends as $backend) {
-            $status = $backend->removeKey($key);
+            $status = $backend->removeKey($key) || $status;
         }
 
         return $status;

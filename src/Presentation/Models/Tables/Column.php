@@ -25,6 +25,13 @@ class Column implements ColumnInterface
     public null|string|\Closure $sortBy = null;
     public bool $sortDefaultColumn = false;
     public SortDirection $sortDefaultDirection = SortDirection::ASC;
+
+    /**
+     * Where nulls land in the sort order.
+     *
+     * Set this to SortNulls::NONE on mysql and mariadb - neither understands the
+     * NULLS FIRST / NULLS LAST syntax the other two cases produce.
+     */
     public SortNulls $sortNulls = SortNulls::LAST;
     public ?string $sortLinkAttribute = null;
 
@@ -32,7 +39,7 @@ class Column implements ColumnInterface
     public bool $filterHidden = false;
     public bool $filterEnabled = true;
     public ?string $filterTitle = null;
-    public ?string $filterDefaultValue = null;
+    public null|string|array $filterDefaultValue = null;
     public ?string $filterDateValue = null;
 
     public FieldType|\Closure $filterFieldType = FieldType::TEXT;

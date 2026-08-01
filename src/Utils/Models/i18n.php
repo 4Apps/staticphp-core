@@ -928,7 +928,7 @@ class i18n
      */
     private static function icuLocale(): string
     {
-        return self::$locale?->icuLocale ?? 'en_US';
+        return self::$locale->icuLocale ?? 'en_US';
     }
 
     /**

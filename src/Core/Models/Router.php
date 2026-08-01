@@ -309,7 +309,7 @@ class Router
      * (if $current_prefix is set to true) and appends $url if provided.
      *
      * @param string $url            (default: '')
-     * @param mixed  $prefix         (default: null)
+     * @param ?string $prefix        (default: null)
      * @param bool   $current_prefix (default: true)
      *
      * @access public
@@ -965,11 +965,11 @@ class Router
             // sp_logging_level() rather than the array directly: an application is not
             // obliged to configure logging, and a missing key here would raise its own
             // error from inside the handler for the error being reported
-            if (Logger::contains(sp_logging_level('log_level'), 'error')) {
+            if (Logger::above('error', sp_logging_level('log_level'))) {
                 sp_log_error($e);
             }
 
-            if (Logger::contains(sp_logging_level('report_level'), 'error')) {
+            if (Logger::above('error', sp_logging_level('report_level'))) {
                 sp_send_error_email($e);
             }
         }
@@ -1419,13 +1419,15 @@ class Router
             // endpoint. The lifecycle hooks are called by this method directly and must
             // not be reachable through the url either.
             $method_response = null;
-            $routable = false;
+            $class_method = null;
             if ($method !== null && $ref->hasMethod($method) === true) {
-                $class_method = $ref->getMethod($method);
-                $routable = self::isRoutableMethod($class_method);
+                $candidate = $ref->getMethod($method);
+                if (self::isRoutableMethod($candidate) === true) {
+                    $class_method = $candidate;
+                }
             }
 
-            if ($routable === true) {
+            if ($class_method !== null) {
                 $method_response = $class_method->invokeArgs(null, self::$segments);
             } elseif ($ref->hasMethod('__callStatic') === true) {
                 // Call __callStatic

@@ -17,7 +17,7 @@ class Filters implements FiltersInterface
      *
      * (default value: '')
      *
-     * @var Table
+     * @var TableInterface
      * @access protected
      */
     protected TableInterface $tableInstance;
@@ -80,8 +80,9 @@ class Filters implements FiltersInterface
      * Construct tableFilters
      *
      * @access public
-     * @param  Table  $tableInstance
-     * @param  string $urlPrefix (default: [empty string])
+     * @param  TableInterface $tableInstance
+     * @param  string         $urlPrefix (default: [empty string])
+     * @param  ?string        $filterData (default: null)
      * @return void
      */
     public function __construct(TableInterface &$tableInstance, string $urlPrefix = '', ?string $filterData = null)
@@ -98,12 +99,8 @@ class Filters implements FiltersInterface
      * @access public
      * @return string
      */
-    public function url(): ?string
+    public function url(): string
     {
-        if ($this->urlPrefix === null) {
-            return null;
-        }
-
         return (strpos($this->urlPrefix, '%filter') === false ?
             $this->urlPrefix . '%filter' :
             $this->urlPrefix
@@ -114,12 +111,12 @@ class Filters implements FiltersInterface
      * Set and retrieve url
      *
      * @access public
-     * @param  string $setUrl (default: null)
+     * @param  ?string $setUrl (default: null)
      * @return void
      */
     public function setUrl(?string $setUrl = null): void
     {
-        $this->urlPrefix = $setUrl;
+        $this->urlPrefix = $setUrl ?? '';
     }
 
     /**
@@ -182,7 +179,7 @@ class Filters implements FiltersInterface
      *
      * @access public
      * @param  ?string  $filterData
-     * @param  ?Closure $callback
+     * @param  ?\Closure $formatter
      * @return void
      */
     public function parse(?string $filterData = null, ?\Closure $formatter = null): void
@@ -199,7 +196,6 @@ class Filters implements FiltersInterface
 
         // Add default values to the filter
         /** @var Column $column */
-        $column = null;
         foreach ($this->tableInstance->columns as $column) {
             if (isset($column->filterDefaultValue) && !isset($filter[$column->id])) {
                 if (is_array($column->filterDefaultValue)) {
@@ -235,11 +231,7 @@ class Filters implements FiltersInterface
         $this->filterQuery[] = $query;
 
         if ($params !== null) {
-            if (is_array($params)) {
-                $this->filterParams = array_merge($this->filterParams, $params);
-            } else {
-                $this->filterParams[] = $params;
-            }
+            $this->filterParams = array_merge($this->filterParams, $params);
             $this->filterParamsByKey[$key] = $params;
         }
 

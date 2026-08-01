@@ -21,12 +21,18 @@ use StaticPHP\Core\Models\Router;
  * @param ?array $errcontext
  * @return bool Returns whether the error was handled or not.
  */
-function sp_error_handler(int $errno, string $errstr, ?string $errfile, ?int $errline, ?array $errcontext = null): void
-{
+function sp_error_handler(
+    int $errno,
+    string $errstr,
+    ?string $errfile = null,
+    ?int $errline = null,
+    ?array $errcontext = null
+): bool {
     // @ used. Since PHP 8 the suppression operator sets a non-zero mask rather than 0,
-    // so comparing against 0 no longer detects it.
+    // so comparing against 0 no longer detects it. Handing the error back to php rather
+    // than swallowing it keeps php's own reporting rules in charge of a suppressed error.
     if ((error_reporting() & $errno) === 0) {
-        return;
+        return false;
     }
 
     // Throw all the errors as exceptions, so they can be handled as they should
@@ -48,7 +54,7 @@ function sp_exception_handler(Throwable $exception)
     // RouterException is a special case
     if ($exception instanceof RouterException) {
         Router::error(
-            '500',
+            500,
             'Internal Server Error',
             !empty(Config::$items['debug'])
                 ? $exception->getMessage()
@@ -60,15 +66,15 @@ function sp_exception_handler(Throwable $exception)
         http_response_code(500);
     }
 
-    if (Logger::contains(sp_logging_level('display_level'), 'error')) {
+    if (Logger::above('error', sp_logging_level('display_level'))) {
         echo sp_render_exception($exception);
     }
 
-    if (Logger::contains(sp_logging_level('log_level'), 'error')) {
+    if (Logger::above('error', sp_logging_level('log_level'))) {
         sp_log_error($exception);
     }
 
-    if (Logger::contains(sp_logging_level('report_level'), 'error')) {
+    if (Logger::above('error', sp_logging_level('report_level'))) {
         sp_send_error_email($exception);
     }
 
@@ -231,7 +237,7 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
         $message  = $e->getCode() . ' ';
         $message .= str_replace("\n", "<br />", $e->getMessage());
         $message .= '<br /><strong>File:</strong> ' . str_replace("\n", "<br />", $e->getFile());
-        $message .= '<br /><strong>Line:</strong> ' . str_replace("\n", "<br />", $e->getLine());
+        $message .= '<br /><strong>Line:</strong> ' . $e->getLine();
         $message .= '<br /><br /><strong>Trace:</strong><br />';
         $message .= '<table border="0" cellspacing="0" cellpadding="5" style="border: 1px #DADADA solid;">';
         $message .= '<tr><td style="border-bottom: 1px #DADADA solid;">';
@@ -250,7 +256,7 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
 
     // Session
     $session = [];
-    if (is_callable('formatSession')) {
+    if (function_exists('formatSession')) {
         $session = sp_remove_sensitive_data(formatSession());
     } elseif (isset($_SESSION)) {
         $session = sp_remove_sensitive_data($_SESSION);

@@ -237,7 +237,9 @@ class SQLFilters implements TableInstanceInterface
      * @access public
      * @param  Column   $filterColumn
      * @param  mixed    $value
-     * @return string[] Array of resulting query, params and data(string[])
+     * @return array{query: string, param: mixed, data: array<string, mixed>}|null
+     *         Resulting query, its bound params and the parsed filter data, or null when
+     *         the column type has no filter of its own
      */
     public static function runFilter(Column $filterColumn, $value): ?array
     {

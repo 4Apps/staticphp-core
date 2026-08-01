@@ -6,7 +6,7 @@ $config['cache'] = [
         'prefix' => null,
         'hostname' => 'redisdb',
         'port' => 6379,
-        'database' => 2,
+        'database' => 0,
         'timeout' => 0, // 5m * 60s = 300s, 0 - no limit, seconds
     ],
     'memcached' => [

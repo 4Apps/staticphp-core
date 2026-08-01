@@ -64,8 +64,9 @@ class Html implements OutputInterface
      * Returns html input attribute - "value" with its value
      *
      * @access public
-     * @param  string       $field
+     * @param  string       $value
      * @param  string|null  $compare (default: null)
+     * @param  bool         $checkbox (default: false)
      * @return string
      */
     public function inputValue(string $value, ?string $compare = null, bool $checkbox = false): string
@@ -113,7 +114,7 @@ class Html implements OutputInterface
                 return $this->localeNumberFormat($data, 0);
 
             case FormatterType::DECIMAL:
-                return $this->localeNumberFormat((float)$data) + 0;
+                return $this->localeNumberFormat((float)$data);
 
             case FormatterType::DECIMAL1:
                 return $this->localeNumberFormat((float)$data, 1);
@@ -151,8 +152,6 @@ class Html implements OutputInterface
             default:
                 return $data;
         }
-
-        return $data;
     }
 
 
@@ -163,7 +162,6 @@ class Html implements OutputInterface
      *
      * @access public
      * @param  Column $forColumn
-     * @param  bool $urlOnly (default: false)
      * @return string Returns link for a column
      */
     public function sortUrl(Column $forColumn): string
@@ -230,7 +228,6 @@ class Html implements OutputInterface
         $html = '<tr>';
 
         /** @var Column $column */
-        $column = null;
         foreach ($this->tableInstance->columns as $column) {
             $showColumn = true;
             if (is_callable($column->showColumn)) {
@@ -313,15 +310,21 @@ class Html implements OutputInterface
      * Returns filter input field by $type with value filled in, or selected in case of select html element.
      *
      * @access public
-     * @param  string   $name
-     * @param  mixed    $value (default: [empty string])
-     * @return string|bool
+     * @param  Column   $forColumn
+     * @param  string    $value (default: [empty string])
+     * @return string
      */
     public function filterInputField(Column $forColumn, string $value = ''): string
     {
         if ($forColumn->filterHidden === true) {
             return '';
         }
+
+        // A filter the user can type into gets a clear button, and it only earns its
+        // highlight once that column actually carries a value
+        $parsedData = ($this->tableInstance->filter?->parsedData() ?? []);
+        $hasActiveFilter = ($forColumn->filterEnabled !== false && isset($parsedData[$forColumn->id]));
+        $clearable = false;
 
         // Attributes
         $attributes = ' id="filter_' . $forColumn->id . '" ';
@@ -381,6 +384,7 @@ class Html implements OutputInterface
                     $html .= ' placeholder="' . self::escape($forColumn->filterTitle) . '" ';
                 }
                 $html .= ' ' . $this->filterInputValue($forColumn->id) . '>';
+                $clearable = true;
                 break;
 
             case FieldType::SWITCH:
@@ -398,17 +402,13 @@ class Html implements OutputInterface
                     $selectOptions = [0 => 'No', 1 => 'Yes'];
                 }
 
-                if (
-                    isset($selectOptions) == false
-                    || is_array($selectOptions) === false
-                ) {
+                if ($selectOptions === null) {
                     throw new \Exception("Value for {$forColumn->id} should be [key => value] array");
                 }
                 if ($forColumn->filterFieldType == FieldType::SELECT_MULTIPLE) {
                     $attributes .= ' multiple="multiple" size="3" ';
                 }
 
-                $parsedData = $this->tableInstance->filter->parsedData();
                 $classes .= ' form-select form-select-sm';
                 $html = '<select class="' . $classes . '"' . $attributes . '>';
                 if (count($selectOptions) == 0 && isset($parsedData[$forColumn->id])) {
@@ -420,7 +420,7 @@ class Html implements OutputInterface
                         . self::escape($forColumn->filterTitle ?? '')
                         . '</option>';
                 }
-                if (!empty($selectOptionsGroups) && is_array($selectOptionsGroups)) {
+                if (!empty($selectOptionsGroups)) {
                     foreach ($selectOptionsGroups as $gkey => $gitem) {
                         $final_optgroup_title = (empty($forColumn->filterSelectOptionsGroupTitleKey)
                             ? $gitem
@@ -465,6 +465,7 @@ class Html implements OutputInterface
                     }
                 }
                 $html .= '</select>';
+                $clearable = true;
                 break;
 
             case FieldType::SELECT_ALL_CHECKBOX:
@@ -474,6 +475,14 @@ class Html implements OutputInterface
                 $html .= '<label for="' . $id . '"></label>';
                 $html .= '</div>';
                 break;
+        }
+
+        if ($clearable === true && $forColumn->filterEnabled !== false) {
+            $html = '<div class="filter-input-wrap' . ($hasActiveFilter ? ' has-value' : '') . '">'
+                . $html
+                . '<button type="button" class="btn-close filter-clear-btn"'
+                . ' tabindex="-1" aria-label="Clear filter"></button>'
+                . '</div>';
         }
 
         return $html;
@@ -494,7 +503,6 @@ class Html implements OutputInterface
         $html = '<tr id="table_filters_' . $this->tableInstance->tableId() . '">' . "\n";
 
         /** @var Column $column */
-        $column = null;
         foreach ($this->tableInstance->columns as $column) {
             $showColumn = true;
             if (is_callable($column->showColumn)) {
@@ -606,9 +614,13 @@ class Html implements OutputInterface
                 // below, so escape it once here rather than at each of those sites
                 $idValue = self::escape($idValue);
 
-                // Is Editable
-                $isEditable = (Utils::expandClosure($column->isEditable)
-                    && Utils::expandClosure($this->tableInstance->isEditable)
+                // Is Editable.
+                // The row is handed to the closure - editability is usually a property of
+                // the record rather than of the column, and with no arguments a closure
+                // could only answer the same way for every row.
+                $editableArgs = [$column, $rowIndex, $rowItem, $columnCount];
+                $isEditable = (Utils::expandClosure($column->isEditable, $editableArgs)
+                    && Utils::expandClosure($this->tableInstance->isEditable, $editableArgs)
                 );
                 $selectOptions = $column->editSelectOptions;
 
@@ -616,9 +628,13 @@ class Html implements OutputInterface
                 if ($column->editKey === null) {
                     $column->editKey = $column->dataKey;
                 }
+                // A readonly input still has to be filled in, so the edit value is needed
+                // for a non-editable row too once showReadonlyInputs is on
+                $renderInput = ($isEditable === true || $this->tableInstance->showReadonlyInputs === true);
+
                 $editValue = $dataValue;
                 if (
-                    $isEditable === true
+                    $renderInput === true
                     && !empty($column->editKey)
                 ) {
                     if (is_callable($column->editKey)) {
@@ -755,7 +771,7 @@ class Html implements OutputInterface
                         }
 
                         // Check for editability
-                        if ($isEditable === false || $this->editableTableType === EditableTableType::BY_FIELD) {
+                        if ($renderInput === false || $this->editableTableType === EditableTableType::BY_FIELD) {
                             break;
                         }
 
@@ -769,9 +785,15 @@ class Html implements OutputInterface
                             $attributes .= ' multiple="multiple" size="3" ';
                         }
 
-                        $classes = 'form-control input-xs update_field';
+                        // update_field is what the client side binds its save handler to,
+                        // so a readonly row must not carry it
+                        $classes = ($isEditable === false
+                            ? 'form-select form-select-sm input-xs'
+                            : 'form-select form-select-sm input-xs update_field'
+                        );
+                        $disabledAttr = ($isEditable === false ? ' disabled="disabled"' : '');
                         $selectField = "<select class=\"{$classes}\" name=\"{$column->id}\""
-                            . " id=\"{$column->id}_{$idValue}\">";
+                            . " id=\"{$column->id}_{$idValue}\"{$disabledAttr}>";
                         foreach ($selectOptions as $key => $item) {
                             $finalId = (empty($column->filterSelectOptionsIdKey)
                                 ? $key
@@ -792,26 +814,33 @@ class Html implements OutputInterface
                         break;
 
                     case FieldType::MULTILINE_TEXT:
-                        if ($isEditable === false || $this->editableTableType === EditableTableType::BY_FIELD) {
+                        if ($renderInput === false || $this->editableTableType === EditableTableType::BY_FIELD) {
                             break;
                         }
+
+                        $updateFieldClass = ($isEditable === false ? '' : ' update_field');
+                        $readonlyAttr = ($isEditable === false ? ' readonly="readonly"' : '');
 
                         $dataValue = self::escape($editValue);
                         $dataValueIsMarkup = true;
                         $dataValue = <<<EOL
                             <textarea
-                                class="form-control input-xs update_field"
+                                class="form-control input-xs{$updateFieldClass}"
                                 name="{$column->id}"
                                 id="{$column->id}_{$idValue}"
                                 rows="2"
+                                {$readonlyAttr}
                             >{$dataValue}</textarea>
                         EOL;
                         break;
 
                     default:
-                        if ($isEditable === false || $this->editableTableType === EditableTableType::BY_FIELD) {
+                        if ($renderInput === false || $this->editableTableType === EditableTableType::BY_FIELD) {
                             break;
                         }
+
+                        $updateFieldClass = ($isEditable === false ? '' : ' update_field');
+                        $readonlyAttr = ($isEditable === false ? ' readonly="readonly"' : '');
 
                         $classes = '';
                         if (
@@ -836,9 +865,10 @@ class Html implements OutputInterface
                         $dataValue = <<<EOL
                             <input
                                 type="{$fieldType}"
-                                class="form-control input-xs update_field{$classes}"
+                                class="form-control input-xs{$updateFieldClass}{$classes}"
                                 name="{$column->id}"
                                 id="{$column->id}_{$idValue}"
+                                {$readonlyAttr}
                                 {$dataValue}>
                         EOL;
                         break;
@@ -982,7 +1012,7 @@ class Html implements OutputInterface
 
     public function paginationUrl(string $url, int $page): string
     {
-        return str_replace('%pagination', $page, $url);
+        return str_replace('%pagination', (string) $page, $url);
     }
 
     public function paginationLinks(): string
@@ -998,36 +1028,69 @@ class Html implements OutputInterface
         }
 
         $url = $pagination->url();
-        $pages = '<ul class="pagination">';
-        $pages .= '<li class="page-item' . ($pagination->currentPage == 1 ? ' disabled' : '') . '">'
-            . '<a class="page-link" href="' . $this->paginationUrl($url, 1) . '">'
-            . '<span aria-hidden="true">1</span><span class="sr-only">Previous</span></a></li>';
-        $pages .= '<li class="page-item' . ($pagination->currentPage == 1 ? ' disabled' : '') . '">'
-            . '<a class="page-link" href="' . $this->paginationUrl($url, $pagination->prevPage) . '">'
-            . '<span aria-hidden="true">&laquo;</span><span class="sr-only">Previous</span></a></li>';
+
+        // Bootstrap 5: visually-hidden rather than the sr-only it dropped, and the list
+        // sits in a labelled nav so the control announces itself as page navigation
+        $onFirst = ($pagination->currentPage == 1);
+        $onLast = ($pagination->currentPage == $pagination->pageCount);
+
+        $pages = '<nav aria-label="Page navigation">' . "\n";
+        $pages .= '<ul class="pagination justify-content-end">' . "\n";
+
+        $pages .= $this->paginationLink($this->paginationUrl($url, 1), '&laquo;', 'First', $onFirst);
+        $pages .= $this->paginationLink(
+            $this->paginationUrl($url, $pagination->prevPage),
+            '&lsaquo;',
+            'Previous',
+            $onFirst
+        );
 
         for ($i = $pagination->pagesFrom; $i <= $pagination->pagesTo; ++$i) {
-            if ($i === $pagination->currentPage) {
-                $pages .= '<li class="page-item active"><a class="page-link" href="'
-                    . $this->paginationUrl($url, $i) . '">' . $i . ' <span class="sr-only">(current)</span></a></li>';
-            } else {
-                $pages .= '<li class="page-item"><a class="page-link" href="'
-                    . $this->paginationUrl($url, $i) . '">' . $i . '</a></li>';
-            }
+            $current = ($i === $pagination->currentPage);
+            $pages .= '<li class="page-item' . ($current ? ' active' : '') . '"'
+                . ($current ? ' aria-current="page"' : '') . '>'
+                . '<a class="page-link" href="' . $this->paginationUrl($url, $i) . '">' . $i . '</a>'
+                . '</li>' . "\n";
         }
 
-        $pages .= '<li class="page-item'
-            . ($pagination->currentPage == $pagination->pageCount ? ' disabled' : '') . '">'
-            . '<a class="page-link" href="' . $this->paginationUrl($url, $pagination->nextPage) . '">'
-            . '<span aria-hidden="true">&raquo;</span><span class="sr-only">Next</span></a></li>';
-        $pages .= '<li class="page-item'
-            . ($pagination->currentPage == $pagination->pageCount ? ' disabled' : '') . '">'
-            . '<a class="page-link" href="' . $this->paginationUrl($url, $pagination->pageCount) . '">'
-            . '<span aria-hidden="true">' . $pagination->pageCount . '</span>'
-            . '<span class="sr-only">Last</span></a></li>';
-        $pages .= '</ul>';
+        $pages .= $this->paginationLink(
+            $this->paginationUrl($url, $pagination->nextPage),
+            '&rsaquo;',
+            'Next',
+            $onLast
+        );
+        $pages .= $this->paginationLink(
+            $this->paginationUrl($url, $pagination->pageCount),
+            '&raquo;',
+            'Last',
+            $onLast
+        );
+
+        $pages .= '</ul>' . "\n" . '</nav>';
 
         return $pages;
+    }
+
+    /**
+     * One of the first / previous / next / last steppers.
+     *
+     * @access protected
+     * @param  string $url      Target url
+     * @param  string $symbol   Html entity shown in place of a label
+     * @param  string $label    What a screen reader reads instead of the symbol
+     * @param  bool   $disabled Whether this end of the range has been reached
+     * @return string
+     */
+    protected function paginationLink(string $url, string $symbol, string $label, bool $disabled): string
+    {
+        // A disabled page-item is styled, not inert - taking it out of the tab order stops
+        // it being focusable while still leaving the href for anyone who ignores css
+        return '<li class="page-item' . ($disabled ? ' disabled' : '') . '">'
+            . '<a class="page-link" href="' . $url . '"' . ($disabled ? ' tabindex="-1"' : '')
+            . ' aria-label="' . $label . '">'
+            . '<span aria-hidden="true">' . $symbol . '</span>'
+            . '<span class="visually-hidden">' . $label . '</span>'
+            . '</a></li>' . "\n";
     }
 
     // ! OUTPUT

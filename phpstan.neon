@@ -6,14 +6,16 @@ parameters:
         - src
         - tests
 
-    # Level 5 is what new code is held to. It is not what the existing tree passes, which is
-    # what phpstan-baseline.neon records - regenerate it with:
-    #
-    #   composer stan-baseline
-    #
-    # Do that when a batch of findings has genuinely been fixed, never to make a new one go
-    # away. A shrinking baseline is the point; raising the level comes after it is empty.
+    # The whole tree passes level 5, so phpstan-baseline.neon is empty and every finding is
+    # a real one. Keep it that way - fix what analysis reports rather than regenerating the
+    # baseline with `composer stan-baseline` to make a new finding go away. Raising the
+    # level is the next step, not growing the baseline again.
     level: 5
+
+    # The application may define these global functions; the framework only ever calls them
+    # behind function_exists(). Declaring them here is what lets analysis see their shape.
+    stubFiles:
+        - phpstan/app-hooks.stub
 
     ignoreErrors:
         # SessionsMongoDb is one of several interchangeable session backends and the only one
@@ -22,3 +24,11 @@ parameters:
         -
             message: '#Instantiated class MongoDB\\Client not found#'
             path: src/Utils/Models/Sessions/SessionsMongoDb.php
+
+        # Both factories return null when ICU rejects the locale or the pattern - confirmed
+        # against php 8.4 - but the bundled stubs type them as never-null. The null checks
+        # they flag are the only thing standing between a bad pattern and a fatal, so this
+        # is the stub being wrong rather than the code.
+        -
+            message: '#Strict comparison using === between (Message|Number)Formatter and null will always evaluate to false#'
+            path: src/Utils/Models/Translation/Formatter.php

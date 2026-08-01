@@ -169,28 +169,24 @@ class Config
             case is_array(self::$items[$name]):
                 if (empty($owerwrite)) {
                     return (self::$items[$name] += $value);
-                } else {
-                    return (self::$items[$name] = array_merge((array) self::$items[$name], (array) $value));
                 }
-                break;
+
+                return (self::$items[$name] = array_merge((array) self::$items[$name], (array) $value));
 
             case is_object(self::$items[$name]):
                 if (empty($owerwrite)) {
                     return (self::$items[$name] = (object) ((array) self::$items[$name] + (array) $value));
-                } else {
-                    return (self::$items[$name] = (object) array_merge((array) self::$items[$name], (array) $value));
                 }
-                break;
+
+                return (self::$items[$name] = (object) array_merge((array) self::$items[$name], (array) $value));
 
             case is_int(self::$items[$name]):
             case is_float(self::$items[$name]):
                 return (self::$items[$name] += $value);
-                break;
 
             case is_string(self::$items[$name]):
             default:
                 return (self::$items[$name] .= $value);
-                break;
         }
     }
 

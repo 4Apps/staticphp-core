@@ -29,8 +29,12 @@ class SQLSort implements TableInstanceInterface
     {
         $column = $this->tableInstance->sort->sortBy();
         $direction = $this->tableInstance->sort->sortDirection()->value;
-        $nulls = $this->sortNulls();
-        $nulls = $nulls == SortNulls::FIRST ? 'NULLS FIRST' : 'NULLS LAST';
+        $nulls = match ($this->sortNulls()) {
+            SortNulls::NONE => '',
+            SortNulls::FIRST => 'NULLS FIRST',
+            SortNulls::LAST => 'NULLS LAST',
+        };
+
         return " ORDER BY {$column} {$direction} {$nulls} ";
     }
 }

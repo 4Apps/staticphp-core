@@ -51,4 +51,22 @@ interface CacheInterface
      * @return bool
      */
     public function removeKey(string $key): bool;
+
+    /**
+     *  Check whether $key is present in the cache.
+     *
+     * @access public
+     * @static
+     * @return bool
+     */
+    public function doesItemExist(string $key): bool;
+
+    /**
+     *  Seconds left before $key expires.
+     *
+     * @access public
+     * @static
+     * @return int
+     */
+    public function getTTL(string $key): int;
 }

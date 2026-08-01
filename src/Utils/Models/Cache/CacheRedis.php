@@ -25,7 +25,7 @@ class CacheRedis extends Cache
         $this->redis = new Redis();
         $this->redis->connect($config['hostname'], $config['port'], $this->config['timeout']);
         $this->redis->setOption(Redis::OPT_SERIALIZER, Redis::SERIALIZER_PHP);
-        $this->redis->select(isset($this->config['database']) ? $this->config['database'] : 2);
+        $this->redis->select($this->config['database'] ?? 0);
     }
 
     /**

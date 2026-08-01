@@ -20,10 +20,10 @@ class Sort implements SortInterface
      *
      * (default value: '')
      *
-     * @var Table
+     * @var TableInterface
      * @access protected
      */
-    protected Table $tableInstance;
+    protected TableInterface $tableInstance;
 
     /**
      * Default column to sort by
@@ -80,8 +80,9 @@ class Sort implements SortInterface
      * Construct tableSort
      *
      * @access public
-     * @param  array    $sort_columns
-     * @param  string   $url_prefix (default: [empty string])
+     * @param  TableInterface $tableInstance
+     * @param  string         $urlPrefix (default: [empty string])
+     * @param  ?string        $sortData (default: null)
      * @return void
      */
     public function __construct(TableInterface &$tableInstance, string $urlPrefix = '', ?string $sortData = null)
@@ -128,7 +129,7 @@ class Sort implements SortInterface
      */
     public function setUrl(?string $setUrl = null): void
     {
-        $this->sortUrlPrefix = $setUrl;
+        $this->sortUrlPrefix = $setUrl ?? '';
     }
 
     /**
@@ -160,7 +161,6 @@ class Sort implements SortInterface
      *
      * @access public
      * @param  string  $sortData
-     * @param  ?string $setPrefix (default: null)
      * @return void
      */
     public function parse(string $sortData): void
