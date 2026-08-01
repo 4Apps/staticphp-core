@@ -131,7 +131,8 @@ application's own `Config/` directory and edit it there.
 ### Db
 
 Populates `$config['db']['pdo']`, keyed by connection name, with `default` as the shipped
-entry. Each entry holds the PDO connection string, `username`, `password`, `charset`,
+entry. Each entry holds `string` - the PDO connection string - along with `username`,
+`password`, `charset`,
 `persistent`, `wrap_column`, `fetch_mode_objects`, `emulate_prepares` and `debug`. The
 shipped file sets `debug` from `$config['debug']`, which is why it has to be loaded after
 the application's own `Config.php` - the bootstrap's ordering already guarantees that.

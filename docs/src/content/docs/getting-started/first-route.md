@@ -28,7 +28,13 @@ Every other key is a regular expression matched against the request url once the
 path and the query string have been stripped off, and before any url prefix is removed.
 The key is used as the pattern with `#` delimiters, and the value as the replacement, so
 backreferences work as they do in `preg_replace()`. The rules are tried in reverse order and the first one that changes the
-url wins; the url before the rewrite stays available as `Router::$initial_segments`.
+url wins.
+
+The url as it arrived is captured into `Router::$initial_segments` at the moment a rule
+matches, but it does not stay whole: the prefix, module, controller and method segments are
+stripped off it alongside the rewritten ones. By the time a controller runs it holds the
+original arguments rather than the original url - and nothing at all when the rewrite
+consumed every segment, which is the case for the `/products/blue-widget` rule above.
 
 ## The controller
 
@@ -80,8 +86,9 @@ public static function methodUrl(): string;
 `self::render(['home.php'])` renders `Site/Views/home.php`, and hands the result to
 `Load::view()`. Without twig installed that path is resolved under `APP_MODULES_PATH`;
 with twig it is a template name resolved by the loader, which searches
-`APP_MODULES_PATH`, `APP_PATH` and `SP_PATH/Core/Views`. `Load::view()` takes its data by
-reference, so pass a variable rather than an array literal.
+`APP_MODULES_PATH`, `APP_PATH` and `SP_PATH/Core/Views`. `render()` takes its view data by
+value, so an array literal is fine there; `Load::view()` itself declares `$data` by
+reference, so a call straight to it has to pass a variable.
 
 ## What the url maps to
 
@@ -128,8 +135,9 @@ return something, the router acts on the type:
 -   `null` produces no output.
 
 When the class also has a `construct()` hook, its return value is combined with the
-method's: arrays are merged, strings concatenated. If one returns an array and the other
-does not, that is a `RouterException`.
+method's: two arrays are merged, anything else is concatenated as a string. A `construct()`
+that returned an array and a method that returned something else is a `RouterException`.
+The reverse is not checked and falls into the concatenation.
 
 ## When nothing matches
 
