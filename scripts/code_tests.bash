@@ -59,6 +59,11 @@ fi
 step "phpcs (code style)"
 if ./vendor/bin/phpcs --standard=phpcs.xml src tests; then ok; else fail "phpcs"; fi
 
+# Held to the level in phpstan.neon. What the tree does not pass yet is recorded in
+# phpstan-baseline.neon, so this fails only on something newly introduced.
+step "phpstan (static analysis)"
+if ./vendor/bin/phpstan analyse --no-progress --memory-limit=1G; then ok; else fail "phpstan"; fi
+
 step "phpunit"
 if ./vendor/bin/phpunit; then ok; else fail "tests"; fi
 

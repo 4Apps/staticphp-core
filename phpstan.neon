@@ -1,0 +1,24 @@
+includes:
+    - phpstan-baseline.neon
+
+parameters:
+    paths:
+        - src
+        - tests
+
+    # Level 5 is what new code is held to. It is not what the existing tree passes, which is
+    # what phpstan-baseline.neon records - regenerate it with:
+    #
+    #   composer stan-baseline
+    #
+    # Do that when a batch of findings has genuinely been fixed, never to make a new one go
+    # away. A shrinking baseline is the point; raising the level comes after it is empty.
+    level: 5
+
+    ignoreErrors:
+        # SessionsMongoDb is one of several interchangeable session backends and the only one
+        # needing an extension that is not in require. An install that wants it pulls in
+        # mongodb/mongodb; every other install must not be made to.
+        -
+            message: '#Instantiated class MongoDB\\Client not found#'
+            path: src/Utils/Models/Sessions/SessionsMongoDb.php

@@ -1,0 +1,553 @@
+parameters:
+	ignoreErrors:
+		-
+			message: '#^Call to function is_array\(\) with array\<mixed\> will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Call to function is_callable\(\) with ''formatSession'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function call_user_func expects callable\(\)\: mixed, ''formatSession'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between string and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between true and false will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Variable \$_COOKIE on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Variable \$_GET on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Variable \$_POST on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Variable \$_SERVER on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 2
+			path: src/Core/Exceptions/ErrorPage.php
+
+		-
+			message: '#^Parameter \#1 \$callback of function set_error_handler expects \(callable\(int, string, string, int\)\: bool\)\|null, ''sp_error_handler'' given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Core/Helpers/Bootstrap.php
+
+		-
+			message: '#^Call to function is_callable\(\) with ''formatSession'' will always evaluate to false\.$#'
+			identifier: function.impossibleType
+			count: 1
+			path: src/Core/Helpers/ErrorHandlers.php
+
+		-
+			message: '#^Function formatSession not found\.$#'
+			identifier: function.notFound
+			count: 1
+			path: src/Core/Helpers/ErrorHandlers.php
+
+		-
+			message: '#^PHPDoc tag @return with type bool is incompatible with native type void\.$#'
+			identifier: return.phpDocType
+			count: 1
+			path: src/Core/Helpers/ErrorHandlers.php
+
+		-
+			message: '#^Parameter \#1 \$http_error_code of static method StaticPHP\\Core\\Models\\Router\:\:error\(\) expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Core/Helpers/ErrorHandlers.php
+
+		-
+			message: '#^Parameter \#3 \$subject of function str_replace expects array\<string\>\|string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Core/Helpers/ErrorHandlers.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 4
+			path: src/Core/Models/Config.php
+
+		-
+			message: '#^Variable \$_COOKIE on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 1
+			path: src/Core/Models/Load.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$level with type mixed is not subtype of native type string\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: src/Core/Models/Logger.php
+
+		-
+			message: '#^Call to function is_array\(\) with non\-empty\-array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 2
+			path: src/Core/Models/Request.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$prefix with type mixed is not subtype of native type string\|null\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: src/Core/Models/Router.php
+
+		-
+			message: '#^Variable \$class_method might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: src/Core/Models/Router.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Presentation/Models/Tables/Filters.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$callback$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Filters.php
+
+		-
+			message: '#^PHPDoc tag @var with type StaticPHP\\Presentation\\Models\\Tables\\Column is not subtype of native type null\.$#'
+			identifier: varTag.nativeType
+			count: 1
+			path: src/Presentation/Models/Tables/Filters.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Presentation/Models/Tables/Filters.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$columns\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Excel.php
+
+		-
+			message: '#^Access to property \$exportKey on an unknown class StaticPHP\\Presentation\\Models\\Tables\\Output\\Column\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Excel.php
+
+		-
+			message: '#^Access to property \$title on an unknown class StaticPHP\\Presentation\\Models\\Tables\\Output\\Column\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Excel.php
+
+		-
+			message: '#^Access to property \$type on an unknown class StaticPHP\\Presentation\\Models\\Tables\\Output\\Column\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Excel.php
+
+		-
+			message: '#^PHPDoc tag @var for variable \$column contains unknown class StaticPHP\\Presentation\\Models\\Tables\\Output\\Column\.$#'
+			identifier: class.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Excel.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$avgRowPosition\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$columns\.$#'
+			identifier: property.notFound
+			count: 6
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$customRowPosition\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$filter\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$idKey\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$isEditable\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$sort\.$#'
+			identifier: property.notFound
+			count: 6
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$sumRowPosition\.$#'
+			identifier: property.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Call to function is_array\(\) with non\-empty\-array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Method StaticPHP\\Presentation\\Models\\Tables\\Output\\Html\:\:formatData\(\) should return string but returns \(float\|int\)\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^PHPDoc tag @param for parameter \$value with type mixed is not subtype of native type string\.$#'
+			identifier: parameter.phpDocType
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$field$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$name$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$urlOnly$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^PHPDoc tag @return with type bool\|string is not subtype of native type string\.$#'
+			identifier: return.phpDocType
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^PHPDoc tag @var with type StaticPHP\\Presentation\\Models\\Tables\\Column is not subtype of native type null\.$#'
+			identifier: varTag.nativeType
+			count: 2
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Parameter \#2 \$replace of function str_replace expects array\<string\>\|string, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between true and false will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 1
+			path: src/Presentation/Models/Tables/Output/Html.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$url_prefix$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Pagination.php
+
+		-
+			message: '#^PHPDoc tag @var for property StaticPHP\\Presentation\\Models\\Tables\\Pagination\:\:\$limitFrom with type string is incompatible with native type int\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: src/Presentation/Models/Tables/Pagination.php
+
+		-
+			message: '#^PHPDoc tag @var for property StaticPHP\\Presentation\\Models\\Tables\\Pagination\:\:\$limitPerPage with type string is incompatible with native type int\.$#'
+			identifier: property.phpDocType
+			count: 1
+			path: src/Presentation/Models/Tables/Pagination.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between string and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Presentation/Models/Tables/Pagination.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$filter\.$#'
+			identifier: property.notFound
+			count: 4
+			path: src/Presentation/Models/Tables/SQL/SQLFilters.php
+
+		-
+			message: '#^Method StaticPHP\\Presentation\\Models\\Tables\\SQL\\SQLFilters\:\:runFilter\(\) should return array\<string\>\|null but returns array\<string, array\<int\|string, mixed\>\|string\>\.$#'
+			identifier: return.type
+			count: 4
+			path: src/Presentation/Models/Tables/SQL/SQLFilters.php
+
+		-
+			message: '#^Method StaticPHP\\Presentation\\Models\\Tables\\SQL\\SQLFilters\:\:runFilter\(\) should return array\<string\>\|null but returns array\<string, mixed\>\.$#'
+			identifier: return.type
+			count: 5
+			path: src/Presentation/Models/Tables/SQL/SQLFilters.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$pagination\.$#'
+			identifier: property.notFound
+			count: 2
+			path: src/Presentation/Models/Tables/SQL/SQLPagination.php
+
+		-
+			message: '#^Access to an undefined property StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\:\:\$sort\.$#'
+			identifier: property.notFound
+			count: 3
+			path: src/Presentation/Models/Tables/SQL/SQLSort.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$setPrefix$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Sort.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$sort_columns$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Sort.php
+
+		-
+			message: '#^PHPDoc tag @param references unknown parameter\: \$url_prefix$#'
+			identifier: parameter.notFound
+			count: 1
+			path: src/Presentation/Models/Tables/Sort.php
+
+		-
+			message: '#^Property StaticPHP\\Presentation\\Models\\Tables\\Sort\:\:\$tableInstance \(StaticPHP\\Presentation\\Models\\Tables\\Table\) does not accept StaticPHP\\Presentation\\Models\\Tables\\Interfaces\\TableInterface\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Presentation/Models/Tables/Sort.php
+
+		-
+			message: '#^Variable \$config might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: src/Utils/Config/Db.php
+
+		-
+			message: '#^Call to function is_array\(\) with array will always evaluate to true\.$#'
+			identifier: function.alreadyNarrowedType
+			count: 1
+			path: src/Utils/Helpers/Helpers.php
+
+		-
+			message: '#^Loose comparison using \=\= between true and false will always evaluate to false\.$#'
+			identifier: equal.alwaysFalse
+			count: 1
+			path: src/Utils/Helpers/Helpers.php
+
+		-
+			message: '#^Variable \$number on left side of \?\? always exists and is not nullable\.$#'
+			identifier: nullCoalesce.variable
+			count: 2
+			path: src/Utils/Helpers/Helpers.php
+
+		-
+			message: '#^Static property StaticPHP\\Utils\\Models\\Cache\\Cache\:\:\$backends \(array\<StaticPHP\\Utils\\Models\\Cache\\Cache\>\) does not accept array\<StaticPHP\\Utils\\Models\\Cache\\CacheInterface\>\.$#'
+			identifier: assign.propertyType
+			count: 1
+			path: src/Utils/Models/Cache/Cache.php
+
+		-
+			message: '#^Variable \$status might not be defined\.$#'
+			identifier: variable.undefined
+			count: 1
+			path: src/Utils/Models/Cache/Cache.php
+
+		-
+			message: '#^Method StaticPHP\\Utils\\Models\\Cache\\CacheFiles\:\:filename\(\) invoked with 2 parameters, 1 required\.$#'
+			identifier: arguments.count
+			count: 3
+			path: src/Utils/Models/Cache/CacheFiles.php
+
+		-
+			message: '#^PHPDoc tag @return with type void is incompatible with native type bool\.$#'
+			identifier: return.phpDocType
+			count: 1
+			path: src/Utils/Models/Cache/CacheFiles.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between mixed and null will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 2
+			path: src/Utils/Models/Cache/CacheMemcached.php
+
+		-
+			message: '#^Method StaticPHP\\Utils\\Models\\Db\:\:lastInsertId\(\) should return int\|null but returns string\|false\.$#'
+			identifier: return.type
+			count: 1
+			path: src/Utils/Models/Db.php
+
+		-
+			message: '#^PHPDoc tag @return with type null is incompatible with native type void\.$#'
+			identifier: return.phpDocType
+			count: 1
+			path: src/Utils/Models/Db.php
+
+		-
+			message: '#^Static property StaticPHP\\Utils\\Models\\Db\:\:\$dbLinks \(array\<PDO\>\) on left side of \?\? is not nullable\.$#'
+			identifier: nullCoalesce.property
+			count: 1
+			path: src/Utils/Models/Db.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: string$#'
+			identifier: match.unhandled
+			count: 1
+			path: src/Utils/Models/ExtendedDateTime.php
+
+		-
+			message: '#^Parameter \#2 \$locale of function setlocale expects array\|string\|null, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Utils/Models/ExtendedDateTime.php
+
+		-
+			message: '#^Parameter \#2 \$locale of function setlocale expects array\|string\|null, int given\.$#'
+			identifier: argument.type
+			count: 1
+			path: src/Utils/Models/Fv.php
+
+		-
+			message: '#^Unreachable statement \- code above always terminates\.$#'
+			identifier: deadCode.unreachable
+			count: 4
+			path: src/Utils/Models/Fv.php
+
+		-
+			message: '#^Variable \$field in empty\(\) always exists and is not falsy\.$#'
+			identifier: empty.variable
+			count: 2
+			path: src/Utils/Models/Fv.php
+
+		-
+			message: '#^PHPDoc tag @var has invalid value \(\$servers List of servers\. Example\: \[\[127\.0\.0\.1, 112211\], \[192\.168\.1\.10, 112211\]\]\)\: Unexpected token "\$servers", expected type at offset 16 on line 2$#'
+			identifier: phpDoc.parseError
+			count: 1
+			path: src/Utils/Models/Sessions/SessionsMemcached.php
+
+		-
+			message: '#^Property StaticPHP\\Utils\\Models\\Sessions\\SessionsPgsql\:\:\$db_link is never read, only written\.$#'
+			identifier: property.onlyWritten
+			count: 1
+			path: src/Utils/Models/Sessions/SessionsPgsql.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between non\-empty\-list\<string\|null\> and array\{\} will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Utils/Models/Translation/Commands.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between MessageFormatter and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Utils/Models/Translation/Formatter.php
+
+		-
+			message: '#^Strict comparison using \=\=\= between NumberFormatter and null will always evaluate to false\.$#'
+			identifier: identical.alwaysFalse
+			count: 1
+			path: src/Utils/Models/Translation/Formatter.php
+
+		-
+			message: '#^Strict comparison using \!\=\= between non\-falsy\-string and '''' will always evaluate to true\.$#'
+			identifier: notIdentical.alwaysTrue
+			count: 1
+			path: src/Utils/Models/Translation/Negotiator.php
+
+		-
+			message: '#^Match expression does not handle remaining value\: string$#'
+			identifier: match.unhandled
+			count: 4
+			path: src/Utils/Models/Translation/Store.php
+
+		-
+			message: '#^Using nullsafe property access "\?\-\>icuLocale" on left side of \?\? is unnecessary\. Use \-\> instead\.$#'
+			identifier: nullsafe.neverNull
+			count: 1
+			path: src/Utils/Models/i18n.php
+
+		-
+			message: '#^Parameter \#1 \$array of function groupArray expects Iterator, array\<int, array\<string, int\|string\>\> given\.$#'
+			identifier: argument.type
+			count: 3
+			path: tests/Core/Helpers/OtherTest.php
+
+		-
+			message: '#^Parameter \#1 \$year of function getIsoWeeksInYear expects int, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Core/Helpers/OtherTest.php
+
+		-
+			message: '#^Parameter \#2 \$year of function weekRange expects int\|null, string given\.$#'
+			identifier: argument.type
+			count: 1
+			path: tests/Core/Helpers/OtherTest.php
+
+		-
+			message: '#^Constant VENDOR_PATH not found\.$#'
+			identifier: constant.notFound
+			count: 1
+			path: tests/Core/Models/RouterTest.php

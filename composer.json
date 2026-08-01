@@ -17,6 +17,7 @@
     },
     "require-dev": {
         "phpoffice/phpspreadsheet": "^3.0 || ^4.0",
+        "phpstan/phpstan": "^2.2",
         "phpunit/phpunit": "^13.0",
         "squizlabs/php_codesniffer": "^4.0",
         "twig/twig": "^3.0"
@@ -48,6 +49,8 @@
     },
     "scripts": {
         "test": "@php vendor/bin/phpunit",
-        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src tests"
+        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src tests",
+        "stan": "@php vendor/bin/phpstan analyse --no-progress --memory-limit=1G",
+        "stan-baseline": "@php vendor/bin/phpstan analyse --no-progress --memory-limit=1G --generate-baseline"
     }
 }
