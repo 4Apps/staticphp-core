@@ -132,12 +132,17 @@ backend does not use it; it stores the raw session id.
 Four of those five are what the class references by name - `Redis`, `Memcached`,
 `MongoDB\Client`, `apcu_fetch()`. The Postgres row is an inference: `SessionsPgsql` goes
 through `Db`, which is PDO, and its sql is postgres, so it needs whatever pdo driver that
-implies. Nothing in `src/` names `pdo_pgsql`, and `composer.json` requires only the generic
-`ext-pdo`.
+implies. Nothing in `src/` names `pdo_pgsql`; `composer.json` does, under `suggest`, giving
+`SessionsPgsql` and the postgres migration driver as the reasons.
 
-None of the five is in `composer.json` - not under `require`, not under `suggest`, and the
-mongodb library is not a dependency at all. On a host with only the framework's own required
-extensions:
+None of the five is a hard dependency. `require` is still php plus `ext-intl`,
+`ext-mbstring` and the generic `ext-pdo`; all five appear under `suggest`, each entry naming
+the classes that need it. `suggest` is advisory - composer prints it and installs nothing -
+so the package installs on a host that has none of them and the failure surfaces at
+construction. `ext-mongodb` is not named there: the entry is the `mongodb/mongodb` library,
+which requires the extension in turn.
+
+On a host with only the framework's own required extensions:
 
 ```text
 new SessionsRedis(['hostname' => 'redisdb', 'port' => 6379]) => Error: Class "Redis" not found

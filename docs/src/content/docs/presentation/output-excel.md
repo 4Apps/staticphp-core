@@ -12,7 +12,7 @@ sidebar:
 
 ## The dependency
 
-The file opens with three imports from a library this package does not ship:
+The file opens with three imports from a library the package does not require:
 
 ```php
 <?php
@@ -22,45 +22,62 @@ use PhpOffice\PhpSpreadsheet\Cell\DataType;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 ```
 
-**`phpoffice/phpspreadsheet` appears nowhere in `composer.json`** - not in `require`, not in
-`require-dev`, and not in `suggest`, which does list `twig/twig`. So it is neither a hard
-dependency nor a declared soft one; it is an undeclared import that resolves only if the
-application happens to require the library itself.
+`phpoffice/phpspreadsheet` is declared in `composer.json`, but twice over and in neither
+place as a hard dependency - once in `require-dev`, once in `suggest`:
+
+```json
+"require-dev": {
+    "phpoffice/phpspreadsheet": "^3.0 || ^4.0",
+    "phpunit/phpunit": "^13.0",
+    "squizlabs/php_codesniffer": "^4.0",
+    "twig/twig": "^3.0"
+},
+"suggest": {
+    "phpoffice/phpspreadsheet": "Required by Presentation\\Models\\Tables\\Output\\Excel. Nothing else in the package touches it, so a table that only renders html does not need it."
+}
+```
+
+What each of those means for an application that depends on this package:
+
+-   `require-dev` is the package's own development environment. Composer ignores a
+    dependency's `require-dev`, so requiring `4apps/staticphp-core` never pulls
+    phpspreadsheet in. It is declared there so this class can be exercised by the package's
+    own test suite - `tests/Presentation/Models/Tables/ExcelOutputTest.php` - and so CI
+    installs it.
+-   `suggest` is advisory. Composer prints it after an install and `composer suggest` lists
+    it; it installs nothing and constrains nothing.
+
+`require` is untouched by either, and is still php plus three extensions:
 
 ```json
 "require": {
-    "php": ">=8.4",
+    "php": ">=8.4 <9",
     "ext-intl": "*",
     "ext-mbstring": "*",
     "ext-pdo": "*"
 }
 ```
 
-Nothing else in `src/` references the library, so a stock installation runs perfectly well
-without it and only this one class is unusable:
-
-<!-- captured:excel-missing -->
-```text
-class_exists('PhpOffice\\PhpSpreadsheet\\Spreadsheet') -> false
-```
-<!-- /captured:excel-missing -->
-
-To use the class, add the library to your own application:
+So an application that wants an `.xlsx` export requires the library itself:
 
 ```bash
 composer require phpoffice/phpspreadsheet
 ```
 
-Its own extension requirements are its to declare; consult its documentation rather than
-this page. This package's CI workflow installs `intl, mbstring, xml, zip, bcmath` and the
-PDO drivers, none of it on phpspreadsheet's account, since the library is not installed
-there either.
+Nothing else in `src/` references it, so an installation without it runs perfectly well and
+only this one class is unusable - the failure is a fatal "class not found" the moment
+`makeOutput()` is reached, not a degraded fallback.
 
-:::caution[Nothing on this page was executed]
-The captured block above is the only output on this page that was produced by running code,
-and all it shows is that the class is absent. The library is not installed in this
-repository, so the generator could not be exercised: everything below is read off the source
-rather than observed. Verify against a real workbook before relying on it.
+Its own extension requirements are its to declare; consult its documentation rather than
+this page. This package's CI workflow installs `intl, mbstring, xml, zip, gd, bcmath` and
+the PDO drivers, and `gd` is there on phpspreadsheet's account so that the Excel output test
+can run.
+
+:::note[What on this page was executed]
+The library is installed in this repository as a dev dependency, so the captured block under
+[Cell types](#cell-types) is a real `makeOutput()` run. The download path below - the
+headers and the write to `php://output` - is read off the source rather than observed, since
+it only makes sense inside a request.
 :::
 
 ## Settings
@@ -137,8 +154,8 @@ Every cell is written with `setValueExplicit()` under a switch on the column typ
 <?php
 
 switch ($column->type) {
-    case 'int':
-    case 'float':
+    case ColumnType::INT:
+    case ColumnType::DECIMAL:
         $cell->setValueExplicit($cellValue ?? 0, DataType::TYPE_NUMERIC);
         break;
 
@@ -148,25 +165,41 @@ switch ($column->type) {
 }
 ```
 
-`$column->type` is a `ColumnType`, and the two cases are strings. A backed enum is never
-loosely equal to its own backing value, let alone to `'float'`, which is not a `ColumnType`
-value at all - the values are `int` and `decimal`. `switch` compares with `==`, so both
-cases are dead:
+The cases are `ColumnType` cases rather than their backing strings, and that matters:
+`switch` compares with `==`, and a backed enum is never loosely equal to its own value, so
+`case 'int':` would match nothing and send every number to the string branch. The two
+numeric types are `INT` and `DECIMAL` - there is no `FLOAT` case on the enum.
 
-<!-- captured:excel-switch -->
+Everything else - text, dates, booleans, and every other
+[`ColumnType`](/staticphp-core/presentation/columns/#columntype) - is written as
+`TYPE_STRING`. A `null` becomes `0` in a numeric column and `''` everywhere else.
+
+A real run over three columns and two rows, the second of them all nulls:
+
+<!-- captured:excel-types -->
 ```text
-ColumnType::INT      == 'int'  -> false
-ColumnType::INT      == 'float' -> false
-ColumnType::DECIMAL  == 'int'  -> false
-ColumnType::DECIMAL  == 'float' -> false
-ColumnType::TEXT     == 'int'  -> false
-ColumnType::TEXT     == 'float' -> false
-```
-<!-- /captured:excel-switch -->
+phpoffice/phpspreadsheet 3.10.7
 
-The consequence is that **every cell is written as `TYPE_STRING`**, including numeric
-columns, so figures arrive in the workbook as text and will not sum. If that matters, cast
-in the `$formatter` closure or set the cell types there.
+cell   column type  cell data type         value
+A1     header       DataType::TYPE_STRING  'Name'
+B1     header       DataType::TYPE_STRING  'Qty'
+C1     header       DataType::TYPE_STRING  'Total'
+A2     TEXT         DataType::TYPE_STRING  'Widget'
+B2     INT          DataType::TYPE_NUMERIC 3
+C2     DECIMAL      DataType::TYPE_NUMERIC 10.5
+A3     TEXT         DataType::TYPE_STRING  'Gadget'
+B3     INT          DataType::TYPE_NUMERIC 0
+C3     DECIMAL      DataType::TYPE_NUMERIC 0
+```
+<!-- /captured:excel-types -->
+
+Row 1 is the header, written with `setValue()` rather than `setValueExplicit()`, so
+phpspreadsheet infers its type instead of being told one.
+
+`testNumericColumnsAreWrittenAsNumbersRatherThanText()` in
+`tests/Presentation/Models/Tables/ExcelOutputTest.php` is the regression test for the
+numeric branch, so a workbook whose figures arrive as unsummable text is a test failure
+rather than something to discover in a spreadsheet.
 
 ## showOutput()
 

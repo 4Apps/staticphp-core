@@ -19,13 +19,41 @@ package's `src/` directory, so composer's autoloader finds it with no further se
 
 `composer.json` requires:
 
--   PHP 8.4 or newer
+-   PHP 8.4 or newer, and below 9 - the constraint is `>=8.4 <9`
 -   `ext-intl`
 -   `ext-mbstring`
 -   `ext-pdo`
 
 Composer refuses to install the package without them, so there is nothing to check by
 hand.
+
+## Optional dependencies
+
+Everything else the package can use is declared under `suggest` rather than `require`, with
+one entry per class that needs it. `suggest` is advisory: composer prints the list after an
+install and `composer suggest` prints the same table, but it downloads nothing, so an
+installation is only ever as heavy as the application asks for.
+
+| Needed by                                      | Install                    |
+| ---------------------------------------------- | -------------------------- |
+| `Load::view()` with templates                  | `twig/twig`                |
+| `Tables\Output\Excel`                          | `phpoffice/phpspreadsheet` |
+| `Sessions\SessionsMongoDb`                     | `mongodb/mongodb`          |
+| `Cache\CacheRedis`, `SessionsRedis`            | `ext-redis`                |
+| `Cache\CacheMemcached`, `SessionsMemcached`    | `ext-memcached`            |
+| `Cache\CacheApcu`, `SessionsApcu`              | `ext-apcu`                 |
+| `Fv::translit()`, `Fv::setFriendly()`          | `ext-iconv`                |
+| Postgres, incl. `SessionsPgsql` and migrations | `ext-pdo_pgsql`            |
+| MySQL/MariaDB, incl. migrations                | `ext-pdo_mysql`            |
+| SQLite, incl. migrations                       | `ext-pdo_sqlite`           |
+
+A missing one is a fatal error at the point of use, not a silent fallback. Twig is the
+exception, and the next section covers it. What each of the rest costs when it is absent is
+on the pages that describe them:
+[caching](/staticphp-core/utilities/cache/#the-four-backends),
+[sessions](/staticphp-core/utilities/sessions/#the-five-backends),
+[Excel output](/staticphp-core/presentation/output-excel/#the-dependency) and the
+[migration drivers](/staticphp-core/database/migration-drivers/).
 
 ## Twig is a suggestion, not a requirement
 
@@ -55,6 +83,12 @@ the dev container, the `staticphp` cli - lives in
 Starting a new project from that skeleton is the usual route; `composer require` is for
 adding the framework to an application that already exists, or for building the
 application tree by hand.
+
+## Releases and contributing
+
+In the repository, `master` is the latest released code, `develop` is where development
+happens and where pull requests are based, and tags are releases. `CONTRIBUTING.md` covers
+the docker workflow and what CI enforces; `CHANGELOG.md` is the release history.
 
 ## Next
 

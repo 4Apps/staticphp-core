@@ -156,8 +156,11 @@ A `null` argument is treated as `0`.
 `trimChars()` takes its value **by reference** and returns nothing, which is what makes it
 usable as an `array_walk()` callback.
 
-`uuid4()` builds a version 4 uuid from `openssl_random_pseudo_bytes(16)`, setting the version
-and variant bits by hand. It needs `ext-openssl`, which is not in `composer.json`.
+`uuid4()` builds a version 4 uuid from `random_bytes(16)`, setting the version and variant
+bits by hand. `random_bytes()` is core rather than an extension, so there is nothing to
+install and nothing for `composer.json` to declare, and it throws `Random\RandomException`
+when the system has no usable source of randomness instead of handing back bytes that only
+might be strong. `uuid4()` does not catch that, so the failure reaches the caller.
 
 `parseQueryString()` splits on `$delimiter` and then on the first `=`, url-decoding both
 sides. It is not a `parse_str()` replacement: a pair with no `=` is dropped rather than

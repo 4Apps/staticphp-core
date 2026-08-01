@@ -15,7 +15,7 @@ currencies, percentages and dates.
 
 ```json
 "require": {
-    "php": ">=8.4",
+    "php": ">=8.4 <9",
     "ext-intl": "*",
     "ext-mbstring": "*",
     "ext-pdo": "*"

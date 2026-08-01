@@ -135,10 +135,11 @@ its loop never assigned, which is a `TypeError` against the `: bool` return type
 | Memcached | `CacheMemcached` | `ext-memcached` (the `Memcached` class) | `$config['cache']['memcached']` |
 | Redis     | `CacheRedis`     | `ext-redis` (the `Redis` class)         | `$config['cache']['redis']`     |
 
-None of the three extensions is listed in `composer.json`, under `require` or under
-`suggest`. Composer will install the package on a host that has none of them, and the
-failure surfaces the moment you construct the backend. In a container with only the
-framework's own required extensions:
+All three extensions are listed in `composer.json` under `suggest`, each entry naming the
+cache and session classes that need it, and none of them under `require`. `suggest` is
+advisory - composer prints it and installs nothing - so composer will install the package on
+a host that has none of them, and the failure surfaces the moment you construct the backend.
+In a container with only the framework's own required extensions:
 
 ```text
 new CacheRedis($config['cache']['redis'])            => Error: Class "Redis" not found
