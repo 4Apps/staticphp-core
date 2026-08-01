@@ -10,18 +10,28 @@
         }
     ],
     "require": {
-        "php": ">=8.4",
+        "php": ">=8.4 <9",
         "ext-intl": "*",
         "ext-mbstring": "*",
         "ext-pdo": "*"
     },
     "require-dev": {
+        "phpoffice/phpspreadsheet": "^3.0 || ^4.0",
         "phpunit/phpunit": "^13.0",
         "squizlabs/php_codesniffer": "^4.0",
         "twig/twig": "^3.0"
     },
     "suggest": {
-        "twig/twig": "Template engine for the view layer. Leave it out of an api-only application - composer's files autoload is eager, so twig and the symfony polyfills it pulls in load eight files on every request whether or not a template is ever rendered."
+        "twig/twig": "Template engine for the view layer. Leave it out of an api-only application - composer's files autoload is eager, so twig and the symfony polyfills it pulls in load eight files on every request whether or not a template is ever rendered.",
+        "phpoffice/phpspreadsheet": "Required by Presentation\\Models\\Tables\\Output\\Excel. Nothing else in the package touches it, so a table that only renders html does not need it.",
+        "mongodb/mongodb": "Required by Utils\\Models\\Sessions\\SessionsMongoDb.",
+        "ext-redis": "Required by Utils\\Models\\Cache\\CacheRedis and Utils\\Models\\Sessions\\SessionsRedis.",
+        "ext-memcached": "Required by Utils\\Models\\Cache\\CacheMemcached and Utils\\Models\\Sessions\\SessionsMemcached.",
+        "ext-apcu": "Required by Utils\\Models\\Cache\\CacheApcu and Utils\\Models\\Sessions\\SessionsApcu.",
+        "ext-iconv": "Required by Fv::translit() and Fv::setFriendly(); nothing else uses it.",
+        "ext-pdo_pgsql": "Postgres connections, Utils\\Models\\Sessions\\SessionsPgsql, and the postgres migration driver.",
+        "ext-pdo_mysql": "MySQL/MariaDB connections and the mysql migration driver.",
+        "ext-pdo_sqlite": "SQLite connections and the sqlite migration driver."
     },
     "autoload": {
         "psr-4": {

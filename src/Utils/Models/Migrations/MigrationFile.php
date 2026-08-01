@@ -5,8 +5,9 @@ namespace StaticPHP\Utils\Models\Migrations;
 /**
  * One migration on disk.
  *
- * Readonly properties rather than a readonly class, because the framework's floor is
- * PHP 8.1 and readonly classes arrived in 8.2.
+ * Readonly properties rather than a readonly class, kept from when the floor was PHP 8.1.
+ * The floor is 8.4 now, so this could become a readonly class whenever it is worth the
+ * churn.
  */
 class MigrationFile
 {

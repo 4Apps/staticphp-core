@@ -31,8 +31,8 @@ jobs:
           # intl is required by ExtendedDateTime and the i18n formatter; the rest match
           # docker/Dockerfile. pdo_sqlite backs the migration and i18n integration tests -
           # they run against a real database in a temp file, so no service container is
-          # needed
-          extensions: intl, mbstring, xml, zip, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
+          # needed. gd is phpspreadsheet's, which the excel output test needs installed
+          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
           coverage: none
 
       - name: Cache composer packages

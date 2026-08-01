@@ -51,8 +51,11 @@ class Excel implements OutputInterface
                 $cell = $active_sheet->getCell([$colNr, $rowNr]);
 
                 switch ($column->type) {
-                    case 'int':
-                    case 'float':
+                    // Enum cases rather than their backing strings: a backed enum is never
+                    // loosely equal to its own value, so matching on 'int' silently sent
+                    // every number to the string branch and excel stored it as text
+                    case ColumnType::INT:
+                    case ColumnType::DECIMAL:
                         $cell->setValueExplicit($cellValue ?? 0, DataType::TYPE_NUMERIC);
                         break;
 

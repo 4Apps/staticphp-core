@@ -69,6 +69,29 @@ templates, and the `registerTwig()` helpers return quietly.
 `$config['disable_twig'] = true` skips building the environment when the library *is*
 installed.
 
+## Optional dependencies
+
+The package itself requires only php, `ext-intl`, `ext-mbstring` and `ext-pdo`. Everything
+below is needed by one class each, and is declared in composer's `suggest` rather than
+`require` - nothing here is downloaded unless you ask for it. Install only what the
+application actually uses; `composer suggest` lists the same table.
+
+| Needed by                        | Install                          |
+| -------------------------------- | -------------------------------- |
+| `Load::view()` with templates    | `twig/twig`                      |
+| `Tables\Output\Excel`            | `phpoffice/phpspreadsheet`       |
+| `Sessions\SessionsMongoDb`       | `mongodb/mongodb`                |
+| `Cache\CacheRedis`, `SessionsRedis`         | `ext-redis`           |
+| `Cache\CacheMemcached`, `SessionsMemcached` | `ext-memcached`       |
+| `Cache\CacheApcu`, `SessionsApcu`           | `ext-apcu`            |
+| `Fv::translit()`, `Fv::setFriendly()`       | `ext-iconv`           |
+| Postgres, incl. `SessionsPgsql` and migrations | `ext-pdo_pgsql`    |
+| MySQL/MariaDB, incl. migrations  | `ext-pdo_mysql`                  |
+| SQLite, incl. migrations         | `ext-pdo_sqlite`                 |
+
+A missing one is a fatal error at the point of use, not a silent fallback - the exception
+is twig, which the view layer degrades around deliberately.
+
 ## Tests and code style
 
 ```bash
@@ -82,6 +105,13 @@ in for an application and no demo app has to exist.
 
 `tests/`, `scripts/` and the tooling config are `export-ignore`d, so they are in the
 repository but not in the dist tarball composer installs.
+
+## Contributing
+
+Pull requests are welcome. `master` is the latest released code, `develop` is where active
+development happens and where pull requests are based, and tags are releases.
+[CONTRIBUTING.md](CONTRIBUTING.md) covers the docker workflow, what CI enforces and what a
+pull request needs; [CHANGELOG.md](CHANGELOG.md) is the release history.
 
 ## Upgrading from 1.x
 
