@@ -13,6 +13,9 @@ anyone writes it.
 | `develop`    | Active development. Base pull requests here unless it is a hotfix.     |
 | tags         | Releases, `vMAJOR.MINOR.PATCH`. A tag is what Packagist publishes.     |
 
+The major and minor come from `.version`; the patch is derived from git. See
+[Where the version number comes from](#where-the-version-number-comes-from).
+
 Versioning is [semver](https://semver.org/): a breaking change to anything under `src/` is
 a major, new behaviour that keeps existing calls working is a minor, everything else is a
 patch. `master` is only ever fast-forwarded from `develop` at release time, so a commit on
@@ -20,6 +23,53 @@ patch. `master` is only ever fast-forwarded from `develop` at release time, so a
 
 A hotfix against a release branches from `master`, and is merged back into both `master`
 and `develop`.
+
+### Where the version number comes from
+
+Two places, and only two:
+
+-   `.version` holds `major.minor` and is the only part a human edits.
+-   The patch number is the commit count, `git rev-list --count HEAD`.
+
+So the release tag for a commit is `v$(cat .version).$(git rev-list --count HEAD)`, which
+`scripts/version.bash` prints:
+
+```bash
+./scripts/version.bash        # 2.0.324
+```
+
+Deriving the patch means it never needs a commit of its own and cannot conflict on a
+merge. The count keeps rising across a minor bump, so `2.1` picks up where `2.0` left off
+and every version still sorts after the last - patch numbers are not contiguous, and are
+not meant to be read as "the 324th patch".
+
+Bump `.version` by hand when the change deserves a new minor or major, in the commit that
+makes it true.
+
+## Releasing
+
+1. `.version` is right for what is about to ship.
+2. `CHANGELOG.md`: rename the `unreleased` heading to the version and today's date.
+3. `./scripts/code_tests.bash` is green, and CI is green on `master`.
+4. Tag it:
+
+    ```bash
+    ./scripts/release_tag.bash
+    ```
+
+    It computes the tag, refuses a dirty tree, refuses a tag that already exists, and
+    refuses one that sorts below an existing tag - which is what a rebase or a squash would
+    produce, since a shortened history means a smaller commit count. It creates the tag
+    locally and stops.
+
+5. Push it:
+
+    ```bash
+    git push origin v2.0.324
+    ```
+
+Packagist publishes on the tag push, so that push is the point of no return. Nothing
+before it is public.
 
 ## Working on it
 

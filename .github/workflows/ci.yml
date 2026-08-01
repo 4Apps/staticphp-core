@@ -69,3 +69,19 @@ jobs:
 
       - name: Boot the framework with no view engine
         run: php scripts/boot_without_twig.php
+
+  # The release tag is derived rather than written down, so the derivation is worth a check
+  # of its own - it is only ever run at release time, when finding out it broke is worst.
+  version:
+    name: Version derivation
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          # scripts/version.bash derives the patch from the commit count, so it needs the
+          # full history - a shallow clone would silently produce version .1
+          fetch-depth: 0
+
+      - name: Show the version this commit would release as
+        run: ./scripts/version.bash

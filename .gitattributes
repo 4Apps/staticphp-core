@@ -17,5 +17,9 @@
 /.env.example      export-ignore
 /CONTRIBUTING.md   export-ignore
 
+# Release input rather than runtime data. A consumer that wants the installed version asks
+# composer for it: Composer\InstalledVersions::getPrettyVersion('4apps/staticphp-core')
+/.version          export-ignore
+
 # A library's lock file pins its own dev tooling and is never consulted by a consumer
 /composer.lock     export-ignore
