@@ -199,4 +199,5 @@ overwrite the renderer's own variables. See
 - If you want the application classmap optimised in production, `composer dump-autoload -o`
   works as usual - but it cannot express one repository serving several applications, so
   leave it off if you use that layout. There is a
-  [worked demonstration of what goes wrong](/staticphp-core/guides/multiple-applications/#why-not-just-optimise-composers-classmap).
+  [worked demonstration of what goes wrong](/staticphp-core/guides/multiple-applications/#why-the-application-tree-stays-out-of-composers-map),
+  including the part `-o` is not responsible for.

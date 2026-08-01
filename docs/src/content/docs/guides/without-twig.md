@@ -54,16 +54,17 @@ Five of those fourteen are composer's own and are there regardless. The other ni
 with twig, on every request, whether or not a template is ever rendered. Lazy class loading
 does not help: none of this is a class being loaded.
 
-The measurement above is twig 3.28.0. The package's `suggest` text says eight files; the
-count moves with twig's own dependency tree, so treat any of these numbers as a magnitude
-rather than a constant. What does not move is where the cost is paid.
+The measurement above is twig 3.28.0. The package's own `suggest` text says eight files;
+that number is out of date. The seven break down as four `files` entries in twig itself and
+one each in the three packages it requires, so the figure only moves if twig repackages
+itself. Where the cost is paid does not move at all.
 
 ## An api-only install
 
 Leave twig out and there is no `files` list at all - composer does not generate the file
-when nothing declares one. A controller that returns an array gets `Content-Type:
-application/json` and `json_encode()` from the router, so an api needs no view layer
-whatsoever:
+when nothing declares one. A controller that returns an array gets
+`Content-Type:application/json; charset=utf-8` and `json_encode()` from the router, so an
+api needs no view layer whatsoever:
 
 ```text
 $ ls vendor/composer/autoload_files.php

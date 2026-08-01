@@ -134,9 +134,9 @@ never touches it.
 
 The two roots used to be five. The chain ended with the framework's own directories and
 `BASE_PATH` so that an application could shadow a framework class by filename; nothing used
-it, and every extra root cost a failed `is_file()` on every miss. A failed stat is roughly
-50 times the cost of a successful one, because PHP caches resolved paths and never caches
-failures.
+it, and every extra root cost a failed `is_file()` on every miss. The code puts a failed
+stat at roughly 50 times the cost of a successful one, because PHP caches resolved paths
+and never caches failures.
 
 ## Sharing a module between applications
 
@@ -181,8 +181,9 @@ Which is the summary of the whole design: the shared tree is invisible to the au
 is an `InvalidArgumentException` rather than a path that quietly does not exist.
 
 Keep module names distinct across the trees you share. The loaders use `require` rather
-than `require_once`, and two modules called `Billing` in two registered paths are two
-different files with the same class name in them.
+than `require_once`, so two modules called `Billing` in two registered paths are two
+different files declaring the same class, and loading both in one request is a fatal
+`Cannot redeclare class Billing\Models\Invoice` naming the file that got there first.
 
 ## The cli picks an application the same way
 
@@ -203,19 +204,21 @@ front controller can live anywhere, but the cli looks there. See
 Each application has its own `Config/` directory, so each has its own database connections,
 its own routing and its own migrations directory.
 
-## Why not just optimise composer's classmap
+## Why the application tree stays out of composer's map
 
 Because the map is global, and a global map has one answer per class name.
 
-Adding the application tree to `composer.json` and running `composer dump-autoload -o` on
-the layout above produces exactly one entry for `Pasta\Models\Batch`. One of the two files
-wins, the dump says nothing about the other, and composer's loader runs before the
-framework's:
+Hand composer the application tree - a `classmap` rule over `src/` in the root
+`composer.json` - and both copies of `Pasta\Models\Batch` land in the same map. Composer
+says so, and then the request says nothing at all:
 
 ```text
-$ composer dump-autoload -o
-Generating optimized autoload files
-Generated optimized autoload files containing 363 classes
+$ composer dump-autoload
+Generating autoload files
+Warning: Ambiguous class resolution, "Pasta\Models\Batch" was found in both "/srv/pasta/src/Portal/Modules/Pasta/Models/Batch.php" and "/srv/pasta/src/Application/Modules/Pasta/Models/Batch.php", the first will be used.
+Warning: Ambiguous class resolution, "Pasta\Controllers\Quality" was found in both "/srv/pasta/src/Portal/Modules/Pasta/Controllers/Quality.php" and "/srv/pasta/src/Application/Modules/Pasta/Controllers/Quality.php", the first will be used.
+To resolve ambiguity in classes not under your control you can ignore them by path using exclude-from-classmap
+Generated autoload files
 
 $ php src/Application/Public/index.php /pasta/quality/index
 APP_MODULES_PATH    src/Application/Modules
@@ -223,12 +226,21 @@ Pasta\Models\Batch  src/Portal/Modules/Pasta/Models/Batch.php
 Batch::label()      customer portal
 ```
 
-The staff intranet, serving its own url, out of its own `Modules` directory, was handed the
-customer portal's model. Nothing failed and nothing warned.
+Composer warns, twice, which is more than nothing. What it cannot do is warn at the moment
+it matters: composer's loader is registered before the framework's, so the staff intranet -
+serving its own url, out of its own `Modules` directory - was handed the customer portal's
+model, and the request itself proceeded in silence.
 
-`composer dump-autoload -o` over `vendor/` and the package's own `StaticPHP\` prefix is
-fine. It is the application tree that has to stay out of composer's map when one repository
-serves several applications.
+The warning is also less reliable than it looks. Composer filters ambiguity reports by path,
+dropping any file matching `/(test|fixture|example|stub)s?/i`, so a tree whose directory
+names happen to match gets the collision without the warning.
+
+Note what did *not* cause this. There is no `-o` in that command. The trigger is the
+`classmap` rule itself, and composer rebuilds the map from it on every `composer install`,
+`composer update` and `composer dump-autoload`, optimised or not. Optimising what composer
+already owns - `vendor/` and the package's own `StaticPHP\` prefix - is fine and changes
+nothing here. It is the application tree that has to stay out of composer's map when one
+repository serves several applications.
 
 ## What it costs
 
