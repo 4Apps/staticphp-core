@@ -1,5 +1,7 @@
 [![packagist](http://img.shields.io/badge/packagist-4apps%2Fstaticphp--core-brightgreen.svg)](https://packagist.org/packages/4apps/staticphp-core)
 
+Full documentation: https://gintsmurans.github.io/staticphp-core/
+
 # StaticPHP Core
 
 The StaticPHP framework, as a library.
