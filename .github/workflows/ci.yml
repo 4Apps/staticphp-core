@@ -17,7 +17,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        # The floor is composer.json's "php": ">=8.4", which is also what the Dockerfile
+        # The floor is composer.json's "php": ">=8.4", which is also what docker/Dockerfile
         # builds; the second entry keeps us honest against the current release
         php: ['8.4', '8.5']
 
@@ -28,10 +28,11 @@ jobs:
         uses: shivammathur/setup-php@v2
         with:
           php-version: ${{ matrix.php }}
-          # intl is required by ExtendedDateTime; the rest match docker/app/Dockerfile
-          # pdo_sqlite backs the migration engine's integration tests - they run against a
-          # real database in a temp file, so no service container is needed
-          extensions: intl, mbstring, xml, zip, gd, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
+          # intl is required by ExtendedDateTime and the i18n formatter; the rest match
+          # docker/Dockerfile. pdo_sqlite backs the migration and i18n integration tests -
+          # they run against a real database in a temp file, so no service container is
+          # needed
+          extensions: intl, mbstring, xml, zip, bcmath, pdo_pgsql, pdo_mysql, pdo_sqlite
           coverage: none
 
       - name: Cache composer packages
@@ -42,47 +43,29 @@ jobs:
           restore-keys: composer-${{ matrix.php }}-
 
       - name: Install dependencies
-        run: composer install --no-interaction --no-progress --optimize-autoloader
+        run: composer install --no-interaction --no-progress
 
-      - name: Run PHP code tests
-        run: ./scripts/code_tests.bash php
+      - name: Run code tests
+        run: ./scripts/code_tests.bash
 
-  js:
-    name: JS / TS
+  # The package's whole point is that twig is optional. Nothing else proves it stays that
+  # way: the suite above installs twig as a dev dependency, so a hard reference to a Twig
+  # class would pass there and fail for an api-only consumer.
+  no-twig:
+    name: Boots without twig
     runs-on: ubuntu-latest
 
     steps:
       - uses: actions/checkout@v5
 
-      - uses: actions/setup-node@v4
+      - uses: shivammathur/setup-php@v2
         with:
-          node-version: '22'
-          cache: npm
+          php-version: '8.4'
+          extensions: intl, mbstring, xml, zip, bcmath, pdo_sqlite
+          coverage: none
 
-      - name: Install dependencies
-        run: npm ci --no-audit --no-fund
+      - name: Install without twig
+        run: composer install --no-interaction --no-progress --no-dev
 
-      - name: Run JS code tests
-        run: ./scripts/code_tests.bash js
-
-      - name: Build assets
-        run: |
-          npm run css:build
-          npx rspack build --mode production
-
-  build-info:
-    name: Build info
-    runs-on: ubuntu-latest
-
-    steps:
-      - uses: actions/checkout@v5
-        with:
-          # scripts/build_info.bash derives the patch number from the commit count, so it
-          # needs the full history - a shallow clone would silently produce version .1
-          fetch-depth: 0
-
-      - name: Generate build info
-        run: ./scripts/build_info.bash
-
-      - name: Show it
-        run: cat .build_info.json
+      - name: Boot the framework with no view engine
+        run: php scripts/boot_without_twig.php

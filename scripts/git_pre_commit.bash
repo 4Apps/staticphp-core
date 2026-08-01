@@ -1,6 +1,6 @@
 #!/bin/bash
-
-PLATFORM=`uname`
+#
+# Install with:  ln -sf ../../scripts/git_pre_commit.bash .git/hooks/pre-commit
 
 # Find base path
 BASE_PATH=$(dirname $(readlink -f "$0"))/..
@@ -8,9 +8,6 @@ BASE_PATH="`cd $BASE_PATH;pwd`"
 
 # Git stuff
 COMMIT="HEAD"
-LOCAL_BRANCH="`git name-rev --name-only HEAD`"
-TRACKING_REMOTE="`git config branch.$LOCAL_BRANCH.remote`"
-TRACKING_BRANCH="$TRACKING_REMOTE/$LOCAL_BRANCH"
 
 
 # Test non-ascii filenames
@@ -29,25 +26,14 @@ echo " Done"
 echo
 
 
-# Test for most common debug symbols
-#echo "*Testing for debug symbols.. "
-#if [ "$(git diff --cached $COMMIT | grep -P 'print_r|console\\.log')" != "" ]; then
-#    echo "!!! ERROR !!!"
-#    echo "$(git diff --cached $COMMIT | grep -P 'print_r|console\\.log')"
-#    exit 1
-#fi
-#echo " Done"
-#echo
-
-
 # Run the same checks CI runs, so a green commit means a green pipeline.
-# Asset builds used to happen here, which made every commit take 20+ seconds and put
-# generated files in the commit; that belongs in the build, not the hook.
+# There is no docker compose service to fall back on when the working copy has no vendor -
+# this is a library, and composer install is the only setup it needs.
 echo "*Running code tests.. "
 if [ -f /.dockerenv ]; then
     ./scripts/code_tests.bash
 else
-    docker compose run --rm develop /srv/app/scripts/code_tests.bash
+    docker compose run --rm --no-deps develop /srv/app/scripts/code_tests.bash
 fi
 if [ "$?" != "0" ]; then
     echo "!!! ERROR: code tests failed !!!"

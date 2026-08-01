@@ -1,47 +1,32 @@
 services:
-    # Development service
+    # Development service - mounts the working tree, so edits are visible immediately
     develop:
-        image: staticphp_develop
-        container_name: staticphp_develop
+        image: staticphp_core_develop
+        container_name: staticphp_core_develop
         restart: "no"
         build:
             context: ./
-            dockerfile: ./docker/app/Dockerfile
+            dockerfile: ./docker/Dockerfile
             target: development
             args:
                 - GIT_NAME
                 - GIT_EMAIL
+                # The container user has to own the mounted tree, or composer cannot write
+                # vendor/. Set these in .env - see .env.example.
                 - LOCAL_USER_ID
                 - LOCAL_GROUP_ID
         env_file:
-            - .env
-        ports:
-            - "5500:5000"
+            - path: .env
+              required: false
         volumes:
             - ./:/srv/app:cached
 
-    # Testing service
+    # Testing service - bakes the source in, the way CI sees it. Rebuild after edits.
     testing:
-        image: staticphp_testing
-        container_name: staticphp_testing
+        image: staticphp_core_testing
+        container_name: staticphp_core_testing
         restart: "no"
         build:
             context: ./
-            dockerfile: ./docker/app/Dockerfile
+            dockerfile: ./docker/Dockerfile
             target: testing
-        env_file:
-            - .env
-
-    # Build service
-    build:
-        image: staticphp_build
-        container_name: staticphp_build
-        restart: "no"
-        build:
-            context: ./
-            dockerfile: ./docker/app/Dockerfile
-            target: build
-        env_file:
-            - .env
-        volumes:
-            - ./:/srv/app_mounted:cached

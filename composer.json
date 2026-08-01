@@ -1,46 +1,43 @@
 {
-    "name": "4apps/staticphp",
+    "name": "4apps/staticphp-core",
     "description": "A lightweight PHP framework",
     "license": "MIT",
-    "type": "project",
+    "type": "library",
     "authors": [
         {
             "name": "Gints Murans",
             "email": "gm@gm.lv"
         }
     ],
-    "minimum-stability": "dev",
-    "prefer-stable": true,
     "require": {
         "php": ">=8.4",
         "ext-intl": "*",
         "ext-mbstring": "*",
-        "ext-pdo": "*",
-        "twig/twig": "^3.0",
-        "symfony/dotenv": "^8.0"
+        "ext-pdo": "*"
     },
     "require-dev": {
         "phpunit/phpunit": "^13.0",
-        "squizlabs/php_codesniffer": "^4.0"
+        "squizlabs/php_codesniffer": "^4.0",
+        "twig/twig": "^3.0"
+    },
+    "suggest": {
+        "twig/twig": "Template engine for the view layer. Leave it out of an api-only application - composer's files autoload is eager, so twig and the symfony polyfills it pulls in load eight files on every request whether or not a template is ever rendered."
     },
     "autoload": {
-        "classmap": [
-            "src/System",
-            "src/Application"
-        ],
-        "exclude-from-classmap": [
-            "src/System/Tests/",
-            "src/Application/Tests/"
-        ]
+        "psr-4": {
+            "StaticPHP\\": "src/"
+        }
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "StaticPHP\\Tests\\": "tests/"
+        }
     },
     "config": {
         "sort-packages": true
     },
     "scripts": {
-        "test": [
-            "@php vendor/bin/phpunit -c src/System/phpunit.xml",
-            "@php vendor/bin/phpunit -c src/Application/phpunit.xml"
-        ],
-        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src"
+        "test": "@php vendor/bin/phpunit",
+        "lint": "@php vendor/bin/phpcs --standard=phpcs.xml src tests"
     }
 }
