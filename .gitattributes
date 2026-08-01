@@ -26,3 +26,7 @@
 
 # A library's lock file pins its own dev tooling and is never consulted by a consumer
 /composer.lock     export-ignore
+
+# The docs site is a development input. A consumer that runs `composer require` fetches the
+# dist archive and has no use for it.
+/docs/             export-ignore

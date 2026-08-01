@@ -30,3 +30,17 @@ services:
             context: ./
             dockerfile: ./docker/Dockerfile
             target: testing
+
+    # Documentation site. docker/Dockerfile deliberately carries no node - a library has no
+    # assets - so the docs toolchain gets the stock node image rather than growing that one.
+    # Served at http://localhost:4321/staticphp-core/, base path included.
+    docs:
+        image: node:22-slim
+        container_name: staticphp_core_docs
+        restart: "no"
+        working_dir: /srv/docs
+        volumes:
+            - ./docs:/srv/docs:cached
+        ports:
+            - "4321:4321"
+        command: sh -c "npm install && npm run dev -- --host 0.0.0.0"

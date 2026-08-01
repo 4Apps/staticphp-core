@@ -12,6 +12,16 @@
 .phpunit.cache/
 .phpcs.cache
 
+# Documentation site build output and dependencies
+###################################################################################################
+/docs/node_modules
+/docs/dist
+/docs/.astro
+
+# Design notes and scratch work, kept locally rather than in the package
+###################################################################################################
+/specs/
+
 # OS generated files
 ###################################################################################################
 .DS_Store
