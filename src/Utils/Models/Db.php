@@ -317,6 +317,31 @@ class Db
     }
 
     /**
+     * Fetch the rows a condition matches, using the same $where shape as update and delete.
+     *
+     * The audit trail needs to read the rows an update is about to change, and it has to
+     * resolve the condition exactly as the update will - a second implementation that
+     * drifts would audit different rows than it wrote.
+     *
+     * @example Db::select('posts', ['id' => 2]);
+     *          will make and run query: SELECT * FROM posts WHERE id = 2.
+     * @access public
+     * @static
+     * @param  string $table
+     * @param  mixed  $where   Conditions, as accepted by update() and delete()
+     * @param  string $columns (default: '*') Column list, concatenated as given
+     * @param  string $name    (default: 'default')
+     * @return list<mixed> Returns array of arrays or objects containing all matched rows.
+     */
+    public static function select(string $table, mixed $where, string $columns = '*', string $name = 'default'): array
+    {
+        $params = [];
+        $cond = self::buildWhere($where, $name, $params);
+
+        return self::fetchAll("SELECT {$columns} FROM {$table} {$cond};", $params, $name);
+    }
+
+    /**
      * Operators accepted in a condition key, e.g. ['age >' => 18].
      *
      * Conditions are built by string concatenation, so the operator can never come from
