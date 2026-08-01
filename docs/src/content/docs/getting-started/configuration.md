@@ -1,0 +1,187 @@
+---
+title: Configuration
+description: How Config is populated and read, and the configuration each subsystem expects.
+sidebar:
+    order: 3
+---
+
+Configuration is one flat array of values, `StaticPHP\Core\Models\Config::$items`, filled
+by plain php files that assign into `$config`.
+
+## Where the values come from
+
+The bootstrap loads two files from the application before anything else happens:
+
+```php
+<?php
+
+Config::load(['Config', 'Routing']);
+```
+
+With no module or project named, that resolves to `APP_PATH/Config/Config.php` and
+`APP_PATH/Config/Routing.php`. Both are ordinary php files. `Load::config()` binds
+`Config::$items` and the local `$config` to the same array, so assigning to `$config`
+inside a config file is assigning to `Config::$items`.
+
+A minimal `Config/Config.php` that boots and serves a request:
+
+```php
+<?php
+
+$config['base_url'] = 'http://localhost/';
+$config['disable_twig'] = false;
+$config['environment'] = 'prod';
+$config['debug'] = false;
+$config['debug_ips'] = [];
+$config['allowed_hosts'] = [];
+$config['view_env_keys'] = [];
+$config['url_prefixes'] = [];
+$config['module_paths'] = [];
+$config['autoload_configs'] = [];
+$config['autoload_helpers'] = [];
+$config['before_controller'] = [];
+$config['error_pages'] = ['status' => null, 'debug' => null];
+$config['request_uri'] = & $_SERVER['REQUEST_URI'];
+$config['query_string'] = & $_SERVER['QUERY_STRING'];
+$config['script_name'] = & $_SERVER['SCRIPT_NAME'];
+$config['client_ip'] = & $_SERVER['REMOTE_ADDR'];
+```
+
+The last four are bound by reference on purpose: the cli entry points rewrite `$_SERVER`
+to describe the url they were asked to serve, and the configuration has to follow.
+
+`Routing.php` is covered in [your first route](/staticphp-core/getting-started/first-route/).
+
+## Reading and writing
+
+Everything is static. The full public surface of `Config`:
+
+```php
+<?php
+
+public static array $items = [];
+
+public static function &get(string $name, mixed $default = null): mixed;
+public static function set(string $name, mixed $value): void;
+
+public static function &getViewData(string $name, mixed $default = null): mixed;
+public static function setViewData(string|array $name, mixed $value = null): void;
+
+public static function merge(string $name, mixed $value, bool $owerwrite = true): mixed;
+public static function load(array $files, ?string $module = null, ?string $project = null): void;
+```
+
+Some details worth knowing before you rely on them:
+
+-   `get()` returns by reference, and decides with `isset()`. A key whose value is `null`
+    is therefore indistinguishable from a missing key: both return `$default`.
+-   `getViewData()` and `setViewData()` read and write `Config::$items['view_data']`, which
+    is the array merged into the data of every rendered view. `setViewData()` also accepts
+    an array, in which case it sets each key and ignores `$value`.
+-   `merge()` behaves by the type of what is already stored: arrays are merged with
+    `array_merge()`, or with `+` when `$owerwrite` is false; objects are cast to arrays,
+    merged and cast back; integers and floats are added; anything else is concatenated as a
+    string. The parameter really is spelled `$owerwrite`, which matters if you pass it by
+    name.
+-   Nested keys have no special support. `$config['db']['pdo']['default']` is a plain
+    nested array reached as `Config::get('db')['pdo']['default']`.
+
+## Loading more config files
+
+`Config::load()` takes file names without the `.php` extension, and optionally a module and
+a project:
+
+```php
+<?php
+
+// APP_PATH/Config/Mail.php
+Config::load(['Mail']);
+
+// APP_MODULES_PATH/Billing/Config/Rates.php
+Config::load(['Rates'], 'Billing');
+
+// SP_PATH/Utils/Config/Db.php - "staticphp" is the reserved name for the package itself
+Config::load(['Db'], 'Utils', 'staticphp');
+```
+
+Any other project name must be a key of `$config['module_paths']`, which maps a name to a
+directory holding modules; an unknown name throws an `InvalidArgumentException`, and so
+does naming a project without a module, because module paths point at a directory of
+modules rather than at a file. A file name may also carry its own project as a string key,
+so `Config::load(['Db' => 'staticphp'], 'Utils')` is the same call as the third one above.
+
+Instead of calling `load()` by hand, list the files in `$config['autoload_configs']` and
+the bootstrap loads them for you, after `debug` has been worked out and before the error
+handlers are registered. Entries are slash separated and read right to left:
+
+| Entry                  | Loads                                     |
+| ---------------------- | ----------------------------------------- |
+| `Mail`                 | `APP_PATH/Config/Mail.php`                |
+| `Billing/Rates`        | `APP_MODULES_PATH/Billing/Config/Rates.php` |
+| `staticphp/Utils/Db`   | `SP_PATH/Utils/Config/Db.php`             |
+
+## The configuration each subsystem expects
+
+Four subsystems come with a default configuration file in `src/Utils/Config/`. They are
+ordinary config files, not classes: each one assigns the keys its subsystem reads, with
+values that make sense as a starting point. Load one with
+`$config['autoload_configs'][] = 'staticphp/Utils/<name>'`, or copy it into the
+application's own `Config/` directory and edit it there.
+
+### Db
+
+Populates `$config['db']['pdo']`, keyed by connection name, with `default` as the shipped
+entry. Each entry holds the PDO connection string, `username`, `password`, `charset`,
+`persistent`, `wrap_column`, `fetch_mode_objects`, `emulate_prepares` and `debug`. The
+shipped file sets `debug` from `$config['debug']`, which is why it has to be loaded after
+the application's own `Config.php` - the bootstrap's ordering already guarantees that.
+See [the database layer](/staticphp-core/database/db/).
+
+### Cache
+
+Populates `$config['cache']` with one section per backend: `redis`, `memcached`, `apcu` and
+`files`. Every section takes a `prefix`; the rest is backend specific - hostname, port,
+database and timeout for redis, a server list for memcached, and a path, extension and
+directory nesting for the file backend. See [caching](/staticphp-core/utilities/cache/).
+
+### i18n
+
+Populates `$config['i18n']`: the countries and languages the site serves, the url format
+that identifies them, and the switches for redirecting, negotiating, auto-registering
+missing keys, falling back, caching warmed language tables and naming the database tables.
+It also derives the language prefixes from the country list and prepends them to
+`$config['url_prefixes']`, so the router recognises `/lv-en/...` as a prefix rather than as
+the first controller segment. See [internationalisation](/staticphp-core/i18n/overview/).
+
+### Migrations
+
+Populates `$config['migrations']` with three keys: `dir`, the directory the `.sql` files
+live in, kept outside `Public/` deliberately; `table`, the tracking table; and
+`connection`, naming which entry of `$config['db']['pdo']` to migrate.
+
+## Keys the framework reads
+
+Beyond the subsystem sections above, these are the keys the package itself looks at:
+
+| Key                                          | Read by                                                     |
+| -------------------------------------------- | ----------------------------------------------------------- |
+| `base_url`, `request_uri`, `script_name`      | `Router::splitSegments()`, to work out the url and segments |
+| `routing`                                     | `Router`, for the rewrite rules and the default route       |
+| `url_prefixes`                                | `Router::splitSegments()`, stripped off before routing      |
+| `allowed_hosts`                               | `Router::validateHost()`; empty means syntax check only     |
+| `debug`, `debug_ips`, `client_ip`             | the bootstrap, to decide whether debug is on                |
+| `autoload_configs`, `autoload_helpers`        | the bootstrap                                               |
+| `before_controller`                           | `Router::loadController()`, called before the controller    |
+| `module_paths`                                | `Load`, to resolve a project name to a directory            |
+| `disable_twig`                                | the bootstrap, to skip building the view engine             |
+| `error_pages`                                 | `ErrorPage`, to override the status and debug templates     |
+| `view_env_keys`                               | `Load`, the only `$_ENV` keys exposed to templates          |
+| `view_data`                                   | `Load::view()`, merged into every view's data               |
+| `logging.log_level`, `logging.report_level`   | the error handlers, to decide what is logged and emailed    |
+| `environment`                                 | the debug error page, shown in the runtime summary          |
+
+The bootstrap writes `now`, `date_time`, `debug`, and - when twig is in use - `view_engine`
+and `view_loader` back into the same array.
+
+`query_string` in the sample above is bound for the application's convenience; the router
+derives `Router::$query_string` from the request uri itself rather than reading it.
