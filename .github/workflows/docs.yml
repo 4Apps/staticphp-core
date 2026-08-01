@@ -1,0 +1,63 @@
+name: Docs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A cancelled deployment can leave the Pages environment holding a lock, so deployments
+# queue rather than pre-empt each other. This is the one workflow here that does not set
+# cancel-in-progress: true.
+concurrency:
+  group: pages
+  cancel-in-progress: false
+
+jobs:
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # starlight-links-validator runs as part of the build, so a broken internal link
+      # fails here rather than shipping as a 404.
+      - name: Build the site
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          # Relative to the workspace, not to the job's working-directory
+          path: docs/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4
