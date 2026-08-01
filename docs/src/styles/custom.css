@@ -1,1 +1,24 @@
-/* Theme tokens land here in Task 3. */
+/* Violet accent, hue ~255. It nods at PHP's purple without inheriting the muddy #4F5B93
+   itself. Each theme needs its own scale: -low is a background tint and -high is text, so
+   the two swap roles between light and dark rather than simply inverting. */
+:root {
+    --sl-color-accent-low: #2b1f60;
+    --sl-color-accent: #8c66ff;
+    --sl-color-accent-high: #cdc2ff;
+
+    --sl-font: 'Inter Variable', ui-sans-serif, system-ui, sans-serif;
+    --sl-font-mono: 'JetBrains Mono', ui-monospace, monospace;
+}
+
+:root[data-theme='light'] {
+    --sl-color-accent-low: #e3ddff;
+    --sl-color-accent: #6340e0;
+    --sl-color-accent-high: #2c1b73;
+}
+
+/* Starlight's defaults are generous. Pulling the sidebar and the content column in is what
+   moves the feel toward the density of Cloudflare's docs, which is the reference here. */
+:root {
+    --sl-sidebar-width: 17rem;
+    --sl-content-width: 48rem;
+}
