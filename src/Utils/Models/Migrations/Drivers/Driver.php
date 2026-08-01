@@ -19,7 +19,8 @@ class Driver
      */
     public static function forPdo(PDO $pdo, ?string $dsn = null): DriverInterface
     {
-        $name = (string) $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $name = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $name = (is_string($name) ? $name : '');
 
         return match ($name) {
             'pgsql' => new PostgresDriver(),

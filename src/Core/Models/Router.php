@@ -421,7 +421,7 @@ class Router
      * @static
      * @return void
      */
-    public static function error($http_error_code, $error_string = '', $description = '')
+    public static function error($http_error_code, $error_string = '', $description = ''): void
     {
         // Delegate to ErrorMessage so there is exactly one place that emits a status line
         // and one place that decides the output format. Previously this method sent its
@@ -444,7 +444,7 @@ class Router
             publicDescription: true
         );
 
-        $error->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);
+        $error->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type ?? RequestContentType::HTML), true);
 
         exit(10);
     }
@@ -580,10 +580,29 @@ class Router
      *
      * @return string
      */
+    /**
+     * A $_SERVER entry as text.
+     *
+     * The sapi decides what goes in $_SERVER, so every entry is a mixed. Everything here
+     * compares them as strings, and a non-string entry is treated as absent.
+     *
+     * @access private
+     * @static
+     * @param  string $name
+     * @param  string $default
+     * @return string
+     */
+    private static function server(string $name, string $default = ''): string
+    {
+        $value = $_SERVER[$name] ?? null;
+
+        return (is_string($value) ? $value : $default);
+    }
+
     public static function validateHost(string $host): string
     {
         $host = strtolower(trim($host));
-        $allowed = array_map('strtolower', (array) Config::get('allowed_hosts', []));
+        $allowed = array_map(strtolower(...), array_filter(Config::getArray('allowed_hosts'), is_string(...)));
 
         if (!empty($allowed)) {
             if (in_array($host, $allowed, true) === false) {
@@ -622,7 +641,7 @@ class Router
      */
     public static function forwardedHeader(string $name): ?string
     {
-        if (empty(Config::get('trust_proxy_headers', false))) {
+        if (Config::getBool('trust_proxy_headers') === false) {
             return null;
         }
 
@@ -630,7 +649,7 @@ class Router
         // That is right for the headers describing the request itself - a proxy sets
         // X-Forwarded-Proto outright - but not for X-Forwarded-For, whose leftmost entry
         // the client supplies; clientIp() counts from the other end for that reason.
-        $value = trim(explode(',', (string) ($_SERVER[$name] ?? ''))[0]);
+        $value = trim(explode(',', self::server($name))[0]);
 
         return $value === '' ? null : $value;
     }
@@ -659,14 +678,14 @@ class Router
      */
     public static function clientIp(): ?string
     {
-        $remote = self::validateIp((string) ($_SERVER['REMOTE_ADDR'] ?? ''));
+        $remote = self::validateIp(self::server('REMOTE_ADDR'));
 
-        if (empty(Config::get('trust_proxy_headers', false))) {
+        if (Config::getBool('trust_proxy_headers') === false) {
             return $remote;
         }
 
         $entries = array_values(array_filter(
-            array_map('trim', explode(',', (string) ($_SERVER['HTTP_X_FORWARDED_FOR'] ?? ''))),
+            array_map('trim', explode(',', self::server('HTTP_X_FORWARDED_FOR'))),
             fn(string $entry): bool => $entry !== ''
         ));
 
@@ -674,7 +693,7 @@ class Router
             return $remote;
         }
 
-        $hops = (int) Config::get('trusted_proxy_hops', 1);
+        $hops = Config::getInt('trusted_proxy_hops', 1);
         if ($hops < 1) {
             $hops = 1;
         }
@@ -744,7 +763,7 @@ class Router
         // php sets HTTPS to "a non-empty value" rather than to "on" specifically: apache
         // and nginx say "on", but iis says "off" for a plain request and some setups say
         // "1". Testing for "on" alone read those last as plain http
-        $https = strtolower((string) ($_SERVER['HTTPS'] ?? ''));
+        $https = strtolower(self::server('HTTPS'));
         if ($https !== '' && $https !== 'off') {
             return true;
         }
@@ -752,7 +771,7 @@ class Router
         // Last resort for a server that terminates tls without setting HTTPS at all. Only
         // reached when no trusted proxy spoke, so SERVER_PORT is the port the client
         // actually connected to
-        return ((string) ($_SERVER['SERVER_PORT'] ?? '')) === '443';
+        return (self::server('SERVER_PORT')) === '443';
     }
 
     /**
@@ -847,7 +866,14 @@ class Router
      * @access public
      * @static
      *
-     * @return array|bool
+     * @return array{
+     *     module: string,
+     *     method: string,
+     *     class: string,
+     *     controller: string,
+     *     file: string,
+     *     namespace: string
+     * }|false
      *                    An array of string objects:
      *                    <ul>
      *                    <li>'method' - method to be called</li>
@@ -865,10 +891,11 @@ class Router
             return false;
         }
 
-        // Get class, method and file from $url
-        $data['module'] = array_shift($tmp);
-        $data['method'] = array_pop($tmp);
-        $data['class'] = end($tmp);
+        // Get class, method and file from $url. The count check above guarantees each of
+        // these finds something; the coercions keep the declared shape honest anyway.
+        $data['module'] = (string) array_shift($tmp);
+        $data['method'] = (string) array_pop($tmp);
+        $data['class'] = (string) end($tmp);
         $data['controller'] = implode('/', $tmp);
         $data['file'] = $data['module'] . '/Controllers/' . $data['controller'];
         $data['namespace'] = $data['module'] . '\\Controllers';
@@ -906,7 +933,7 @@ class Router
      */
     public static function namespaceToUrl(string $namespace): string
     {
-        $url = preg_replace('/(?<!\/|^)([A-Z])/', '-$1', $namespace);
+        $url = (string) preg_replace('/(?<!\/|^)([A-Z])/', '-$1', $namespace);
         $url = strtolower($url);
 
         return $url;
@@ -929,7 +956,7 @@ class Router
      * @static
      * @return void
      */
-    public static function init()
+    public static function init(): void
     {
         self::populatePostFromJson();
 
@@ -943,7 +970,7 @@ class Router
         } catch (ErrorMessage $e) {
             // Client faults - 4xx. Rendered, but deliberately not logged or emailed: a
             // crawler walking dead urls must not page anyone.
-            $e->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);
+            $e->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type ?? RequestContentType::HTML), true);
         } catch (Throwable $e) {
             // Anything else is our fault until proven otherwise
             $msg = new ErrorMessage(
@@ -960,7 +987,7 @@ class Router
                 httpStatusCode: 500,
                 showStackTrace: true
             );
-            $msg->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);
+            $msg->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type ?? RequestContentType::HTML), true);
 
             // sp_logging_level() rather than the array directly: an application is not
             // obliged to configure logging, and a missing key here would raise its own
@@ -980,21 +1007,22 @@ class Router
      *
      * @return void
      */
-    public static function populatePostFromJson()
+    public static function populatePostFromJson(): void
     {
-        $contentType = (isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '');
+        $contentType = trim(self::server('CONTENT_TYPE'));
 
         // The response format may fall back to Accept, but the request body must not.
         // "application/json" is not a CORS-safelisted content type, so requiring it here
         // means a cross origin request carrying a body has to pass a preflight first.
         // Accept is safelisted, so honouring it would let any site post JSON into $_POST.
-        $acceptType = (isset($_SERVER["HTTP_ACCEPT"]) ? trim($_SERVER["HTTP_ACCEPT"]) : '');
+        $acceptType = trim(self::server('HTTP_ACCEPT'));
         self::$request_content_type = RequestContentType::fromString(
             empty($contentType) ? $acceptType : $contentType
         );
 
         if ($contentType === RequestContentType::JSON->value) {
-            $jsonStr = file_get_contents('php://input');
+            // A body that cannot be read is an empty one, not a fatal
+            $jsonStr = (string) file_get_contents('php://input');
             $jsonArr = json_decode($jsonStr, true);
 
             if (json_last_error() === JSON_ERROR_NONE && is_array($jsonArr)) {
@@ -1023,16 +1051,16 @@ class Router
         }
 
         // Get some config variables
-        $uri = Config::$items['request_uri'];
-        $script_name = Config::$items['script_name'];
+        $uri = Config::getString('request_uri');
+        $script_name = Config::getString('script_name');
         $script_path = trim(dirname($script_name), '/.');
-        self::$base_url = Config::$items['base_url'];
+        self::$base_url = Config::getString('base_url');
         self::$requested_url = $uri;
 
         // Set some variables
         if (empty(self::$base_url) && !empty($_SERVER['HTTP_HOST'])) {
             $https = self::requestIsSecure();
-            $host = self::validateHost($_SERVER['HTTP_HOST']);
+            $host = self::validateHost(self::server('HTTP_HOST'));
             self::$domain_url = 'http' . (empty($https) ? '' : 's') . '://' . $host;
 
             // The port the client connected to, which is not the one this process listens
@@ -1051,7 +1079,7 @@ class Router
                 // safe assumption
                 $port = self::forwardedHeader('HTTP_X_FORWARDED_PROTO') !== null
                     ? (empty($https) ? '80' : '443')
-                    : (string) ($_SERVER['SERVER_PORT'] ?? '');
+                    : self::server('SERVER_PORT');
             }
 
             // preg_match returns 0 or 1, never false, so this used to never run
@@ -1094,8 +1122,12 @@ class Router
         // Not by reference - `as $key => &$item` left $item dangling into the config
         // array afterwards, which is the classic source of the duplicated-last-element bug.
         $uri_tmp = $uri;
-        foreach (array_reverse(Config::$items['routing'], true) as $key => $item) {
+        foreach (array_reverse(Config::getArray('routing'), true) as $key => $item) {
             if (empty($key) || empty($item)) {
+                continue;
+            }
+
+            if (is_string($key) === false || is_string($item) === false) {
                 continue;
             }
 
@@ -1119,7 +1151,11 @@ class Router
         }
 
         // Get URL prefixes
-        foreach (Config::$items['url_prefixes'] as $item) {
+        foreach (Config::getArray('url_prefixes') as $item) {
+            if (is_string($item) === false) {
+                continue;
+            }
+
             if (isset(self::$segments[0]) && self::$segments[0] == $item) {
                 array_shift(self::$segments);
                 self::$prefixes[$item] = $item;
@@ -1256,15 +1292,16 @@ class Router
     public static function findController(): void
     {
         // Get default controller, class and method
-        if (!isset(Config::$items['routing'][''])) {
+        $defaultRoute = Config::getArray('routing')[''] ?? null;
+        if (is_string($defaultRoute) === false || $defaultRoute === '') {
             throw new RouterException("Missing default routing configuration: \$config['routing'][''].");
         }
 
-        $tmp = self::urlToFile(Config::$items['routing']['']);
+        $tmp = self::urlToFile($defaultRoute);
         if ($tmp === false) {
             throw new RouterException(
                 "Error in default routing configuration. Should be: module/class/method, instead found: "
-                    . Config::$items['routing']['']
+                    . $defaultRoute
             );
         }
 
@@ -1285,8 +1322,12 @@ class Router
             self::findControllerInSegments();
 
             if (empty(self::$file)) {
-                // If there is still no file found, try same filename as last segment
-                self::$segments[] = end(self::$segments);
+                // If there is still no file found, try same filename as last segment.
+                // end() reports false on an empty list, which would append a bool.
+                $lastSegment = end(self::$segments);
+                if ($lastSegment !== false) {
+                    self::$segments[] = $lastSegment;
+                }
 
                 self::findControllerInSegments();
             }
@@ -1294,7 +1335,7 @@ class Router
             if (empty(self::$file)) {
                 // Add default controller to see whether last argument is a folder and we should load default controller
                 // from this folder
-                self::$segments[count(self::$segments) - 1] = self::$class;
+                self::$segments[count(self::$segments) - 1] = (string) self::$class;
 
                 self::findControllerInSegments();
             }
@@ -1314,7 +1355,7 @@ class Router
             }
         }
         self::$controller_url = dirname("{$methodUrl}safe");
-        self::$module_url = strtolower(preg_replace('/(.)([A-Z])/', '$1-$2', Router::$module));
+        self::$module_url = strtolower((string) preg_replace('/(.)([A-Z])/', '$1-$2', (string) Router::$module));
     }
 
     /**
@@ -1366,8 +1407,8 @@ class Router
         }
 
         // Load pre controller hook
-        if (!empty(Config::$items['before_controller'])) {
-            foreach (Config::$items['before_controller'] as $tmp) {
+        foreach (Config::getArray('before_controller') as $tmp) {
+            if (is_callable($tmp)) {
                 call_user_func_array($tmp, [&$file, &$module, &$class, &$method]);
             }
         }
@@ -1397,14 +1438,15 @@ class Router
             // Namespaces support
             $class = $namespace . '\\' . $class;
 
-            // Create new reflection object from the controller class
-            try {
-                $ref = new \ReflectionClass($class);
-            } catch (\Exception $e) {
+            // The file was loaded, so the class it was named for should now be declared
+            if (class_exists($class) === false) {
                 throw new RouterException(
                     'File "' . $file . '" was loaded, but the class ' . $class . ' could NOT be found'
                 );
             }
+
+            // Create new reflection object from the controller class
+            $ref = new \ReflectionClass($class);
 
             // Call our contructor, if there is any
             $response = null;
@@ -1438,12 +1480,13 @@ class Router
                 $add_default_method = (bool)$ref->getStaticPropertyValue('add_default_method_to_parameters', false);
                 if (
                     $add_method === true
-                    && ($add_default_method === true || $method !== self::$default_route['method'])
+                    && ($add_default_method === true || $method !== (self::$default_route['method'] ?? null))
                 ) {
                     array_unshift($arguments, $method);
                 }
 
-                $pad_args = (int)$ref->getStaticPropertyValue('pad_call_static_parameters', 0);
+                $padArgsValue = $ref->getStaticPropertyValue('pad_call_static_parameters', 0);
+                $pad_args = (is_numeric($padArgsValue) ? (int) $padArgsValue : 0);
                 $pad_value = $ref->getStaticPropertyValue('pad_call_static_default_value', null);
                 if ($pad_args > 0 && count($arguments) < $pad_args) {
                     $arguments = array_pad($arguments, $pad_args, $pad_value);
@@ -1473,8 +1516,8 @@ class Router
                         );
                     }
                     $response = array_merge($response, $method_response);
-                } else {
-                    $response .= $method_response;
+                } elseif (is_scalar($response) && is_scalar($method_response)) {
+                    $response = ((string) $response) . ((string) $method_response);
                 }
             }
 
@@ -1484,7 +1527,8 @@ class Router
                     header('Content-Type:application/json; charset=utf-8');
                     echo json_encode($response);
                 } elseif ($response instanceof ErrorMessage) {
-                    echo $response->outputMessage();
+                    // Writes the response itself rather than returning it
+                    $response->outputMessage();
                 } elseif (is_string($response) || is_numeric($response)) {
                     echo $response;
                 }
@@ -1497,8 +1541,9 @@ class Router
         } elseif (empty(self::$requested_url)) {
             // No url at all means the *default* controller is missing, which is a
             // configuration fault on our side - a genuine 500
+            $configured = Config::getArray('routing')[''] ?? '';
             throw new RouterException(
-                'Default controller was not found: "' . Config::$items['routing'][''] . '"'
+                'Default controller was not found: "' . (is_string($configured) ? $configured : '') . '"'
             );
         } else {
             // The request simply did not resolve to anything. That is the client's

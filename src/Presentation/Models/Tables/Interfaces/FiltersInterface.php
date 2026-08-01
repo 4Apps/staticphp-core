@@ -14,9 +14,13 @@ interface FiltersInterface
 
     public function filterData(): string;
 
+    /**
+     * @return array<string, array<string, mixed>>
+     */
     public function parsedData(): array;
+
     public function hasFilter(string $key): bool;
-    public function filterValue(string $key);
+    public function filterValue(string $key): mixed;
 
     public function parse(?string $filterData = null, ?\Closure $callback = null): void;
 }

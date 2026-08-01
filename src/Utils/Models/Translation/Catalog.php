@@ -145,7 +145,7 @@ final class Catalog
 
             $strings = include $file;
 
-            return is_array($strings) === true ? $strings : null;
+            return (is_array($strings) ? self::normalise($strings) : null);
         }
 
         try {
@@ -156,7 +156,25 @@ final class Catalog
             return null;
         }
 
-        return is_array($strings) === true ? $strings : null;
+        return (is_array($strings) ? self::normalise($strings) : null);
+    }
+
+    /**
+     * Normalise whatever came back from the cache or the include to the catalog's shape.
+     *
+     * @access private
+     * @static
+     * @param  array<mixed, mixed> $strings
+     * @return array<string, ?string>
+     */
+    private static function normalise(array $strings): array
+    {
+        $normalised = [];
+        foreach ($strings as $key => $value) {
+            $normalised[(string) $key] = (is_string($value) ? $value : null);
+        }
+
+        return $normalised;
     }
 
     /**

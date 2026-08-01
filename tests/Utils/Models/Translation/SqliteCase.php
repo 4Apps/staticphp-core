@@ -24,6 +24,7 @@ abstract class SqliteCase extends TestCase
     protected Store $store;
     protected Catalog $catalog;
     protected Locales $locales;
+    /** @var list<string> */
     protected array $lines = [];
 
     /**
@@ -67,7 +68,7 @@ abstract class SqliteCase extends TestCase
     }
 
     /**
-     * @return array Contents of config['i18n'] the tests run against
+     * @return array<string, mixed> Contents of config['i18n'] the tests run against
      */
     protected function config(): array
     {
@@ -95,8 +96,12 @@ abstract class SqliteCase extends TestCase
 
     protected function rowCount(string $table): int
     {
-        return (int) Db::query("SELECT COUNT(*) AS total FROM {$table}", [], $this->connection)
-            ->fetch(PDO::FETCH_ASSOC)['total'];
+        $row = Db::query("SELECT COUNT(*) AS total FROM {$table}", [], $this->connection)
+            ->fetch(PDO::FETCH_ASSOC);
+
+        $this->assertIsArray($row);
+
+        return (is_numeric($row['total']) ? (int) $row['total'] : 0);
     }
 
     protected function value(string $key, string $languageKey): ?string
@@ -109,7 +114,11 @@ abstract class SqliteCase extends TestCase
             $this->connection
         )->fetch(PDO::FETCH_ASSOC);
 
-        return $row === false ? null : $row['translation'];
+        if (is_array($row) === false) {
+            return null;
+        }
+
+        return (is_string($row['translation']) ? $row['translation'] : null);
     }
 
     protected function collect(): callable

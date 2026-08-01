@@ -17,30 +17,30 @@ class ErrorMessageTest extends TestCase
 {
     private const PAYLOAD = '<img src=x onerror=alert(1)>';
 
-    public function testHtmlOutputEscapesTheMessage()
+    public function testHtmlOutputEscapesTheMessage(): void
     {
         $error = new ErrorMessage(message: self::PAYLOAD, httpStatusCode: 200);
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_HTML, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $this->assertStringNotContainsString('<img', $output);
         $this->assertStringContainsString('&lt;img', $output);
     }
 
-    public function testHtmlOutputEscapesTheDescription()
+    public function testHtmlOutputEscapesTheDescription(): void
     {
         $error = new ErrorMessage(message: 'msg', description: self::PAYLOAD, httpStatusCode: 200);
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_HTML, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $this->assertStringNotContainsString('<img', $output);
     }
 
-    public function testHtmlOutputStillTurnsNewlinesIntoBreaks()
+    public function testHtmlOutputStillTurnsNewlinesIntoBreaks(): void
     {
         $error = new ErrorMessage(
             message: 'msg',
@@ -51,7 +51,7 @@ class ErrorMessageTest extends TestCase
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_HTML, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $this->assertMatchesRegularExpression('/line one<br\s*\/?>\s*\nline two/', $output);
     }
@@ -61,7 +61,7 @@ class ErrorMessageTest extends TestCase
      * carries "Method x of class Y could not be found". With debug off those are internal
      * detail, whatever format the client asked for.
      */
-    public function testDescriptionsAreWithheldUnlessTheThrowerPublishesThem()
+    public function testDescriptionsAreWithheldUnlessTheThrowerPublishesThem(): void
     {
         $description = 'Method "wire" of class "Payments" could not be found';
 
@@ -77,13 +77,13 @@ class ErrorMessageTest extends TestCase
 
             ob_start();
             $error->outputMessage($outputType, false);
-            $output = ob_get_clean();
+            $output = (string) ob_get_clean();
 
             $this->assertStringNotContainsString('Payments', $output, $outputType);
         }
     }
 
-    public function testAPublishedDescriptionIsShown()
+    public function testAPublishedDescriptionIsShown(): void
     {
         $error = new ErrorMessage(
             message: 'Not Found',
@@ -94,12 +94,12 @@ class ErrorMessageTest extends TestCase
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_PLAIN, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $this->assertStringContainsString('That invoice has been archived.', $output);
     }
 
-    public function testTheStatusPageCarriesNeitherTheMessageNorTheDescription()
+    public function testTheStatusPageCarriesNeitherTheMessageNorTheDescription(): void
     {
         $error = new ErrorMessage(
             message: 'Not Found',
@@ -109,7 +109,7 @@ class ErrorMessageTest extends TestCase
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_HTML, true);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $this->assertStringStartsWith('<!DOCTYPE html>', $output);
         $this->assertStringContainsString('404', $output);
@@ -117,19 +117,19 @@ class ErrorMessageTest extends TestCase
         $this->assertStringNotContainsString('ErrorMessage', $output);
     }
 
-    public function testXmlOutputEscapesTheMessage()
+    public function testXmlOutputEscapesTheMessage(): void
     {
         $error = new ErrorMessage(message: self::PAYLOAD, httpStatusCode: 200);
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_XML, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $this->assertStringNotContainsString('<img', $output);
         $this->assertStringContainsString('&lt;img', $output);
     }
 
-    public function testXmlOutputRemainsWellFormed()
+    public function testXmlOutputRemainsWellFormed(): void
     {
         $error = new ErrorMessage(
             message: 'a & b <tag>',
@@ -139,7 +139,7 @@ class ErrorMessageTest extends TestCase
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_XML, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $previous = libxml_use_internal_errors(true);
         $document = simplexml_load_string($output);
@@ -149,27 +149,28 @@ class ErrorMessageTest extends TestCase
         $this->assertEquals('a & b <tag>', (string) $document->Text);
     }
 
-    public function testJsonOutputIsEncoded()
+    public function testJsonOutputIsEncoded(): void
     {
         $error = new ErrorMessage(message: self::PAYLOAD, httpStatusCode: 200);
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_JSON, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         $decoded = json_decode($output, true);
 
         $this->assertIsArray($decoded);
+        $this->assertIsArray($decoded['msg']);
         $this->assertEquals(self::PAYLOAD, $decoded['msg']['text']);
     }
 
-    public function testPlainOutputIsNotMarkup()
+    public function testPlainOutputIsNotMarkup(): void
     {
         $error = new ErrorMessage(message: self::PAYLOAD, httpStatusCode: 200);
 
         ob_start();
         $error->outputMessage(ErrorMessage::OUTPUT_TYPE_PLAIN, false);
-        $output = ob_get_clean();
+        $output = (string) ob_get_clean();
 
         // text/plain is not parsed as html, so the payload is inert and passes through
         $this->assertStringContainsString(self::PAYLOAD, $output);
@@ -179,7 +180,7 @@ class ErrorMessageTest extends TestCase
     | Status codes
     */
 
-    public function testThrownErrorMessageDefaultsTo500()
+    public function testThrownErrorMessageDefaultsTo500(): void
     {
         // Defaulting to 200 meant an error page was served under a success status
         $error = new ErrorMessage('something broke');
@@ -187,7 +188,7 @@ class ErrorMessageTest extends TestCase
         $this->assertEquals(500, $error->httpStatusCode);
     }
 
-    public function testNotFoundCarriesA404AndItsMessage()
+    public function testNotFoundCarriesA404AndItsMessage(): void
     {
         $error = new NotFound('Not Found', 'no controller for /x');
 
@@ -197,27 +198,39 @@ class ErrorMessageTest extends TestCase
         $this->assertEquals('Not Found', $error->httpStatusMessage);
     }
 
-    public function testForbiddenCarriesA403()
+    public function testForbiddenCarriesA403(): void
     {
         $this->assertEquals(403, (new Forbidden())->httpStatusCode);
     }
 
-    public function testBadRequestCarriesA400()
+    public function testBadRequestCarriesA400(): void
     {
         $this->assertEquals(400, (new BadRequest())->httpStatusCode);
     }
 
-    public function testClientFaultsAreErrorMessagesSoTheyAreNotLogged()
+    public function testClientFaultsAreErrorMessagesSoTheyAreNotLogged(): void
     {
         // Router::init() renders ErrorMessage subclasses without logging or emailing, and
         // sends everything else down the 500-plus-alert path. That split is what keeps a
         // crawler on dead urls from paging someone, so it is worth pinning.
-        $this->assertInstanceOf(ErrorMessage::class, new NotFound());
-        $this->assertInstanceOf(ErrorMessage::class, new Forbidden());
-        $this->assertInstanceOf(ErrorMessage::class, new BadRequest());
+        // Naming the three would only restate what php already enforces. What can actually
+        // regress is a NEW class landing in the directory without extending ErrorMessage,
+        // so the whole directory is walked instead.
+        $files = glob(SP_PATH . '/Core/Exceptions/ErrorMessage/*.php');
+        $this->assertIsArray($files);
+        $this->assertNotEmpty($files);
+
+        foreach ($files as $file) {
+            $class = 'StaticPHP\\Core\\Exceptions\\ErrorMessage\\' . basename($file, '.php');
+
+            $this->assertTrue(
+                is_a($class, ErrorMessage::class, true),
+                "{$class} must extend ErrorMessage or it will be logged and mailed as a 500"
+            );
+        }
     }
 
-    public function testStatusCodeToMessage()
+    public function testStatusCodeToMessage(): void
     {
         $this->assertEquals('Not Found', ErrorMessage::httpStatusCodeToMessage(404));
         $this->assertEquals('Internal Server Error', ErrorMessage::httpStatusCodeToMessage(500));

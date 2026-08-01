@@ -176,7 +176,7 @@ class Commands
      */
     public function apply(bool $dryRun, ?string $to, string $appliedBy): int
     {
-        return $this->tracker->withLock(function () use ($dryRun, $to, $appliedBy) {
+        return $this->tracker->withLock(function () use ($dryRun, $to, $appliedBy): int {
             try {
                 $states = $this->loadStates();
             } catch (MigrationError $e) {
@@ -197,7 +197,7 @@ class Commands
                 $known = [];
                 foreach ($states as $state) {
                     if ($state->file !== null) {
-                        $known[$state->file->prefix] = true;
+                        $known[$state->requireFile()->prefix] = true;
                     }
                 }
 
@@ -208,7 +208,7 @@ class Commands
                 }
 
                 $queue = array_values(
-                    array_filter($queue, fn(MigrationState $state) => $state->file->prefix <= $to)
+                    array_filter($queue, fn(MigrationState $state) => $state->requireFile()->prefix <= $to)
                 );
             }
 
@@ -257,7 +257,7 @@ class Commands
     private function validateQueue(array $queue): ?string
     {
         foreach ($queue as $state) {
-            $file = $state->file;
+            $file = $state->requireFile();
 
             $meta = Discovery::findMetaCommands($file->sql);
             if ($meta !== []) {
@@ -292,7 +292,7 @@ class Commands
      */
     private function runOne(MigrationState $state, string $appliedBy): int
     {
-        $file = $state->file;
+        $file = $state->requireFile();
         $transactional = $this->tracker->driver()->supportsTransactionalDdl() && $file->noTransaction === false;
         $started = microtime(true);
 
@@ -369,7 +369,7 @@ class Commands
      */
     public function baseline(?string $to, bool $assumeYes, string $appliedBy, callable $prompt): int
     {
-        return $this->tracker->withLock(function () use ($to, $assumeYes, $appliedBy, $prompt) {
+        return $this->tracker->withLock(function () use ($to, $assumeYes, $appliedBy, $prompt): int {
             try {
                 $states = $this->loadStates();
             } catch (MigrationError $e) {
@@ -393,7 +393,7 @@ class Commands
                 $known = [];
                 foreach ($states as $state) {
                     if ($state->file !== null) {
-                        $known[$state->file->prefix] = true;
+                        $known[$state->requireFile()->prefix] = true;
                     }
                 }
 
@@ -406,7 +406,7 @@ class Commands
                 $candidates = array_values(
                     array_filter(
                         $candidates,
-                        fn(MigrationState $state) => $state->file !== null && $state->file->prefix <= $to
+                        fn(MigrationState $state) => $state->file !== null && $state->requireFile()->prefix <= $to
                     )
                 );
             }
@@ -451,7 +451,7 @@ class Commands
                         $this->tracker->forget($state->name);
                     }
 
-                    $this->tracker->record($state->name, $state->file->checksum, 0, $appliedBy);
+                    $this->tracker->record($state->name, $state->requireFile()->checksum, 0, $appliedBy);
                 }
             } catch (\Throwable $e) {
                 $this->say("error: failed to write tracking rows: {$e->getMessage()}");

@@ -14,18 +14,21 @@ use Memcached;
 
 class SessionsMemcached extends Sessions
 {
-    private $memcached = null;
+    private Memcached $memcached;
 
     /**
-     * @param array $servers List of servers. Example: [[127.0.0.1, 112211], [192.168.1.10, 112211]]
+     * @param list<array{0: string, 1: int}> $servers List of servers.
+     *        Example: [[127.0.0.1, 112211], [192.168.1.10, 112211]]
      */
     public function __construct(
         array $servers,
         ?string $persistentId = null,
-        $sessionName = 'SMC',
+        string $sessionName = 'SMC',
         ?Sessions $backupHandler = null
     ) {
-        $this->memcached = new Memcached($persistentId);
+        // A null id and an empty one are not the same thing to Memcached: only the
+        // first means "not persistent"
+        $this->memcached = ($persistentId === null ? new Memcached() : new Memcached($persistentId));
         $this->memcached->setOption(Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
         if (!count($this->memcached->getServerList())) {
             $this->memcached->addServers($servers);
@@ -37,7 +40,7 @@ class SessionsMemcached extends Sessions
     public function read(string $id): string|false
     {
         $data = $this->memcached->get($this->id($id));
-        if (!empty($data)) {
+        if (is_string($data) && $data !== '') {
             return $data;
         }
 

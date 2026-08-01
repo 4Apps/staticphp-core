@@ -52,7 +52,7 @@ function valueOrNull($input)
  */
 function fixFloat($input, $precision = -1)
 {
-    $input = str_replace([',', ' '], ['.', ''], $input);
+    $input = str_replace([',', ' '], ['.', ''], (is_scalar($input) ? (string) $input : ''));
 
     return ($precision === -1 ? (float)$input : round((float)$input, $precision));
 }
@@ -70,13 +70,13 @@ function fixFloat($input, $precision = -1)
  * @param string $character_mask Characters to trim
  * @return void
  */
-function trimChars(&$value, $key = null, $character_mask = " \t\n\r\0\x0B")
+function trimChars(&$value, $key = null, $character_mask = " \t\n\r\0\x0B"): void
 {
     /*
         Unicode variant:
             $value = preg_replace('/^['.$character_mask.']*(?U)(.*)['.$character_mask.']*$/u', '\\1', $value);
     */
-    $value = trim($value, $character_mask);
+    $value = trim((is_scalar($value) ? (string) $value : ''), $character_mask);
 }
 
 
@@ -205,12 +205,12 @@ function uuid4()
  *
  * @param string $str Query string
  * @param string $delimiter Delimiter
- * @return array
+ * @return array<string, string>
  */
 function parseQueryString($str, $delimiter = '&')
 {
     $op = [];
-    $pairs = explode($delimiter, $str);
+    $pairs = explode(($delimiter === '' ? '&' : $delimiter), $str);
     foreach ($pairs as $pair) {
         $ex = explode("=", $pair);
         if (count($ex) < 2) {
@@ -229,9 +229,9 @@ function parseQueryString($str, $delimiter = '&')
  *
  * @param int $week A Week
  * @param int $year of a Year
- * @return array
+ * @return array{0: int|false, 1: int|false}
  */
-function weekRange($week, $year = null)
+function weekRange($week, $year = null): array
 {
     if (empty($year)) {
         $year = date('Y');
@@ -239,7 +239,13 @@ function weekRange($week, $year = null)
 
     $week -= 1;
     $ts = strtotime("{$year}0104 +{$week} weeks"); // By http://en.wikipedia.org/wiki/ISO_8601#Week_dates
-    $start = (date('w', $ts) == 1) ? $ts : strtotime('last monday', $ts);
+    if ($ts === false) {
+        return [false, false];
+    }
+
+    // "last monday" and "next sunday" against a valid base always resolve, so only the
+    // constructed date above can fail to parse
+    $start = (date('w', $ts) == 1 ? $ts : strtotime('last monday', $ts));
 
     return [$start, strtotime('next sunday', $start)];
 }
@@ -270,9 +276,9 @@ function weekOfMonth($when = null)
  * Returns array containing month's start and end timestamps
  *
  * @param int $timestamp A timestamp for which date to calculate first and last day
- * @return array
+ * @return array{0: \DateTime, 1: \DateTime}
  */
-function monthRangeDateTime($timestamp = null)
+function monthRangeDateTime($timestamp = null): array
 {
     if (empty($timestamp)) {
         $timestamp = new \DateTime("now", new \DateTimeZone('UTC'));
@@ -300,7 +306,7 @@ function monthRangeDateTime($timestamp = null)
  * @param int|null $year A year, defaults to the current one
  * @return \StaticPHP\Utils\Models\ExtendedDateTime[]
  */
-function yearRangeDateTime($year = null)
+function yearRangeDateTime($year = null): array
 {
     if (empty($year)) {
         $year = (int)date('Y');
@@ -337,7 +343,7 @@ function sqlTimestampToDatetime(?string $timestamp = null): ?\StaticPHP\Utils\Mo
  *
  * @param int $year A year
  */
-function getIsoWeeksInYear($year)
+function getIsoWeeksInYear($year): int
 {
     $date = new DateTime();
     $date->setISODate($year, 53);
@@ -355,7 +361,9 @@ function getIsoWeeksInYear($year)
  * @param bool $required Whether return false if there are missing keys
  * @param bool|mixed $fill_missing Fill missing keys with this value
  * @param callable|null $callback Applied to each extracted value
- * @return array|bool
+ * @param mixed $array Anything; a non-array is reported as false rather than throwing
+ * @param iterable<int, string|int> $keys
+ * @return array<int|string, mixed>|bool
  */
 function extractArrayByKeys($array, $keys, $required = false, $fill_missing = false, $callback = null)
 {
@@ -383,7 +391,7 @@ function extractArrayByKeys($array, $keys, $required = false, $fill_missing = fa
 /**
  * Returns a boolean value representing whether any of the passed array elements are empty
  *
- * @param array $array
+ * @param array<int|string, mixed> $array
  * @return boolean
  */
 function anyEmpty($array)
@@ -395,7 +403,7 @@ function anyEmpty($array)
 /**
  * Returns a boolean value representing whether all of the passed array elements are empty
  *
- * @param array $array
+ * @param array<int|string, mixed> $array
  * @return boolean
  */
 function allEmpty($array)
@@ -410,7 +418,7 @@ function allEmpty($array)
  * A missing key is not blank - that is the point of the distinction. It tells "the field
  * was cleared" apart from "the field was not submitted" in a partial update.
  *
- * @param array $array
+ * @param array<int|string, mixed> $array
  * @param string|int $key
  * @return bool
  */
@@ -423,7 +431,7 @@ function isArrayKeyBlank($array, $key)
 /**
  * Returns true when $key is present in $array and holds a blank string or null
  *
- * @param array $array
+ * @param array<int|string, mixed> $array
  * @param string|int $key
  * @return bool
  */
@@ -436,10 +444,10 @@ function isArrayKeyBlankOrNull($array, $key)
 /**
  * Prepends an empty option to a key => value list, giving a dropdown its placeholder row
  *
- * @param array $array
+ * @param array<int|string, mixed> $array
  * @param string|int $key
  * @param string $value
- * @return array
+ * @return array<int|string, mixed>
  */
 function padEmptyArrayForDropdown($array, $key = '', $value = '')
 {
@@ -513,12 +521,12 @@ function uploadCodeToMessage($code)
  * When $keys == ['id', 'name'], Turns [['id' => 1, 'name' => 'Name 1'], ['id' => 2, 'name' => 'Name 2'] into
  * [1 => ['Name 1' => ['id' => 1, 'name' => 'Name 1']], 2 => ['Name 2' => ['id' => 2, 'name' => 'Name 2']]]
  *
- * @param  iterable $array
+ * @param  iterable<int|string, mixed> $array
  * @param  mixed    $keys
  * @param  bool     $unique Describes whether last key of input array is unique
  * @param  callable|null $keys_callback Called as ($key, $item), returns the value to group under
  * @param  callable|null $values_callback Called as ($item), returns what to store
- * @return array[]  Returns array grouped by keys
+ * @return array<int|string, mixed>  Returns array grouped by keys
  */
 function groupArray($array, $keys = [], $unique = false, $keys_callback = null, $values_callback = null)
 {
@@ -528,8 +536,14 @@ function groupArray($array, $keys = [], $unique = false, $keys_callback = null, 
     foreach ($array as $item) {
         $x = &$result;
         foreach ($keys as $key) {
-            $group = (is_callable($keys_callback) ? $keys_callback($key, $item) : $item[$key]);
-            $x = &$x[$group];
+            $itemKey = (is_int($key) || is_string($key) ? $key : '');
+            $group = (
+                is_callable($keys_callback)
+                ? $keys_callback($key, $item)
+                : (is_array($item) ? ($item[$itemKey] ?? null) : null)
+            );
+            $groupKey = (is_int($group) || is_string($group) ? $group : '');
+            $x = &$x[$groupKey];
         }
 
         if (is_callable($values_callback)) {
@@ -551,13 +565,13 @@ function groupArray($array, $keys = [], $unique = false, $keys_callback = null, 
  * Flattens a list of rows into a key => value array, the shape a dropdown wants.
  * Turns [['id' => 1, 'name' => 'One'], ['id' => 2, 'name' => 'Two']] into [1 => 'One', 2 => 'Two']
  *
- * @param  iterable $array
+ * @param  iterable<int|string, mixed> $array
  * @param  string|null $keys Column to take the key from, null to keep the existing key
  * @param  string $values Column to take the value from
  * @param  callable|null $keys_callback Called as ($item), returns the key
  * @param  callable|null $values_callback Called as ($item), returns the value - null skips the row
  * @param  bool $skip_missing Whether a row missing the $values column is skipped or throws
- * @return array
+ * @return array<int|string, mixed>
  */
 function simpleArray(
     $array,
@@ -566,14 +580,18 @@ function simpleArray(
     $keys_callback = null,
     $values_callback = null,
     $skip_missing = true
-) {
+): array {
     $result = [];
 
     foreach ($array as $key => $item) {
         if (is_callable($keys_callback)) {
             $key = $keys_callback($item);
         } elseif ($keys !== null) {
-            $key = $item[$keys];
+            $key = (is_array($item) ? ($item[$keys] ?? null) : null);
+        }
+
+        if (is_int($key) === false && is_string($key) === false) {
+            $key = '';
         }
 
         if (is_callable($values_callback)) {
@@ -582,7 +600,7 @@ function simpleArray(
                 continue;
             }
             $result[$key] = $value;
-        } elseif (isset($item[$values])) {
+        } elseif (is_array($item) && isset($item[$values])) {
             $result[$key] = $item[$values];
         } elseif ($skip_missing === false) {
             throw new \InvalidArgumentException("Missing column: {$values}");

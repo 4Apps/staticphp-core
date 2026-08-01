@@ -27,26 +27,32 @@ class CacheTest extends TestCase
         );
 
         foreach ($items as $item) {
+            if (($item instanceof \SplFileInfo) === false) {
+                continue;
+            }
+
             $item->isDir() ? rmdir($item->getPathname()) : unlink($item->getPathname());
         }
 
         rmdir(self::$path);
     }
 
+    /**
+     * @param array<string, mixed> $extra
+     */
     private function backend(array $extra = []): CacheFiles
     {
         return new CacheFiles(['path' => self::$path] + $extra);
     }
 
-    public function testInit()
+    public function testInit(): void
     {
-        $cache = $this->backend();
+        $this->backend();
 
-        $this->assertInstanceOf(CacheFiles::class, $cache);
         $this->assertDirectoryExists(self::$path);
     }
 
-    public function testDirectoryIsNotWorldWritable()
+    public function testDirectoryIsNotWorldWritable(): void
     {
         $this->backend();
 
@@ -55,7 +61,7 @@ class CacheTest extends TestCase
         $this->assertSame(0, $mode & 0007, sprintf('cache dir mode is %o', $mode));
     }
 
-    public function testSetAndGetString()
+    public function testSetAndGetString(): void
     {
         $cache = $this->backend();
         $cache->setValue('a_string', 'hello');
@@ -63,7 +69,7 @@ class CacheTest extends TestCase
         $this->assertEquals('hello', $cache->getValue('a_string'));
     }
 
-    public function testSetAndGetNumeric()
+    public function testSetAndGetNumeric(): void
     {
         $cache = $this->backend();
         $cache->setValue('a_number', 42);
@@ -71,7 +77,7 @@ class CacheTest extends TestCase
         $this->assertEquals(42, $cache->getValue('a_number'));
     }
 
-    public function testSetAndGetArray()
+    public function testSetAndGetArray(): void
     {
         $cache = $this->backend();
         $cache->setValue('an_array', ['one' => 1, 'two' => 2]);
@@ -79,14 +85,14 @@ class CacheTest extends TestCase
         $this->assertEquals(['one' => 1, 'two' => 2], $cache->getValue('an_array'));
     }
 
-    public function testGetMissingKeyReturnsFalse()
+    public function testGetMissingKeyReturnsFalse(): void
     {
         $cache = $this->backend();
 
         $this->assertFalse($cache->getValue('never_written'));
     }
 
-    public function testRemoveKey()
+    public function testRemoveKey(): void
     {
         $cache = $this->backend();
         $cache->setValue('to_remove', 'value');
@@ -95,21 +101,21 @@ class CacheTest extends TestCase
         $this->assertFalse($cache->getValue('to_remove'));
     }
 
-    public function testRemoveMissingKeyReturnsFalse()
+    public function testRemoveMissingKeyReturnsFalse(): void
     {
         $cache = $this->backend();
 
         $this->assertFalse($cache->removeKey('never_written'));
     }
 
-    public function testPrefixIsApplied()
+    public function testPrefixIsApplied(): void
     {
         $cache = $this->backend(['prefix' => 'pfx_']);
 
         $this->assertEquals('pfx_key', $cache->prefix('key'));
     }
 
-    public function testKeyIsHashedIntoTheFilename()
+    public function testKeyIsHashedIntoTheFilename(): void
     {
         $cache = $this->backend();
 
@@ -120,15 +126,16 @@ class CacheTest extends TestCase
         $this->assertEquals('value', $cache->getValue('../../etc/passwd'));
 
         $written = glob(self::$path . '/*.cache');
+        $this->assertIsArray($written);
         $this->assertNotEmpty($written);
 
         foreach ($written as $file) {
             $this->assertMatchesRegularExpression('/^[0-9a-f]{32}\.cache$/', basename($file));
-            $this->assertSame(realpath(self::$path), dirname(realpath($file)));
+            $this->assertSame(realpath(self::$path), dirname((string) realpath($file)));
         }
     }
 
-    public function testUnsupportedTypeThrows()
+    public function testUnsupportedTypeThrows(): void
     {
         $cache = $this->backend();
 
@@ -136,7 +143,7 @@ class CacheTest extends TestCase
         $cache->setValue('an_object', new \stdClass());
     }
 
-    public function testRegisterAndUseNamedBackend()
+    public function testRegisterAndUseNamedBackend(): void
     {
         $name = 'files_' . bin2hex(random_bytes(4));
         Cache::register($this->backend(), $name);
@@ -147,7 +154,7 @@ class CacheTest extends TestCase
         $this->assertTrue(Cache::remove('via_facade', $name));
     }
 
-    public function testRegisteringTheSameNameTwiceThrows()
+    public function testRegisteringTheSameNameTwiceThrows(): void
     {
         $name = 'dupe_' . bin2hex(random_bytes(4));
         Cache::register($this->backend(), $name);
@@ -156,7 +163,7 @@ class CacheTest extends TestCase
         Cache::register($this->backend(), $name);
     }
 
-    public function testUnknownBackendThrows()
+    public function testUnknownBackendThrows(): void
     {
         $this->expectException(\Exception::class);
         Cache::get('anything', 'no_such_backend');

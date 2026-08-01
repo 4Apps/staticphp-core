@@ -16,6 +16,7 @@ class Config
      * @access public
      * @static
      */
+    /** @var array<string, mixed> */
     public static array $items = [];
 
 
@@ -118,7 +119,7 @@ class Config
      */
     public static function &getViewData(string $name, mixed $default = null): mixed
     {
-        if (isset(self::$items['view_data'][$name])) {
+        if (is_array(self::$items['view_data'] ?? null) && isset(self::$items['view_data'][$name])) {
             return self::$items['view_data'][$name];
         } else {
             return $default;
@@ -128,7 +129,7 @@ class Config
     /**
      * Set view data configuration value.
      *
-     * @param string|array $name  Key name
+     * @param string|array<string, mixed> $name  Key name
      * @param mixed        $value Value to set (default: null)
      *
      * @access public
@@ -137,6 +138,10 @@ class Config
      */
     public static function setViewData(string|array $name, mixed $value = null): void
     {
+        if (is_array(self::$items['view_data'] ?? null) === false) {
+            self::$items['view_data'] = [];
+        }
+
         if (is_array($name)) {
             foreach ($name as $key => $value) {
                 self::$items['view_data'][$key] = $value;
@@ -168,7 +173,7 @@ class Config
         switch (true) {
             case is_array(self::$items[$name]):
                 if (empty($owerwrite)) {
-                    return (self::$items[$name] += $value);
+                    return (self::$items[$name] += (array) $value);
                 }
 
                 return (self::$items[$name] = array_merge((array) self::$items[$name], (array) $value));
@@ -182,12 +187,101 @@ class Config
 
             case is_int(self::$items[$name]):
             case is_float(self::$items[$name]):
-                return (self::$items[$name] += $value);
+                return (self::$items[$name] += (is_numeric($value) ? $value + 0 : 0));
 
             case is_string(self::$items[$name]):
+                return (self::$items[$name] .= (is_scalar($value) ? (string) $value : ''));
+
             default:
-                return (self::$items[$name] .= $value);
+                // Anything else has no meaningful "merge", so the new value replaces it
+                return (self::$items[$name] = $value);
         }
+    }
+
+    /**
+     * A configuration value as a string.
+     *
+     * Config::$items is an untyped bag by design - applications put whatever they like in
+     * it - so these are where a setting stops being a mixed. A value of the wrong type is
+     * treated as absent rather than coerced, because silently turning an array into
+     * "Array" has never been what the caller wanted.
+     *
+     * @access public
+     * @static
+     * @param  string $name
+     * @param  string $default
+     * @return string
+     */
+    public static function getString(string $name, string $default = ''): string
+    {
+        $value = self::get($name);
+
+        return (is_string($value) ? $value : $default);
+    }
+
+    /**
+     * A configuration value as an int.
+     *
+     * @access public
+     * @static
+     * @param  string $name
+     * @param  int    $default
+     * @return int
+     */
+    public static function getInt(string $name, int $default = 0): int
+    {
+        $value = self::get($name);
+
+        return (is_int($value) || (is_string($value) && is_numeric($value)) ? (int) $value : $default);
+    }
+
+    /**
+     * A configuration value as a bool.
+     *
+     * @access public
+     * @static
+     * @param  string $name
+     * @param  bool   $default
+     * @return bool
+     */
+    public static function getBool(string $name, bool $default = false): bool
+    {
+        $value = self::get($name);
+
+        return (is_bool($value) ? $value : $default);
+    }
+
+    /**
+     * A configuration value as an array.
+     *
+     * @access public
+     * @static
+     * @param  string $name
+     * @return array<int|string, mixed>
+     */
+    public static function getArray(string $name): array
+    {
+        $value = self::get($name);
+
+        return (is_array($value) ? $value : []);
+    }
+
+    /**
+     * The twig environment, when the view layer has one.
+     *
+     * Not a generalisation of "some engine": every consumer registers twig filters and
+     * functions against it. An application that leaves twig out has none, and Load::view()
+     * renders plain php views instead.
+     *
+     * @access public
+     * @static
+     * @return ?\Twig\Environment
+     */
+    public static function viewEngine(): ?\Twig\Environment
+    {
+        $engine = self::$items['view_engine'] ?? null;
+
+        return ($engine instanceof \Twig\Environment ? $engine : null);
     }
 
     /**
@@ -198,7 +292,7 @@ class Config
      *
      * @access public
      * @static
-     * @param  array $files
+     * @param  array<int|string, string> $files Bare names, or project => name pairs
      * @param  string|null  $project (default: null)
      * @return void
      */

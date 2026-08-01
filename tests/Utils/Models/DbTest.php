@@ -22,17 +22,21 @@ class DbTest extends TestCase
     /**
      * @return array [sql, params]
      */
-    private function where($where): array
+    /**
+     * @return array{0: string, 1: list<mixed>}
+     */
+    private function where(mixed $where): array
     {
         $method = new \ReflectionMethod(Db::class, 'buildWhere');
 
         $params = [];
         $sql = $method->invokeArgs(null, [$where, 'default', &$params]);
+        $this->assertIsString($sql);
 
         return [$sql, $params];
     }
 
-    public function testScalarConditionIsBound()
+    public function testScalarConditionIsBound(): void
     {
         [$sql, $params] = $this->where(['id' => 5]);
 
@@ -40,7 +44,7 @@ class DbTest extends TestCase
         $this->assertEquals([5], $params);
     }
 
-    public function testArrayConditionUsesPlaceholders()
+    public function testArrayConditionUsesPlaceholders(): void
     {
         [$sql, $params] = $this->where(['id' => [1, 2, 3]]);
 
@@ -48,7 +52,7 @@ class DbTest extends TestCase
         $this->assertEquals([1, 2, 3], $params);
     }
 
-    public function testNegatedArrayConditionUsesPlaceholders()
+    public function testNegatedArrayConditionUsesPlaceholders(): void
     {
         [$sql, $params] = $this->where(['!id' => [4, 5]]);
 
@@ -60,7 +64,7 @@ class DbTest extends TestCase
      * An array value used to be imploded straight into the query, so anything that could
      * make a scalar arrive as an array turned a parameterized call into an injectable one.
      */
-    public function testArrayConditionDoesNotInterpolateItsValues()
+    public function testArrayConditionDoesNotInterpolateItsValues(): void
     {
         [$sql, $params] = $this->where(['id' => ['1) OR 1=1 -- ']]);
 
@@ -69,7 +73,7 @@ class DbTest extends TestCase
         $this->assertEquals(['1) OR 1=1 -- '], $params);
     }
 
-    public function testEmptyInListCollapsesToFalse()
+    public function testEmptyInListCollapsesToFalse(): void
     {
         [$sql, $params] = $this->where(['id' => []]);
 
@@ -77,14 +81,14 @@ class DbTest extends TestCase
         $this->assertEquals([], $params);
     }
 
-    public function testEmptyNotInListCollapsesToTrue()
+    public function testEmptyNotInListCollapsesToTrue(): void
     {
         [$sql, $params] = $this->where(['!id' => []]);
 
         $this->assertEquals('WHERE 1 = 1', $sql);
     }
 
-    public function testOperatorInKeyIsHonoured()
+    public function testOperatorInKeyIsHonoured(): void
     {
         [$sql, $params] = $this->where(['age >' => 18]);
 
@@ -92,21 +96,21 @@ class DbTest extends TestCase
         $this->assertEquals([18], $params);
     }
 
-    public function testMultiWordOperatorIsHonoured()
+    public function testMultiWordOperatorIsHonoured(): void
     {
         [$sql, $params] = $this->where(['name NOT LIKE' => 'x%']);
 
         $this->assertEquals('WHERE `name` NOT LIKE ?', $sql);
     }
 
-    public function testQualifiedColumnIsWrappedPerPart()
+    public function testQualifiedColumnIsWrappedPerPart(): void
     {
         [$sql, $params] = $this->where(['t.col' => 1]);
 
         $this->assertEquals('WHERE `t`.`col` = ?', $sql);
     }
 
-    public function testConditionsAreJoinedWithAnd()
+    public function testConditionsAreJoinedWithAnd(): void
     {
         [$sql, $params] = $this->where(['a' => 1, 'b' => 2]);
 
@@ -114,25 +118,25 @@ class DbTest extends TestCase
         $this->assertEquals([1, 2], $params);
     }
 
-    public function testColumnNameBreakingOutOfTheQuotingIsRejected()
+    public function testColumnNameBreakingOutOfTheQuotingIsRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->where(['id`) OR 1=1 -- ' => 1]);
     }
 
-    public function testColumnNameWithASpaceIsRejected()
+    public function testColumnNameWithASpaceIsRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->where(['id;DROP TABLE users' => 1]);
     }
 
-    public function testUnknownOperatorIsRejected()
+    public function testUnknownOperatorIsRejected(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         $this->where(['id UNION' => 1]);
     }
 
-    public function testDeleteRequiresACondition()
+    public function testDeleteRequiresACondition(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         Db::delete('posts', []);
@@ -142,7 +146,7 @@ class DbTest extends TestCase
     | Connection handling
     */
 
-    public function testUnknownConnectionNameNamesTheProblem()
+    public function testUnknownConnectionNameNamesTheProblem(): void
     {
         // `&self::$dbLinks[$name]` auto-vivified a null entry, so a typo surfaced later as
         // "call to a member function on null" and left the bogus key behind
@@ -154,7 +158,7 @@ class DbTest extends TestCase
         }
     }
 
-    public function testUnknownConnectionNameIsNotRemembered()
+    public function testUnknownConnectionNameIsNotRemembered(): void
     {
         try {
             Db::commit('typo_connection');

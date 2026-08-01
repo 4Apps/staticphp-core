@@ -29,13 +29,19 @@ final class Locales
      *
      * @access public
      * @static
-     * @param  array $config
+     * @param  array<string, mixed> $config
      * @return self
      * @throws TranslationError When the configuration cannot produce a single pairing
      */
     public static function fromConfig(array $config): self
     {
-        $format = (string) ($config['url_format'] ?? '{{country}}-{{language}}');
+        // Everything here comes out of the configuration array, which is untyped by
+        // design, so each entry is checked rather than coerced
+        $text = static fn(mixed $value, string $fallback = ''): string => (
+            is_scalar($value) ? (string) $value : $fallback
+        );
+
+        $format = $text($config['url_format'] ?? null, '{{country}}-{{language}}');
         $available = $config['available'] ?? [];
 
         if (is_array($available) === false || $available === []) {
@@ -45,7 +51,13 @@ final class Locales
         $locales = [];
         $seen = [];
         foreach ($available as $country) {
-            $code = (string) ($country['code'] ?? '');
+            if (is_array($country) === false) {
+                throw new TranslationError(
+                    'Every entry of config[\'i18n\'][\'available\'] has to be an array'
+                );
+            }
+
+            $code = $text($country['code'] ?? null);
             $languages = $country['languages'] ?? [];
 
             if ($code === '' || is_array($languages) === false || $languages === []) {
@@ -56,7 +68,7 @@ final class Locales
 
             $first = true;
             foreach ($languages as $language) {
-                $language = (string) $language;
+                $language = $text($language);
                 $prefix = self::prefix($format, $code, $language);
 
                 // Two countries resolving to one prefix would make the url ambiguous, and
@@ -68,10 +80,10 @@ final class Locales
 
                 $locales[] = new Locale(
                     $code,
-                    (string) ($country['name'] ?? $code),
+                    $text($country['name'] ?? null, $code),
                     $language,
                     $prefix,
-                    (string) ($country['locale'] ?? ($language . '_' . strtoupper($code))),
+                    $text($country['locale'] ?? null, $language . '_' . strtoupper($code)),
                     $first,
                 );
 

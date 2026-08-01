@@ -5,6 +5,7 @@ namespace StaticPHP\Tests\Utils\Models\Migrations;
 use PHPUnit\Framework\TestCase;
 use StaticPHP\Utils\Models\Migrations\AppliedRow;
 use StaticPHP\Utils\Models\Migrations\MigrationFile;
+use StaticPHP\Utils\Models\Migrations\MigrationState;
 use StaticPHP\Utils\Models\Migrations\State;
 use StaticPHP\Utils\Models\Migrations\States;
 
@@ -32,6 +33,9 @@ class StatesTest extends TestCase
         );
     }
 
+    /**
+     * @param array<int|string, MigrationState> $states
+     */
     private function stateFor(array $states, string $name): State
     {
         foreach ($states as $state) {
@@ -47,21 +51,21 @@ class StatesTest extends TestCase
     | The four ordinary combinations of disk and table
     */
 
-    public function testFileAndMatchingRowIsApplied()
+    public function testFileAndMatchingRowIsApplied(): void
     {
         $states = States::compute([$this->file('2026-08-01-143000-a.sql')], [$this->row('2026-08-01-143000-a.sql')]);
 
         $this->assertSame(State::APPLIED, $this->stateFor($states, '2026-08-01-143000-a.sql'));
     }
 
-    public function testFileWithNoRowIsPending()
+    public function testFileWithNoRowIsPending(): void
     {
         $states = States::compute([$this->file('2026-08-01-143000-a.sql')], []);
 
         $this->assertSame(State::PENDING, $this->stateFor($states, '2026-08-01-143000-a.sql'));
     }
 
-    public function testChangedFileIsDrift()
+    public function testChangedFileIsDrift(): void
     {
         $states = States::compute(
             [$this->file('2026-08-01-143000-a.sql', 'new')],
@@ -71,7 +75,7 @@ class StatesTest extends TestCase
         $this->assertSame(State::DRIFT, $this->stateFor($states, '2026-08-01-143000-a.sql'));
     }
 
-    public function testRowWithNoFileIsMissing()
+    public function testRowWithNoFileIsMissing(): void
     {
         $states = States::compute([], [$this->row('2026-08-01-143000-a.sql')]);
 
@@ -86,7 +90,7 @@ class StatesTest extends TestCase
     | re-stamping its checksum would bury it.
     */
 
-    public function testRowWithNoDurationIsFailed()
+    public function testRowWithNoDurationIsFailed(): void
     {
         $states = States::compute(
             [$this->file('2026-08-01-143000-a.sql')],
@@ -96,7 +100,7 @@ class StatesTest extends TestCase
         $this->assertSame(State::FAILED, $this->stateFor($states, '2026-08-01-143000-a.sql'));
     }
 
-    public function testFailedOutranksDrift()
+    public function testFailedOutranksDrift(): void
     {
         $states = States::compute(
             [$this->file('2026-08-01-143000-a.sql', 'new')],
@@ -106,7 +110,7 @@ class StatesTest extends TestCase
         $this->assertSame(State::FAILED, $this->stateFor($states, '2026-08-01-143000-a.sql'));
     }
 
-    public function testFailedOutranksMissing()
+    public function testFailedOutranksMissing(): void
     {
         $states = States::compute([], [$this->row('2026-08-01-143000-a.sql', 'aaa', null)]);
 
@@ -117,7 +121,7 @@ class StatesTest extends TestCase
     | Ordering and grouping
     */
 
-    public function testAMissingRowSortsInAmongTheFilesRatherThanBeingAppended()
+    public function testAMissingRowSortsInAmongTheFilesRatherThanBeingAppended(): void
     {
         $states = States::compute(
             [
@@ -137,7 +141,7 @@ class StatesTest extends TestCase
         );
     }
 
-    public function testPendingReturnsOnlyPending()
+    public function testPendingReturnsOnlyPending(): void
     {
         $states = States::compute(
             [
@@ -153,7 +157,7 @@ class StatesTest extends TestCase
         $this->assertSame('2026-08-02-100000-b.sql', $pending[0]->name);
     }
 
-    public function testBlockingCoversDriftMissingAndFailed()
+    public function testBlockingCoversDriftMissingAndFailed(): void
     {
         $states = States::compute(
             [
@@ -180,7 +184,7 @@ class StatesTest extends TestCase
         );
     }
 
-    public function testAnEmptyUniverseProducesNoStates()
+    public function testAnEmptyUniverseProducesNoStates(): void
     {
         $this->assertSame([], States::compute([], []));
     }

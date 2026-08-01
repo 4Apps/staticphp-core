@@ -94,7 +94,8 @@ class Tracker
 
         // FETCH_ASSOC explicitly: the connection may be configured for objects, and this
         // must not depend on the application's fetch_mode_objects setting.
-        $rows = $this->pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        $statement = $this->pdo->query($sql);
+        $rows = ($statement === false ? [] : $statement->fetchAll(PDO::FETCH_ASSOC));
 
         return array_map(
             fn(array $row) => new AppliedRow(
@@ -203,8 +204,9 @@ class Tracker
      * behind a cleanup detail.
      *
      * @access public
-     * @param  callable $body
-     * @return mixed Whatever $body returned
+     * @template T
+     * @param  callable(): T $body
+     * @return T Whatever $body returned
      */
     public function withLock(callable $body): mixed
     {

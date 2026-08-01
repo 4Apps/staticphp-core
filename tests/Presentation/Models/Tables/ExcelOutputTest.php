@@ -16,6 +16,9 @@ use StaticPHP\Presentation\Models\Tables\Table;
  */
 class ExcelOutputTest extends TestCase
 {
+    /**
+     * @param array<int|string, array<string, mixed>> $rows
+     */
     private function excel(array $rows): Excel
     {
         $columns = [
@@ -32,7 +35,7 @@ class ExcelOutputTest extends TestCase
         return new Excel($table);
     }
 
-    public function testHeaderRowUsesColumnTitles()
+    public function testHeaderRowUsesColumnTitles(): void
     {
         $sheet = $this->excel([])->makeOutput()->getActiveSheet();
 
@@ -41,7 +44,7 @@ class ExcelOutputTest extends TestCase
         $this->assertEquals('Total', $sheet->getCell([3, 1])->getValue());
     }
 
-    public function testTextColumnIsWrittenAsAString()
+    public function testTextColumnIsWrittenAsAString(): void
     {
         $rows = [['name' => 'Widget', 'qty' => 3, 'total' => 10.5]];
         $sheet = $this->excel($rows)->makeOutput()->getActiveSheet();
@@ -56,7 +59,7 @@ class ExcelOutputTest extends TestCase
      * through to the string branch and excel stored it as text - unsummable, and flagged
      * with the green "number stored as text" triangle.
      */
-    public function testNumericColumnsAreWrittenAsNumbersRatherThanText()
+    public function testNumericColumnsAreWrittenAsNumbersRatherThanText(): void
     {
         $rows = [['name' => 'Widget', 'qty' => 3, 'total' => 10.5]];
         $sheet = $this->excel($rows)->makeOutput()->getActiveSheet();
@@ -67,7 +70,7 @@ class ExcelOutputTest extends TestCase
         $this->assertEquals(10.5, $sheet->getCell([3, 2])->getValue());
     }
 
-    public function testNullNumbersBecomeZeroRatherThanEmptyText()
+    public function testNullNumbersBecomeZeroRatherThanEmptyText(): void
     {
         $rows = [['name' => 'Widget', 'qty' => null, 'total' => null]];
         $sheet = $this->excel($rows)->makeOutput()->getActiveSheet();
@@ -76,7 +79,7 @@ class ExcelOutputTest extends TestCase
         $this->assertEquals(0, $sheet->getCell([2, 2])->getValue());
     }
 
-    public function testRowNumberColumnIsLeftOutOfTheExport()
+    public function testRowNumberColumnIsLeftOutOfTheExport(): void
     {
         $rows = [['name' => 'Widget', 'qty' => 1, 'total' => 1.0]];
 
@@ -93,7 +96,7 @@ class ExcelOutputTest extends TestCase
         $this->assertNull($sheet->getCell([2, 1])->getValue());
     }
 
-    public function testExportKeyClosureReceivesTheRow()
+    public function testExportKeyClosureReceivesTheRow(): void
     {
         $rows = [['name' => 'Widget', 'qty' => 2, 'total' => 4.0]];
 

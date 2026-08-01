@@ -12,7 +12,7 @@ namespace StaticPHP\Utils\Models\Sessions;
 
 class SessionsApcu extends Sessions
 {
-    public function __construct($sessionName = 'SAPC', ?Sessions $backupHandler = null)
+    public function __construct(string $sessionName = 'SAPC', ?Sessions $backupHandler = null)
     {
         parent::__construct($sessionName, $backupHandler);
     }
@@ -20,7 +20,7 @@ class SessionsApcu extends Sessions
     public function read(string $id): string|false
     {
         $data = apcu_fetch($this->id($id));
-        if (!empty($data)) {
+        if (is_string($data) && $data !== '') {
             return $data;
         }
 

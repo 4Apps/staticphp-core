@@ -31,35 +31,35 @@ class ScannerTest extends TestCase
         file_put_contents($this->dir . '/' . $name, $contents);
     }
 
-    public function testFindsTheShorthandFunction()
+    public function testFindsTheShorthandFunction(): void
     {
         $this->write('a.php', '<?php echo _(\'Log in\'); echo _("Sign out");');
 
         $this->assertEquals(['Log in', 'Sign out'], array_keys(Scanner::scan([$this->dir])));
     }
 
-    public function testFindsTheFormatFunction()
+    public function testFindsTheFormatFunction(): void
     {
         $this->write('a.php', '<?php echo _f(\'{n, plural, one{#} other{#}}\', [\'n\' => 2]);');
 
         $this->assertArrayHasKey('{n, plural, one{#} other{#}}', Scanner::scan([$this->dir]));
     }
 
-    public function testFindsStaticCalls()
+    public function testFindsStaticCalls(): void
     {
         $this->write('a.php', '<?php i18n::translate(\'Log in\'); i18n::format(\'Count\');');
 
         $this->assertEquals(['Count', 'Log in'], array_keys(Scanner::scan([$this->dir])));
     }
 
-    public function testFindsTwigFilters()
+    public function testFindsTwigFilters(): void
     {
         $this->write('a.twig', '{{ \'Log in\'|translate }} {{ "Count"  |  format }}');
 
         $this->assertEquals(['Count', 'Log in'], array_keys(Scanner::scan([$this->dir])));
     }
 
-    public function testRecordsWhereEachOneCameFrom()
+    public function testRecordsWhereEachOneCameFrom(): void
     {
         $this->write('a.php', "<?php\n\n_('Log in');\n_('Log in');\n");
 
@@ -70,7 +70,7 @@ class ScannerTest extends TestCase
         $this->assertStringEndsWith('a.php:4', $found['Log in'][1]);
     }
 
-    public function testEscapesAreResolved()
+    public function testEscapesAreResolved(): void
     {
         $this->write('a.php', '<?php _(\'It\\\'s here\'); _("Tab\\there");');
 
@@ -83,14 +83,14 @@ class ScannerTest extends TestCase
     /**
      * Otherwise every helper ending in an underscore looks like the shorthand.
      */
-    public function testASimilarlyNamedFunctionIsNotTheShorthand()
+    public function testASimilarlyNamedFunctionIsNotTheShorthand(): void
     {
         $this->write('a.php', '<?php format_(\'nope\'); $this->_(\'nope\'); $x = $_(\'nope\');');
 
         $this->assertEquals([], Scanner::scan([$this->dir]));
     }
 
-    public function testOnlyKnownExtensionsAreRead()
+    public function testOnlyKnownExtensionsAreRead(): void
     {
         $this->write('a.php', '<?php _(\'yes\');');
         $this->write('b.md', '_(\'no\')');
@@ -98,14 +98,14 @@ class ScannerTest extends TestCase
         $this->assertEquals(['yes'], array_keys(Scanner::scan([$this->dir])));
     }
 
-    public function testASingleFileCanBeScanned()
+    public function testASingleFileCanBeScanned(): void
     {
         $this->write('a.php', '<?php _(\'yes\');');
 
         $this->assertEquals(['yes'], array_keys(Scanner::scan([$this->dir . '/a.php'])));
     }
 
-    public function testAMissingPathIsNotAnError()
+    public function testAMissingPathIsNotAnError(): void
     {
         $this->assertEquals([], Scanner::scan([$this->dir . '/nowhere']));
     }
@@ -114,7 +114,7 @@ class ScannerTest extends TestCase
      * The limit worth being explicit about: only literals are visible, which is why the
      * scan command says so before anyone prunes on the strength of it.
      */
-    public function testAVariableKeyIsInvisible()
+    public function testAVariableKeyIsInvisible(): void
     {
         $this->write('a.php', '<?php _($heading); _(SOME_CONSTANT);');
 

@@ -49,7 +49,7 @@ class Filters implements FiltersInterface
      *
      * (default value: [])
      *
-     * @var array
+     * @var array<string, array<string, mixed>>
      * @access protected
      */
     protected array $filterDataParsed = [];
@@ -57,21 +57,21 @@ class Filters implements FiltersInterface
     /**
      * The filter query array.
      *
-     * @var array
+     * @var list<string>
      */
     protected array $filterQuery = [];
 
     /**
      * The filter parameters array.
      *
-     * @var array
+     * @var list<mixed>
      */
     protected array $filterParams = [];
 
     /**
      * The filter parameters by key array.
      *
-     * @var array
+     * @var array<string, mixed>
      */
     protected array $filterParamsByKey = [];
 
@@ -127,14 +127,14 @@ class Filters implements FiltersInterface
      */
     public function filterData(): string
     {
-        return $this->filterData;
+        return $this->filterData ?? '';
     }
 
     /**
      * Returns array of filter data
      *
      * @access public
-     * @return array
+     * @return array<string, array<string, mixed>>
      */
     public function parsedData(): array
     {
@@ -145,7 +145,8 @@ class Filters implements FiltersInterface
      * Returns array of filter data
      *
      * @access public
-     * @return array
+     * @param  array<string, mixed> $value
+     * @return array<string, mixed>
      */
     public function setParsedData(string $key, array $value): array
     {
@@ -224,6 +225,8 @@ class Filters implements FiltersInterface
      * Adds filter to filters. Should be used after parse.
      *
      * @access public
+     * @param  ?list<mixed>          $params
+     * @param  ?array<string, mixed> $data
      * @return void
      */
     public function addFilter(string $key, string $query, ?array $params = null, ?array $data = null): void

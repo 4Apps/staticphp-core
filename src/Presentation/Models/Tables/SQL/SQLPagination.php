@@ -12,11 +12,14 @@ class SQLPagination implements TableInstanceInterface
 {
     use TableInstance;
 
-    public function limitQuery()
+    public function limitQuery(): string
     {
+        $pagination = $this->tableInstance->pagination
+            ?? throw new \LogicException('SQLPagination needs a table whose paging was initialised');
+
         return <<<EOL
-OFFSET {$this->tableInstance->pagination->limitFrom}
-LIMIT {$this->tableInstance->pagination->limitPerPage}
+OFFSET {$pagination->limitFrom}
+LIMIT {$pagination->limitPerPage}
 EOL;
     }
 }

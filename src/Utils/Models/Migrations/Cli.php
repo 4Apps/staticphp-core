@@ -78,7 +78,7 @@ class Cli
 
         [$command, $positional, $options] = $parsed;
 
-        $bootstrapped = self::bootstrap($basePath, $options['project']);
+        $bootstrapped = self::bootstrap($basePath, self::optionString($options, 'project', null, 'Application'));
         if ($bootstrapped !== 0) {
             return $bootstrapped;
         }
@@ -92,7 +92,8 @@ class Cli
      * @access private
      * @static
      * @param  string[] $arguments
-     * @return array|int The triple, or an exit code when there is nothing to run
+     * @return array{0: string, 1: list<string>, 2: array<string, bool|string|null>}|int
+     *         The triple, or an exit code when there is nothing to run
      */
     private static function parse(array $arguments): array|int
     {
@@ -191,7 +192,7 @@ class Cli
         Config::load(['Config']);
 
         foreach ((array) Config::get('autoload_configs', []) as $item) {
-            $parts = explode('/', $item);
+            $parts = explode('/', (is_string($item) ? $item : ''));
             if (count($parts) === 3) {
                 Config::load([$parts[2]], $parts[1], $parts[0]);
             } elseif (count($parts) === 2) {
@@ -202,7 +203,7 @@ class Cli
         }
 
         // Framework defaults for anything the application did not load itself
-        if (empty(Config::$items['db']['pdo'])) {
+        if (self::pdoConfigs() === []) {
             Config::load(['Db'], 'Utils', 'staticphp');
         }
 
@@ -214,25 +215,94 @@ class Cli
     }
 
     /**
+     * The configured pdo connections, whatever Config happens to hold.
+     *
+     * @access private
+     * @static
+     * @return array<string, mixed>
+     */
+    private static function pdoConfigs(): array
+    {
+        $db = Config::$items['db'] ?? null;
+        $pdo = (is_array($db) ? ($db['pdo'] ?? null) : null);
+
+        return (is_array($pdo) ? $pdo : []);
+    }
+
+    /**
+     * A command line option as a string, falling back to a configured value.
+     *
+     * Options come off argv as strings, flags as booleans and anything unset as null, so
+     * this is where an option stops being a mixed.
+     *
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @param  mixed  $default
+     * @param  string $fallback
+     * @return string
+     */
+    private static function optionString(array $options, string $key, mixed $default, string $fallback): string
+    {
+        $value = $options[$key] ?? null;
+        if (is_string($value) && $value !== '') {
+            return $value;
+        }
+
+        return (is_string($default) && $default !== '' ? $default : $fallback);
+    }
+
+    /**
+     * A command line option that may legitimately be absent.
+     *
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @return ?string
+     */
+    private static function optionOrNull(array $options, string $key): ?string
+    {
+        $value = $options[$key] ?? null;
+
+        return (is_string($value) && $value !== '' ? $value : null);
+    }
+
+    /**
+     * A command line flag.
+     *
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @return bool
+     */
+    private static function optionFlag(array $options, string $key): bool
+    {
+        return ($options[$key] ?? false) === true;
+    }
+
+    /**
      * Connect and run the requested command.
      *
      * @access private
      * @static
      * @param  string   $command
      * @param  string[] $positional
-     * @param  array    $options
+     * @param  array<string, bool|string|null> $options
      * @return int
      */
     private static function dispatch(string $command, array $positional, array $options): int
     {
         $settings = (array) Config::get('migrations', []);
-        $connectionName = $options['connection'] ?? ($settings['connection'] ?? 'default');
-        $directory = $options['dir'] ?? ($settings['dir'] ?? APP_PATH . '/Migrations');
-        $table = $options['table'] ?? ($settings['table'] ?? 'migrations');
+        $connectionName = self::optionString($options, 'connection', $settings['connection'] ?? null, 'default');
+        $directory = self::optionString($options, 'dir', $settings['dir'] ?? null, APP_PATH . '/Migrations');
+        $table = self::optionString($options, 'table', $settings['table'] ?? null, 'migrations');
 
-        $dbConfig = Config::$items['db']['pdo'][$connectionName] ?? null;
-        if ($dbConfig === null) {
-            $known = implode(', ', array_keys(Config::$items['db']['pdo'] ?? []));
+        $dbConfig = self::pdoConfigs()[$connectionName] ?? null;
+        if (is_array($dbConfig) === false) {
+            $known = implode(', ', array_keys(self::pdoConfigs()));
             fwrite(
                 STDERR,
                 "error: no database connection \"{$connectionName}\" in config['db']['pdo']"
@@ -249,6 +319,7 @@ class Cli
         $dbConfig['persistent'] = false;
 
         try {
+            /** @var array<string, mixed> $dbConfig */
             $pdo = Db::init($connectionName, $dbConfig);
         } catch (\Throwable $e) {
             fwrite(STDERR, "error: could not connect to \"{$connectionName}\": {$e->getMessage()}\n");
@@ -260,10 +331,12 @@ class Cli
             echo $line . "\n";
         };
 
-        $appliedBy = ((string) Config::get('version', 'unknown')) . ' @ ' . (gethostname() ?: 'unknown');
+        $version = Config::get('version', 'unknown');
+        $appliedBy = (is_string($version) ? $version : 'unknown') . ' @ ' . (gethostname() ?: 'unknown');
 
         try {
-            $driver = Driver::forPdo($pdo, $dbConfig['string'] ?? null);
+            $dsn = $dbConfig['string'] ?? null;
+            $driver = Driver::forPdo($pdo, (is_string($dsn) ? $dsn : null));
             $commands = new Commands($pdo, new Tracker($pdo, $driver, $table), $directory, $out);
 
             return self::runCommand($commands, $command, $positional, $options, $appliedBy);
@@ -287,7 +360,7 @@ class Cli
      * @param  Commands $commands
      * @param  string   $command
      * @param  string[] $positional
-     * @param  array    $options
+     * @param  array<string, bool|string|null> $options
      * @param  string   $appliedBy
      * @return int
      */
@@ -300,10 +373,14 @@ class Cli
     ): int {
         switch ($command) {
             case 'status':
-                return $commands->status($options['check']);
+                return $commands->status(self::optionFlag($options, 'check'));
 
             case 'apply':
-                return $commands->apply($options['dry-run'], $options['to'], $appliedBy);
+                return $commands->apply(
+                    self::optionFlag($options, 'dry-run'),
+                    self::optionOrNull($options, 'to'),
+                    $appliedBy
+                );
 
             case 'new':
                 if ($positional === []) {
@@ -321,7 +398,12 @@ class Cli
                     return (string) fgets(STDIN);
                 };
 
-                return $commands->baseline($options['to'], $options['yes'], $appliedBy, $prompt);
+                return $commands->baseline(
+                    self::optionOrNull($options, 'to'),
+                    self::optionFlag($options, 'yes'),
+                    $appliedBy,
+                    $prompt
+                );
 
             case 'repair':
                 if ($positional === []) {

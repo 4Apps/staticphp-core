@@ -19,14 +19,19 @@ class Controller
     /**
      *  Constructor - Called on each request.
      */
-    public static function construct(?string $class = null, ?string $method = null)
+    public static function construct(?string $class = null, ?string $method = null): void
     {
         // Get full urls to current controller and its method
         self::$module_url = self::moduleUrl();
         self::$method_url = self::methodUrl();
         self::$controller_url = self::controllerUrl();
 
-        // Pass these to the view, too
+        // Pass these to the view, too. view_data is a bag inside a bag, so make sure the
+        // inner one is an array before reaching into it.
+        if (is_array(Config::$items['view_data'] ?? null) === false) {
+            Config::$items['view_data'] = [];
+        }
+
         Config::$items['view_data']['current_url'] = Router::$parsed_url;
         Config::$items['view_data']['module_url'] = self::$module_url;
         Config::$items['view_data']['controller_url'] = self::$controller_url;
@@ -47,7 +52,7 @@ class Controller
     /**
      *  Destructor - Called on each request after data is sent to browser.
      */
-    public static function destruct()
+    public static function destruct(): void
     {
         // Not implemented
     }
@@ -65,7 +70,7 @@ class Controller
      */
     public static function methodUrl(): string
     {
-        return Router::siteUrl(Router::$method_url);
+        return Router::siteUrl(Router::$method_url ?? '');
     }
 
     /**
@@ -79,7 +84,11 @@ class Controller
     /**
      *  Render a view. This method instead of Load::view() prefixes paths with current module directory.
      */
-    public static function render(array $views, $view_data = []): void
+    /**
+     * @param array<int|string, string> $views
+     * @param array<mixed, mixed>       $view_data
+     */
+    public static function render(array $views, array $view_data = []): void
     {
         $views = (array)$views;
         foreach ($views as $key => $item) {
@@ -92,6 +101,9 @@ class Controller
 
     /**
      *  Write $contents to the output. Arrays are jsonified.
+     */
+    /**
+     * @param string|array<mixed, mixed> $contents
      */
     public static function write(string|array $contents): void
     {

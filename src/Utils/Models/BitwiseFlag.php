@@ -17,12 +17,12 @@ abstract class BitwiseFlag
      * from falsely setting BITS.
      *
      */
-    protected function isFlagSet(int $flag)
+    protected function isFlagSet(int $flag): bool
     {
         return (($this->flags & $flag) == $flag);
     }
 
-    protected function setFlag(int $flag, bool $value)
+    protected function setFlag(int $flag, bool $value): void
     {
         if ($value) {
             $this->flags |= $flag;
@@ -31,16 +31,16 @@ abstract class BitwiseFlag
         }
     }
 
-    public static function hasFlag(int $flag, int $inFlags)
+    public static function hasFlag(int $flag, int $inFlags): bool
     {
         return (($inFlags & $flag) == $flag);
     }
 
-    public static function registerTwig()
+    public static function registerTwig(): void
     {
         // Twig is a suggestion of staticphp-core, not a requirement, so there may be no
         // engine to register against
-        if (empty(Config::get('view_engine'))) {
+        if (Config::viewEngine() === null) {
             return;
         }
 
@@ -50,6 +50,6 @@ abstract class BitwiseFlag
                 return \StaticPHP\Utils\Models\BitwiseFlag::hasFlag($flag, $inFlags);
             }
         );
-        Config::$items['view_engine']->addFunction($filter);
+        Config::viewEngine()->addFunction($filter);
     }
 }

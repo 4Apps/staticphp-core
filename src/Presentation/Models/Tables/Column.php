@@ -39,6 +39,7 @@ class Column implements ColumnInterface
     public bool $filterHidden = false;
     public bool $filterEnabled = true;
     public ?string $filterTitle = null;
+    /** @var string|array<string, mixed>|null */
     public null|string|array $filterDefaultValue = null;
     public ?string $filterDateValue = null;
 
@@ -46,13 +47,19 @@ class Column implements ColumnInterface
 
     /**
      * Elements can be string or Closure. If its a Closure, column and value are passed as arguments.
+     *
+     * @var array<int|string, string|\Closure>
      */
     public array $filterInputAttributes = [];
+
+    /** @var array<int|string, string|\Closure> */
     public array $filterInputClasses = [];
 
+    /** @var array<int|string, mixed>|null */
     public ?array $filterSelectOptions = null;
     public ?string $filterSelectOptionsIdKey = null;
     public ?string $filterSelectOptionsTitleKey = null;
+    /** @var array<int|string, mixed>|null */
     public ?array $filterSelectOptionsGroups = null;
     public ?string $filterSelectOptionsGroupTitleKey = null;
     public bool $filterSelectMultiple = false;
@@ -61,6 +68,7 @@ class Column implements ColumnInterface
 
     public null|string|\Closure $filterBy = null;
     public bool $filterZeroIsNULL = false;
+    /** @var array<int|string, mixed>|\Closure|null */
     public null|array|\Closure $filterData = null;
     public bool $filterSqlDate = false;
 
@@ -69,9 +77,13 @@ class Column implements ColumnInterface
     public null|string|\Closure $idKey = null;
     public null|string|\Closure $dataKey = null;
     public FormatterType $dataFormatter = FormatterType::TEXT;
+    /** @var array<int|string, mixed>|\Closure */
     public array|\Closure $dataColumnAttributes = [];
+    /** @var array<int|string, mixed>|\Closure */
     public array|\Closure $dataColumnClasses = [];
+    /** @var array<int|string, mixed>|\Closure */
     public array|\Closure $dataColumnPrefix = [];
+    /** @var array<int|string, mixed>|\Closure */
     public array|\Closure $dataColumnAddon = [];
     public null|string|\Closure $dataColumnBage = null;
 
@@ -79,9 +91,10 @@ class Column implements ColumnInterface
     public bool|\Closure $isEditable = false;
     public null|string|\Closure $editKey = null;
     public FieldType $editFieldType = FieldType::TEXT;
+    /** @var array<int|string, mixed>|null */
     public ?array $editSelectOptions = null;
     public bool $editSelectOptionsGroupped = false;
-    public $switchValue = 1;
+    public mixed $switchValue = 1;
 
     // ## Export
     public bool|null|string|\Closure $exportKey = null;
@@ -89,11 +102,15 @@ class Column implements ColumnInterface
     // ## Presentation
     /**
      * Elements can be string or Closure. If its a Closure, column is passed as the only argument.
+     *
+     * @var array<int|string, string|\Closure>
      */
     public array $columnAttributes = [];
 
     /**
      * Elements can be string or Closure. If its a Closure, column is passed as the only argument.
+     *
+     * @var array<int|string, string|\Closure>
      */
     public array $columnClasses = [];
 
@@ -112,11 +129,15 @@ class Column implements ColumnInterface
     public bool $escapeDataHtml = true;
 
 
+    /**
+     * @param string $id
+     * @param mixed  ...$settings Property name => value pairs to set on the column
+     */
     public function __construct($id, ...$settings)
     {
         $this->id = $id;
         foreach ($settings as $key => $value) {
-            if (property_exists($this, $key) == false) {
+            if (is_string($key) === false || property_exists($this, $key) === false) {
                 throw new \Exception("\"{$key}\" does not exists on Column");
             }
 

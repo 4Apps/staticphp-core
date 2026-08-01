@@ -23,12 +23,26 @@ class Sessions implements \SessionHandlerInterface
     /**
      * Cookie parameters applied in register().
      *
-     * @var array
+     * @var array{
+     *     lifetime: int,
+     *     path: string,
+     *     domain: string,
+     *     secure: bool,
+     *     httponly: bool,
+     *     samesite: 'Lax'|'lax'|'None'|'none'|'Strict'|'strict'
+     * }
      */
-    protected array $cookieParams = [];
+    protected array $cookieParams = [
+        'lifetime' => 86400,
+        'path' => '/',
+        'domain' => '',
+        'secure' => false,
+        'httponly' => true,
+        'samesite' => 'Lax',
+    ];
 
     public function __construct(
-        $sessionName = 'S',
+        string $sessionName = 'S',
         ?Sessions $backupHandler = null,
         int $lifetime = 86400,
         string $sameSite = 'Lax'
@@ -54,8 +68,15 @@ class Sessions implements \SessionHandlerInterface
         // Truncated to 40 characters because that is the width of the salt column in
         // table_sessions_*.sql; widening it would need a migration on existing installs.
         // ?? '' keeps a request without a User-Agent header from raising a warning.
-        $this->salt = substr(hash('sha256', $_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 40);
+        $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
+        $this->salt = substr(hash('sha256', is_string($userAgent) ? $userAgent : ''), 0, 40);
         $this->expire = session_cache_expire() * 60;
+
+        // Anything other than the three documented values is rejected by php with a
+        // warning, so an unknown one falls back to the safe default rather than reaching it
+        $sameSite = (
+            in_array($sameSite, ['Lax', 'lax', 'None', 'none', 'Strict', 'strict'], true) ? $sameSite : 'Lax'
+        );
 
         $this->cookieParams = [
             'lifetime' => $lifetime,
@@ -99,7 +120,7 @@ class Sessions implements \SessionHandlerInterface
         return session_regenerate_id($deleteOldSession);
     }
 
-    public function id(string $id)
+    public function id(string $id): string
     {
         return "{$this->sessionName}_{$id}";
     }
@@ -148,11 +169,11 @@ class Sessions implements \SessionHandlerInterface
             // uses, and warns on any key it does not recognise - so build it explicitly
             setcookie($this->sessionName, '', [
                 'expires' => time() - 1,
-                'path' => $this->cookieParams['path'] ?? '/',
-                'domain' => $this->cookieParams['domain'] ?? '',
-                'secure' => $this->cookieParams['secure'] ?? false,
-                'httponly' => $this->cookieParams['httponly'] ?? true,
-                'samesite' => $this->cookieParams['samesite'] ?? 'Lax',
+                'path' => $this->cookieParams['path'],
+                'domain' => $this->cookieParams['domain'],
+                'secure' => $this->cookieParams['secure'],
+                'httponly' => $this->cookieParams['httponly'],
+                'samesite' => $this->cookieParams['samesite'],
             ]);
         }
 

@@ -36,7 +36,7 @@ class Logger
      *
      * (default value: [])
      *
-     * @var array
+     * @var list<array{level: string, message: mixed, context: array<string, mixed>}>
      * @access protected
      * @static
      */
@@ -96,7 +96,7 @@ class Logger
      * System is unusable.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function emergency(string $message, array $context = []): void
@@ -111,7 +111,7 @@ class Logger
      * trigger the SMS alerts and wake you up.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function alert(string $message, array $context = []): void
@@ -125,7 +125,7 @@ class Logger
      * Example: Application component unavailable, unexpected exception.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function critical(string $message, array $context = []): void
@@ -138,7 +138,7 @@ class Logger
      * be logged and monitored.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function error(string $message, array $context = []): void
@@ -153,7 +153,7 @@ class Logger
      * that are not necessarily wrong.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function warning(string $message, array $context = []): void
@@ -165,7 +165,7 @@ class Logger
      * Normal but significant events.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function notice(string $message, array $context = []): void
@@ -179,7 +179,7 @@ class Logger
      * Example: User logs in, SQL logs.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function info(string $message, array $context = []): void
@@ -191,7 +191,7 @@ class Logger
      * Detailed debug information.
      *
      * @param  string $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function debug(string $message, array $context = []): void
@@ -204,7 +204,7 @@ class Logger
      *
      * @param  string $level
      * @param  mixed  $message
-     * @param  array  $context
+     * @param  array<string, mixed>  $context
      * @return void
      */
     public static function log(string $level, $message, array $context = []): void
@@ -262,8 +262,15 @@ class Logger
             }
 
             $output .= '<span class="text-' . $class . '">' . strtoupper($item['level']) . ': </span>';
-            $output .= $item['message'];
-            $output .= (!empty($item['context']) ? " [" . implode(',', $item['context']) . "]\n" : "\n");
+            $output .= (is_scalar($item['message']) ? (string) $item['message'] : '');
+            $output .= (
+                empty($item['context'])
+                ? "\n"
+                : ' [' . implode(',', array_map(
+                    static fn(mixed $entry): string => (is_scalar($entry) ? (string) $entry : ''),
+                    $item['context']
+                )) . "]\n"
+            );
         }
 
         // Return it

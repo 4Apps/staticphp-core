@@ -110,8 +110,10 @@ class Pagination implements PaginationInterface
         }
         $this->limitFrom = ($this->currentPage < 1 ? 0 : ($this->currentPage - 1) * $this->limitPerPage);
 
-        $this->nextPage = ($this->currentPage + 1 > $this->pageCount ? false : $this->currentPage + 1);
-        $this->prevPage = ($this->currentPage - 1 < 1 ? false : $this->currentPage - 1);
+        // 0 rather than false for "there is no such page": both are falsy to the views
+        // that test these, and the properties are typed int
+        $this->nextPage = ($this->currentPage + 1 > $this->pageCount ? 0 : $this->currentPage + 1);
+        $this->prevPage = ($this->currentPage - 1 < 1 ? 0 : $this->currentPage - 1);
 
         switch (true) {
             case ($this->currentPage - $pages_left < 1):

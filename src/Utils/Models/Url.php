@@ -47,6 +47,7 @@ class Url
      * @access public
      * @static
      *
+     * @param  list<string> $parts
      * @return string
      */
     public static function join(array $parts)

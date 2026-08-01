@@ -13,7 +13,7 @@ use StaticPHP\Presentation\Models\Tables\Table;
  */
 class HtmlOutputTest extends TestCase
 {
-    public function testAngleBracketsAreEscaped()
+    public function testAngleBracketsAreEscaped(): void
     {
         $this->assertEquals(
             '&lt;script&gt;alert(1)&lt;/script&gt;',
@@ -21,36 +21,36 @@ class HtmlOutputTest extends TestCase
         );
     }
 
-    public function testDoubleQuoteIsEscaped()
+    public function testDoubleQuoteIsEscaped(): void
     {
         $this->assertEquals('&quot; onfocus=alert(1) x=&quot;', Html::escape('" onfocus=alert(1) x="'));
     }
 
-    public function testSingleQuoteIsEscaped()
+    public function testSingleQuoteIsEscaped(): void
     {
         // Escaping only the double quote leaves single quoted attributes exploitable
         $this->assertEquals('&#039; onfocus=alert(1)', Html::escape("' onfocus=alert(1)"));
     }
 
-    public function testAmpersandIsEscaped()
+    public function testAmpersandIsEscaped(): void
     {
         $this->assertEquals('a&amp;b', Html::escape('a&b'));
     }
 
-    public function testNullAndScalarsAreTolerated()
+    public function testNullAndScalarsAreTolerated(): void
     {
         $this->assertEquals('', Html::escape(null));
         $this->assertEquals('42', Html::escape(42));
         $this->assertEquals('1.5', Html::escape(1.5));
     }
 
-    public function testArraysAndObjectsDoNotLeakTheirContents()
+    public function testArraysAndObjectsDoNotLeakTheirContents(): void
     {
         $this->assertEquals('', Html::escape(['<script>']));
         $this->assertEquals('', Html::escape(new \stdClass()));
     }
 
-    public function testInvalidUtf8IsSubstitutedRatherThanDropped()
+    public function testInvalidUtf8IsSubstitutedRatherThanDropped(): void
     {
         // Without ENT_SUBSTITUTE htmlspecialchars returns "" for invalid utf-8, which
         // silently discards the value instead of escaping it
@@ -65,7 +65,7 @@ class HtmlOutputTest extends TestCase
         return new Html($table);
     }
 
-    public function testInputValueEscapesTheAttribute()
+    public function testInputValueEscapesTheAttribute(): void
     {
         $attribute = $this->html()->inputValue('" onfocus="alert(1)');
 
@@ -73,7 +73,7 @@ class HtmlOutputTest extends TestCase
         $this->assertStringContainsString('&quot;', $attribute);
     }
 
-    public function testInputValueComparisonStillWorks()
+    public function testInputValueComparisonStillWorks(): void
     {
         $output = $this->html();
 
@@ -82,7 +82,7 @@ class HtmlOutputTest extends TestCase
         $this->assertEquals(' checked="checked"', $output->inputValue('a', 'a', true));
     }
 
-    public function testColumnsEscapeTheirDataByDefault()
+    public function testColumnsEscapeTheirDataByDefault(): void
     {
         // Escaping used to be opt in, which meant every column rendered raw unless the
         // application remembered to turn it on

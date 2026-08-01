@@ -1,4 +1,4 @@
-# Empty on purpose - the tree passes level 5 outright. Kept so that
+# Empty on purpose - the tree passes level 9 outright. Kept so that
 # `composer stan-baseline` has a file to write and phpstan.neon's include stays valid.
 parameters:
     ignoreErrors: []

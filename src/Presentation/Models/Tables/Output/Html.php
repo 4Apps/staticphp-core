@@ -22,6 +22,8 @@ class Html implements OutputInterface
 
     public TableType $type = TableType::FULL_HTML;
     public string $classNames = 'table';
+
+    /** @var array<int|string, string|\Closure> */
     public array $tableAttributes = [];
 
     /**
@@ -32,9 +34,16 @@ class Html implements OutputInterface
     /**
      * Elements can be string or Closure. If its a Closure, row index and row data are passed as arguments.
      */
+    /** @var array<int|string, string|\Closure> */
     public array $dataRowAttributes = [];
+
+    /** @var array<int|string, string|\Closure> */
     public array $dataRowClasses = ['data-row'];
+
+    /** @var array<int|string, string|\Closure> */
     public array $dataColumnAttributes = [];
+
+    /** @var array<int|string, string|\Closure> */
     public array $dataColumnClasses = ['data-col'];
 
 
@@ -53,11 +62,55 @@ class Html implements OutputInterface
      */
     public static function escape($value): string
     {
-        if ($value === null || is_bool($value) || is_array($value) || is_object($value)) {
-            $value = (is_array($value) || is_object($value) ? '' : (string) $value);
+        return htmlspecialchars(self::text($value), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    }
+
+    /**
+     * One half of a select option - its value or its label.
+     *
+     * An options list is either [id => label], where the array key is the value and the
+     * element is the label, or a list of rows, where the column names which member of a
+     * row carries which. This picks whichever applies.
+     *
+     * @access private
+     * @static
+     * @param  mixed   $item     One element of the options list
+     * @param  ?string $member   Row member holding the part, null for a flat list
+     * @param  mixed   $flat     What to use when the list is flat
+     * @return mixed
+     */
+    private static function optionPart(mixed $item, ?string $member, mixed $flat): mixed
+    {
+        if (empty($member)) {
+            return $flat;
         }
 
-        return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+        return (is_array($item) ? ($item[$member] ?? null) : null);
+    }
+
+    /**
+     * A cell value as text.
+     *
+     * Row data is whatever the application put in it. Everything here renders into markup,
+     * so a value with no text form - an array, an object that is not Stringable - renders
+     * as nothing rather than throwing on the way out.
+     *
+     * @access public
+     * @static
+     * @param  mixed $value
+     * @return string
+     */
+    public static function text(mixed $value): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        if ($value instanceof \Stringable) {
+            return (string) $value;
+        }
+
+        return (is_scalar($value) ? (string) $value : '');
     }
 
     /**
@@ -86,7 +139,7 @@ class Html implements OutputInterface
      * Prefers the active i18n locale over localeconv(), which reads an LC_NUMERIC nothing
      * in the framework sets.
      */
-    public function localeNumberFormat($number, $decimals = 2)
+    public function localeNumberFormat(int|float|null $number, int $decimals = 2): string
     {
         if (\StaticPHP\Utils\Models\i18n::isInitialised() === true) {
             return \StaticPHP\Utils\Models\i18n::number($number ?? 0, $decimals);
@@ -96,37 +149,39 @@ class Html implements OutputInterface
         return number_format($number ?? 0, $decimals, $locale['decimal_point'], $locale['thousands_sep']);
     }
 
-    public function formatData($data, $formatter): string
+    public function formatData(mixed $data, mixed $formatter): string
     {
         if ($formatter === null) {
-            return $data;
+            return self::text($data);
         }
 
         if (is_callable($formatter)) {
-            return $formatter($data);
+            return self::text($formatter($data));
         }
+
+        $number = (is_numeric($data) ? $data + 0 : 0);
 
         switch ($formatter) {
             case FormatterType::TEXT:
-                return "{$data}";
+                return self::text($data);
 
             case FormatterType::INT:
-                return $this->localeNumberFormat($data, 0);
+                return $this->localeNumberFormat($number, 0);
 
             case FormatterType::DECIMAL:
-                return $this->localeNumberFormat((float)$data);
+                return $this->localeNumberFormat((float) $number);
 
             case FormatterType::DECIMAL1:
-                return $this->localeNumberFormat((float)$data, 1);
+                return $this->localeNumberFormat((float) $number, 1);
 
             case FormatterType::DECIMAL2:
-                return $this->localeNumberFormat((float)$data, 2);
+                return $this->localeNumberFormat((float) $number, 2);
 
             case FormatterType::DECIMAL3:
-                return $this->localeNumberFormat((float)$data, 3);
+                return $this->localeNumberFormat((float) $number, 3);
 
             case FormatterType::DECIMAL4:
-                return $this->localeNumberFormat((float)$data, 4);
+                return $this->localeNumberFormat((float) $number, 4);
 
             case FormatterType::BOOLEAN:
                 return $data == 1 ? 'Yes' : 'No';
@@ -138,7 +193,7 @@ class Html implements OutputInterface
                 if ($data instanceof \DateTime) {
                     return $data->format('Y-m-d');
                 }
-                return $data;
+                return self::text($data);
 
             case FormatterType::DATETIME:
                 if ($data instanceof ExtendedDateTime) {
@@ -147,10 +202,10 @@ class Html implements OutputInterface
                 if ($data instanceof \DateTime) {
                     return $data->format('Y-m-d H:i:s');
                 }
-                return $data;
+                return self::text($data);
 
             default:
-                return $data;
+                return self::text($data);
         }
     }
 
@@ -166,12 +221,15 @@ class Html implements OutputInterface
      */
     public function sortUrl(Column $forColumn): string
     {
-        $newDirection = ($forColumn->id === $this->tableInstance->sort->currentColumn()->id
-            && $this->tableInstance->sort->currentDirection() === SortDirection::ASC
+        $sort = $this->tableInstance->sort ?? throw new Exception('Sort is not initialized');
+        $current = $sort->currentColumn();
+
+        $newDirection = ($forColumn->id === $current?->id
+            && $sort->currentDirection() === SortDirection::ASC
             ? 'desc' : 'asc'
         );
         $sortData = "{$forColumn->id}={$newDirection}";
-        $url = $this->tableInstance->sort->url();
+        $url = $sort->url();
         $url = str_replace('%sort', $sortData, $url);
 
         return $url;
@@ -192,10 +250,12 @@ class Html implements OutputInterface
 
         $url = $this->sortUrl($forColumn);
 
+        $sort = $this->tableInstance->sort ?? throw new Exception('Sort is not initialized');
+
         $html = '';
-        if ($forColumn->id === $this->tableInstance->sort->currentColumn()->id) {
+        if ($forColumn->id === $sort->currentColumn()?->id) {
             $html = '&nbsp;&nbsp;<span class="fa fas fa-sort-alpha-';
-            $html .= ($this->tableInstance->sort->currentDirection() === SortDirection::ASC ? 'down' : 'up');
+            $html .= ($sort->currentDirection() === SortDirection::ASC ? 'down' : 'up');
             $html .= ' sort-icon"></span>';
         }
 
@@ -271,7 +331,8 @@ class Html implements OutputInterface
      */
     public function filterInputValue(string $field, ?string $compare = null, bool $checkbox = false): string
     {
-        $parsedData = $this->tableInstance->filter->parsedData();
+        $filter = $this->tableInstance->filter ?? throw new Exception('Filter is not initialized');
+        $parsedData = $filter->parsedData();
 
         if ($compare !== null) {
             $attributeName = "selected";
@@ -279,11 +340,12 @@ class Html implements OutputInterface
                 $attributeName = "checked";
             }
             if (isset($parsedData[$field]['value'])) {
-                if (is_array($parsedData[$field]['value'])) {
-                    if (in_array($compare, $parsedData[$field]['value'])) {
+                $parsedValue = $parsedData[$field]['value'];
+                if (is_array($parsedValue)) {
+                    if (in_array($compare, $parsedValue)) {
                         return " {$attributeName}=\"{$attributeName}\"";
                     }
-                } elseif ($parsedData[$field]['value'] === $compare) {
+                } elseif ($parsedValue === $compare) {
                     return " {$attributeName}=\"{$attributeName}\"";
                 }
             }
@@ -297,9 +359,12 @@ class Html implements OutputInterface
                 $attributes .= ' checked="checked"';
             }
         } elseif (isset($parsedData[$field])) {
-            $attributes .= ' value="' . str_replace('"', '&quot;', $parsedData[$field]['title']) . '"';
-            if ($parsedData[$field]['title'] != $parsedData[$field]['value']) {
-                $attributes .= ' data-value="' . str_replace('"', '&quot;', $parsedData[$field]['value']) . '"';
+            $title = self::text($parsedData[$field]['title'] ?? null);
+            $value = self::text($parsedData[$field]['value'] ?? null);
+
+            $attributes .= ' value="' . str_replace('"', '&quot;', $title) . '"';
+            if ($title != $value) {
+                $attributes .= ' data-value="' . str_replace('"', '&quot;', $value) . '"';
             }
         }
 
@@ -412,8 +477,8 @@ class Html implements OutputInterface
                 $classes .= ' form-select form-select-sm';
                 $html = '<select class="' . $classes . '"' . $attributes . '>';
                 if (count($selectOptions) == 0 && isset($parsedData[$forColumn->id])) {
-                    $html .= '<option value="' . self::escape($parsedData[$forColumn->id]['value']) . '">'
-                        . self::escape($parsedData[$forColumn->id]['title']) . '</option>';
+                    $html .= '<option value="' . self::escape($parsedData[$forColumn->id]['value'] ?? null) . '">'
+                        . self::escape($parsedData[$forColumn->id]['title'] ?? null) . '</option>';
                 } elseif (empty($forColumn->filterSelectSkipEmptyDefault)) {
                     $html .= '<option value=""'
                         . (!empty($forColumn->filterSelectDefaultDisabled) ? ' disabled="disabled"' : '') . '>'
@@ -422,24 +487,19 @@ class Html implements OutputInterface
                 }
                 if (!empty($selectOptionsGroups)) {
                     foreach ($selectOptionsGroups as $gkey => $gitem) {
-                        $final_optgroup_title = (empty($forColumn->filterSelectOptionsGroupTitleKey)
-                            ? $gitem
-                            : $gitem[$forColumn->filterSelectOptionsGroupTitleKey]
+                        $final_optgroup_title = self::optionPart(
+                            $gitem,
+                            $forColumn->filterSelectOptionsGroupTitleKey,
+                            $gitem
                         );
                         $html .= '<optgroup label="' . self::escape($final_optgroup_title) . '">';
 
-                        if (isset($selectOptions[$gkey])) {
+                        if (is_array($selectOptions[$gkey] ?? null)) {
                             foreach ($selectOptions[$gkey] as $key => $item) {
-                                $finalId = (empty($forColumn->filterSelectOptionsIdKey)
-                                    ? $key
-                                    : $item[$forColumn->filterSelectOptionsIdKey]
-                                );
-                                $finalTitle = (empty($forColumn->filterSelectOptionsTitleKey)
-                                    ? $item
-                                    : $item[$forColumn->filterSelectOptionsTitleKey]
-                                );
+                                $finalId = self::optionPart($item, $forColumn->filterSelectOptionsIdKey, $key);
+                                $finalTitle = self::optionPart($item, $forColumn->filterSelectOptionsTitleKey, $item);
                                 $html .= '<option value="' . self::escape($finalId) . '"'
-                                    . $this->filterInputValue($forColumn->id, $finalId) . '>'
+                                    . $this->filterInputValue($forColumn->id, self::text($finalId)) . '>'
                                     . self::escape($finalTitle)
                                     . '</option>';
                             }
@@ -449,16 +509,10 @@ class Html implements OutputInterface
                     }
                 } else {
                     foreach ($selectOptions as $key => $item) {
-                        $finalId = (empty($forColumn->filterSelectOptionsIdKey)
-                            ? $key
-                            : $item[$forColumn->filterSelectOptionsIdKey]
-                        );
-                        $finalTitle = (empty($forColumn->filterSelectOptionsTitleKey)
-                            ? $item
-                            : $item[$forColumn->filterSelectOptionsTitleKey]
-                        );
+                        $finalId = self::optionPart($item, $forColumn->filterSelectOptionsIdKey, $key);
+                        $finalTitle = self::optionPart($item, $forColumn->filterSelectOptionsTitleKey, $item);
                         $html .= '<option value="' . self::escape($finalId) . '"'
-                            . $this->filterInputValue($forColumn->id, $finalId)
+                            . $this->filterInputValue($forColumn->id, self::text($finalId))
                             . '>'
                             . self::escape($finalTitle)
                             . '</option>';
@@ -536,6 +590,10 @@ class Html implements OutputInterface
 
 
     // ! BODY
+    /**
+     * @param array<string, mixed>      $rowItem
+     * @param array<int|string, string> $rowClasses
+     */
     public function htmlDataRow(int $rowIndex, array $rowItem, string $title = '', array $rowClasses = []): string
     {
         $columnCount = count($this->tableInstance->columns);
@@ -672,7 +730,7 @@ class Html implements OutputInterface
                         $column->dataColumnBage,
                         [$column, $rowIndex, $rowItem, $columnCount]
                     );
-                    $prefix[] = '<span class="badge bg-' . $status . '">';
+                    $prefix[] = '<span class="badge bg-' . self::text($status) . '">';
                     $addon[] = '</span>';
                 }
 
@@ -775,10 +833,7 @@ class Html implements OutputInterface
                             break;
                         }
 
-                        if (
-                            isset($selectOptions) == false
-                            || is_array($selectOptions) === false
-                        ) {
+                        if ($selectOptions === null) {
                             throw new \Exception("Value for {$column->id} should be [key => value] array");
                         }
                         if ($column->editFieldType == FieldType::SELECT_MULTIPLE) {
@@ -795,15 +850,9 @@ class Html implements OutputInterface
                         $selectField = "<select class=\"{$classes}\" name=\"{$column->id}\""
                             . " id=\"{$column->id}_{$idValue}\"{$disabledAttr}>";
                         foreach ($selectOptions as $key => $item) {
-                            $finalId = (empty($column->filterSelectOptionsIdKey)
-                                ? $key
-                                : $item[$column->filterSelectOptionsIdKey]
-                            );
-                            $finalTitle = (empty($column->filterSelectOptionsTitleKey)
-                                ? $item
-                                : $item[$column->filterSelectOptionsTitleKey]
-                            );
-                            $selected = self::inputValue($editValue, $key);
+                            $finalId = self::optionPart($item, $column->filterSelectOptionsIdKey, $key);
+                            $finalTitle = self::optionPart($item, $column->filterSelectOptionsTitleKey, $item);
+                            $selected = self::inputValue($editValue, (string) $key);
                             $finalId = self::escape($finalId);
                             $finalTitle = self::escape($finalTitle);
                             $selectField .= "<option value=\"{$finalId}\" {$selected}>{$finalTitle}</option>";
@@ -938,7 +987,8 @@ class Html implements OutputInterface
                 $addon = Utils::runClosures($addon, [$column, $rowIndex, $rowItem, $columnCount]);
                 $addon = array_filter($addon);
                 $addon = implode('', $addon);
-                $html .= "<td{$dataColumnAttributes}>{$prefix}{$dataValue}{$addon}</td>\n";
+                $attributes = (is_array($dataColumnAttributes) ? '' : $dataColumnAttributes);
+                $html .= "<td{$attributes}>{$prefix}{$dataValue}{$addon}</td>\n";
             }
             $html .= "</tr>\n";
         }
@@ -1123,7 +1173,7 @@ class Html implements OutputInterface
                 // Options
                 if (!empty($selectOptions)) {
                     $tableAttributes[] = 'data-field_' . $column->id . '_options="'
-                        . htmlspecialchars(json_encode($selectOptions))
+                        . htmlspecialchars((string) json_encode($selectOptions))
                         . '"';
                 }
 

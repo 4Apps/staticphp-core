@@ -14,6 +14,7 @@ class I18nTest extends SqliteCase
 {
     private ?string $baseUrl = null;
     private ?string $segmentsUrl = null;
+    /** @var array<string, string> */
     private array $prefixes = [];
 
     protected function setUp(): void
@@ -41,32 +42,38 @@ class I18nTest extends SqliteCase
     /**
      * Point the facade at the test database, as one language.
      */
+    /**
+     * @param array<string, mixed> $overrides
+     */
     private function boot(string $languageKey, array $overrides = []): void
     {
         $config = array_merge($this->config(), $overrides);
         $store = new Store($this->connection, '', [], true);
 
-        i18n::inject($config, $this->locales->byKey($languageKey), $store, new Catalog($store, 'none'));
+        $locale = $this->locales->byKey($languageKey);
+        $this->assertNotNull($locale, "no locale configured for \"{$languageKey}\"");
+
+        i18n::inject($config, $locale, $store, new Catalog($store, 'none'));
     }
 
     /*
     | Lookup
     */
 
-    public function testTranslateReturnsTheStoredTranslation()
+    public function testTranslateReturnsTheStoredTranslation(): void
     {
         $this->store->setTranslation('Log in', 'lv_lv', 'Pieslēgties');
 
         $this->assertEquals('Pieslēgties', i18n::translate('Log in'));
     }
 
-    public function testUnknownStringRegistersItselfAndComesBackMarked()
+    public function testUnknownStringRegistersItselfAndComesBackMarked(): void
     {
         $this->assertEquals('Log in*', i18n::translate('Log in'));
         $this->assertEquals('Log in*', $this->value('Log in', 'lv_lv'));
     }
 
-    public function testRepeatedUseOfAnUnknownStringRegistersItOnce()
+    public function testRepeatedUseOfAnUnknownStringRegistersItOnce(): void
     {
         for ($i = 0; $i < 5; ++$i) {
             i18n::translate('Log in');
@@ -80,16 +87,17 @@ class I18nTest extends SqliteCase
      * The old schema had no unique constraint, so a key registered twice left two rows and
      * the join that loads a language returned it twice.
      */
-    public function testRegisteringTheSameKeyTwiceLeavesOneRow()
+    public function testRegisteringTheSameKeyTwiceLeavesOneRow(): void
     {
         $id = $this->store->ensureKey('Log in');
+        $this->assertNotNull($id);
         $this->store->putTranslation($id, 'lv_lv', 'Log in*', false);
         $this->store->putTranslation($id, 'lv_lv', 'Log in*', false);
 
         $this->assertEquals(1, $this->rowCount('i18n_translations'));
     }
 
-    public function testAutoRegisterCanBeTurnedOff()
+    public function testAutoRegisterCanBeTurnedOff(): void
     {
         $this->boot('lv_lv', ['auto_register' => false]);
 
@@ -102,7 +110,7 @@ class I18nTest extends SqliteCase
      * class this replaced tested it with empty(), so it re-inserted a duplicate row and
      * invalidated the cache on every single request for as long as the row stayed empty.
      */
-    public function testAnEmptyTranslationIsHonoured()
+    public function testAnEmptyTranslationIsHonoured(): void
     {
         $this->store->setTranslation('Optional note', 'lv_lv', '');
 
@@ -114,7 +122,7 @@ class I18nTest extends SqliteCase
     | Fallback
     */
 
-    public function testMissingTranslationFallsBackToTheCountryDefault()
+    public function testMissingTranslationFallsBackToTheCountryDefault(): void
     {
         $this->store->setTranslation('Log in', 'lv_lv', 'Pieslēgties');
         $this->boot('lv_ru');
@@ -122,7 +130,7 @@ class I18nTest extends SqliteCase
         $this->assertEquals('Pieslēgties', i18n::translate('Log in'));
     }
 
-    public function testFallbackCanBeTurnedOff()
+    public function testFallbackCanBeTurnedOff(): void
     {
         $this->store->setTranslation('Log in', 'lv_lv', 'Pieslēgties');
         $this->boot('lv_ru', ['fallback' => false]);
@@ -130,7 +138,7 @@ class I18nTest extends SqliteCase
         $this->assertEquals('Log in*', i18n::translate('Log in'));
     }
 
-    public function testTheRequestedLanguageWinsOverTheFallback()
+    public function testTheRequestedLanguageWinsOverTheFallback(): void
     {
         $this->store->setTranslation('Log in', 'lv_lv', 'Pieslēgties');
         $this->store->setTranslation('Log in', 'lv_ru', 'Войти');
@@ -147,7 +155,7 @@ class I18nTest extends SqliteCase
      * The update this replaced had no language in its WHERE clause, so editing the latvian
      * text overwrote english and russian with it.
      */
-    public function testUpdateOnlyTouchesTheNamedLanguage()
+    public function testUpdateOnlyTouchesTheNamedLanguage(): void
     {
         $this->store->setTranslation('Log in', 'lv_lv', 'Pieslēgties');
         $this->store->setTranslation('Log in', 'lv_en', 'Log in');
@@ -160,14 +168,14 @@ class I18nTest extends SqliteCase
         $this->assertEquals('Войти', $this->value('Log in', 'lv_ru'));
     }
 
-    public function testUpdateRefusesAnUnregisteredKey()
+    public function testUpdateRefusesAnUnregisteredKey(): void
     {
         $this->expectException(TranslationError::class);
 
         i18n::update('Never seen', 'Nekad', 'lv_lv');
     }
 
-    public function testSetRegistersTheKeyItIsGiven()
+    public function testSetRegistersTheKeyItIsGiven(): void
     {
         $this->assertTrue(i18n::set('Log in', 'Pieslēgties', 'lv_lv'));
         $this->assertEquals('Pieslēgties', $this->value('Log in', 'lv_lv'));
@@ -181,7 +189,7 @@ class I18nTest extends SqliteCase
      * str_replace() walked the array applying each pair to the result of the last, so a
      * value that contained another key got replaced a second time.
      */
-    public function testPlaceholdersAreSubstitutedInOnePass()
+    public function testPlaceholdersAreSubstitutedInOnePass(): void
     {
         $this->store->setTranslation('%a% and %b%', 'lv_lv', '%a% un %b%');
 
@@ -191,7 +199,7 @@ class I18nTest extends SqliteCase
         );
     }
 
-    public function testHtmlEscapingIsAvailable()
+    public function testHtmlEscapingIsAvailable(): void
     {
         $this->store->setTranslation('Hello %name%', 'lv_lv', 'Sveiki %name%');
 
@@ -205,7 +213,7 @@ class I18nTest extends SqliteCase
      * The js escaper this replaced was a str_replace of ' \r and \n, so a closing tag or a
      * backslash walked straight out of the literal it was supposed to sit in.
      */
-    public function testJavascriptEscapingClosesNothing()
+    public function testJavascriptEscapingClosesNothing(): void
     {
         $escaped = i18n::translate('</script><b>\\', [], 'js');
 
@@ -217,7 +225,7 @@ class I18nTest extends SqliteCase
     | ICU
     */
 
-    public function testFormatPluralisesForLatvian()
+    public function testFormatPluralisesForLatvian(): void
     {
         $pattern = '{n, plural, zero{# failu} one{# fails} other{# faili}}';
         $this->store->setTranslation($pattern, 'lv_lv', $pattern);
@@ -230,7 +238,7 @@ class I18nTest extends SqliteCase
         $this->assertEquals('11 failu', i18n::format($pattern, ['n' => 11]));
     }
 
-    public function testFormatPluralisesForRussian()
+    public function testFormatPluralisesForRussian(): void
     {
         $pattern = '{n, plural, one{# файл} few{# файла} many{# файлов} other{# файла}}';
         $this->store->setTranslation($pattern, 'lv_ru', $pattern);
@@ -242,7 +250,7 @@ class I18nTest extends SqliteCase
         $this->assertEquals('21 файл', i18n::format($pattern, ['n' => 21]));
     }
 
-    public function testAnInvalidPatternThrowsInStrictMode()
+    public function testAnInvalidPatternThrowsInStrictMode(): void
     {
         $this->expectException(TranslationError::class);
 
@@ -254,7 +262,7 @@ class I18nTest extends SqliteCase
      * did format numbers read localeconv() - which is the C locale unless something
      * generated and set another one.
      */
-    public function testNumbersFollowTheCountryConventions()
+    public function testNumbersFollowTheCountryConventions(): void
     {
         $latvian = i18n::number(1234.5, 2);
 
@@ -267,7 +275,7 @@ class I18nTest extends SqliteCase
         $this->assertStringNotContainsString('.', $latvian);
     }
 
-    public function testCurrencyIsFormattedForTheLocale()
+    public function testCurrencyIsFormattedForTheLocale(): void
     {
         $formatted = i18n::currency(1234.5, 'EUR');
 
@@ -275,11 +283,11 @@ class I18nTest extends SqliteCase
         $this->assertStringContainsString(',', $formatted);
     }
 
-    public function testTheIcuLocaleCombinesLanguageAndCountry()
+    public function testTheIcuLocaleCombinesLanguageAndCountry(): void
     {
         $this->boot('lv_en');
 
-        $this->assertEquals('en_LV', i18n::locale()->icuLocale);
+        $this->assertEquals('en_LV', i18n::locale()?->icuLocale);
     }
 
     /*
@@ -290,10 +298,12 @@ class I18nTest extends SqliteCase
      * A translation layer that takes the page down when the database blinks is worse than
      * one that renders english.
      */
-    public function testADeadDatabaseRendersSourceStrings()
+    public function testADeadDatabaseRendersSourceStrings(): void
     {
         $store = new Store($this->connection, '', [], false);
-        i18n::inject($this->config(), $this->locales->byKey('lv_lv'), $store, new Catalog($store, 'none'));
+        $locale = $this->locales->byKey('lv_lv');
+        $this->assertNotNull($locale);
+        i18n::inject($this->config(), $locale, $store, new Catalog($store, 'none'));
 
         Db::query('DROP TABLE i18n_translations', [], $this->connection);
         Db::query('DROP TABLE i18n_keys', [], $this->connection);
@@ -306,7 +316,7 @@ class I18nTest extends SqliteCase
     | Urls
     */
 
-    public function testUrlRewritesThePrefix()
+    public function testUrlRewritesThePrefix(): void
     {
         Router::$base_url = 'http://test';
         Router::$segments_url = 'some/page';
@@ -315,7 +325,7 @@ class I18nTest extends SqliteCase
         $this->assertEquals('http://test/ee-et/other', i18n::url('ee_et', 'other'));
     }
 
-    public function testAlternatesCoverEveryConfiguredLanguage()
+    public function testAlternatesCoverEveryConfiguredLanguage(): void
     {
         Router::$base_url = 'http://test';
         Router::$segments_url = 'some/page';
@@ -329,7 +339,7 @@ class I18nTest extends SqliteCase
         $this->assertCount(3, i18n::alternates(true));
     }
 
-    public function testUrlRefusesAnUnconfiguredLanguage()
+    public function testUrlRefusesAnUnconfiguredLanguage(): void
     {
         $this->expectException(TranslationError::class);
 
@@ -340,10 +350,10 @@ class I18nTest extends SqliteCase
     | init()
     */
 
-    public function testInitPicksTheLocaleOutOfTheUrlPrefix()
+    public function testInitPicksTheLocaleOutOfTheUrlPrefix(): void
     {
         Config::$items['i18n'] = $this->config();
-        Config::$items['db']['pdo'][$this->connection] = ['string' => "sqlite:{$this->dbFile}"];
+        Config::$items['db'] = ['pdo' => [$this->connection => ['string' => "sqlite:{$this->dbFile}"]]];
         Router::$prefixes = ['lv-ru' => 'lv-ru'];
 
         i18n::init();
@@ -351,14 +361,14 @@ class I18nTest extends SqliteCase
         $this->assertEquals('lv_ru', i18n::$language_key);
         $this->assertEquals('lv', i18n::$country_code);
         $this->assertEquals('ru', i18n::$language_code);
-        $this->assertEquals('Latvia', i18n::$current_country['name']);
+        $this->assertEquals('Latvia', i18n::$current_country['name'] ?? null);
     }
 
     /**
      * The check this replaced tested the country code against the language list, which only
      * ever passed because every shipped country happens to list its own code as a language.
      */
-    public function testInitRefusesAnUnconfiguredPairing()
+    public function testInitRefusesAnUnconfiguredPairing(): void
     {
         Config::$items['i18n'] = $this->config();
         Router::$prefixes = [];
@@ -368,10 +378,10 @@ class I18nTest extends SqliteCase
         i18n::init('lv', 'de');
     }
 
-    public function testInitAcceptsAnExplicitPairing()
+    public function testInitAcceptsAnExplicitPairing(): void
     {
         Config::$items['i18n'] = $this->config();
-        Config::$items['db']['pdo'][$this->connection] = ['string' => "sqlite:{$this->dbFile}"];
+        Config::$items['db'] = ['pdo' => [$this->connection => ['string' => "sqlite:{$this->dbFile}"]]];
         Router::$prefixes = [];
 
         i18n::init('ee', 'en');
@@ -380,10 +390,10 @@ class I18nTest extends SqliteCase
         $this->assertEquals('ee-en', i18n::$url_prefix);
     }
 
-    public function testInitWithoutAPrefixNegotiatesFromTheHeader()
+    public function testInitWithoutAPrefixNegotiatesFromTheHeader(): void
     {
         Config::$items['i18n'] = $this->config();
-        Config::$items['db']['pdo'][$this->connection] = ['string' => "sqlite:{$this->dbFile}"];
+        Config::$items['db'] = ['pdo' => [$this->connection => ['string' => "sqlite:{$this->dbFile}"]]];
         Router::$prefixes = [];
         $_SERVER['HTTP_ACCEPT_LANGUAGE'] = 'ru-RU,ru;q=0.9,en;q=0.5';
 

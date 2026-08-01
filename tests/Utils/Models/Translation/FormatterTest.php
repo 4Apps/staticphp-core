@@ -16,7 +16,7 @@ class FormatterTest extends TestCase
      * str_replace() applies each pair to the result of the last, so ['a' => 'b', 'b' => 'c']
      * turned an "a" into a "c".
      */
-    public function testReplacementsDoNotCascade()
+    public function testReplacementsDoNotCascade(): void
     {
         $this->assertEquals('b c', Formatter::replace('a b', ['a' => 'b', 'b' => 'c']));
     }
@@ -24,7 +24,7 @@ class FormatterTest extends TestCase
     /**
      * With str_replace() a shorter key that is a prefix of a longer one consumed it first.
      */
-    public function testTheLongestMatchingKeyWins()
+    public function testTheLongestMatchingKeyWins(): void
     {
         $this->assertEquals(
             'full',
@@ -32,17 +32,17 @@ class FormatterTest extends TestCase
         );
     }
 
-    public function testNullBecomesAnEmptyString()
+    public function testNullBecomesAnEmptyString(): void
     {
         $this->assertEquals('', Formatter::replace('%x%', ['%x%' => null]));
     }
 
-    public function testNonStringValuesAreCast()
+    public function testNonStringValuesAreCast(): void
     {
         $this->assertEquals('42', Formatter::replace('%x%', ['%x%' => 42]));
     }
 
-    public function testNothingToReplaceLeavesTheTextAlone()
+    public function testNothingToReplaceLeavesTheTextAlone(): void
     {
         $this->assertEquals('%x%', Formatter::replace('%x%', []));
     }
@@ -51,7 +51,7 @@ class FormatterTest extends TestCase
     | escape()
     */
 
-    public function testHtmlEscaping()
+    public function testHtmlEscaping(): void
     {
         $this->assertEquals(
             '&lt;b&gt; &quot;q&quot; &#039;a&#039;',
@@ -63,7 +63,7 @@ class FormatterTest extends TestCase
      * The escaper this replaced handled ' \r and \n and nothing else, so a backslash or a
      * closing tag walked straight out of the javascript literal it was meant to sit in.
      */
-    public function testJavascriptEscapingContainsNoDelimiters()
+    public function testJavascriptEscapingContainsNoDelimiters(): void
     {
         $escaped = Formatter::escape("</script>\\'\"\n", 'js');
 
@@ -73,17 +73,17 @@ class FormatterTest extends TestCase
         $this->assertNotNull(json_decode('"' . $escaped . '"'));
     }
 
-    public function testUrlEscaping()
+    public function testUrlEscaping(): void
     {
         $this->assertEquals('a%20b%2Fc', Formatter::escape('a b/c', 'url'));
     }
 
-    public function testNoModeLeavesTheTextAlone()
+    public function testNoModeLeavesTheTextAlone(): void
     {
         $this->assertEquals('<b>', Formatter::escape('<b>', null));
     }
 
-    public function testAnUnknownModeLeavesTheTextAlone()
+    public function testAnUnknownModeLeavesTheTextAlone(): void
     {
         $this->assertEquals('<b>', Formatter::escape('<b>', 'nonsense'));
     }
@@ -92,7 +92,7 @@ class FormatterTest extends TestCase
     | ICU
     */
 
-    public function testLatvianHasThreePluralCategories()
+    public function testLatvianHasThreePluralCategories(): void
     {
         $formatter = new Formatter('lv_LV', true);
         $pattern = '{n, plural, zero{nulle} one{viens} other{daudz}}';
@@ -103,7 +103,7 @@ class FormatterTest extends TestCase
         $this->assertEquals('viens', $formatter->message($pattern, ['n' => 21]));
     }
 
-    public function testRussianHasFour()
+    public function testRussianHasFour(): void
     {
         $formatter = new Formatter('ru_RU', true);
         $pattern = '{n, plural, one{one} few{few} many{many} other{other}}';
@@ -113,7 +113,7 @@ class FormatterTest extends TestCase
         $this->assertEquals('many', $formatter->message($pattern, ['n' => 5]));
     }
 
-    public function testSelectHandlesGender()
+    public function testSelectHandlesGender(): void
     {
         $formatter = new Formatter('en_US', true);
         $pattern = '{g, select, female{She} male{He} other{They}} replied';
@@ -122,14 +122,14 @@ class FormatterTest extends TestCase
         $this->assertEquals('They replied', $formatter->message($pattern, ['g' => 'unknown']));
     }
 
-    public function testAnInvalidPatternThrowsInStrictMode()
+    public function testAnInvalidPatternThrowsInStrictMode(): void
     {
         $this->expectException(TranslationError::class);
 
         (new Formatter('en_US', true))->message('{n, plural, one{x}');
     }
 
-    public function testAnInvalidPatternDegradesToItselfOtherwise()
+    public function testAnInvalidPatternDegradesToItselfOtherwise(): void
     {
         $pattern = '{n, plural, one{x}';
 
@@ -140,7 +140,7 @@ class FormatterTest extends TestCase
     | Numbers
     */
 
-    public function testLatvianAndAmericanNumbersDiffer()
+    public function testLatvianAndAmericanNumbersDiffer(): void
     {
         $latvian = (new Formatter('lv_LV', true))->number(1234.5, 2);
         $american = (new Formatter('en_US', true))->number(1234.5, 2);
@@ -150,7 +150,7 @@ class FormatterTest extends TestCase
         $this->assertStringContainsString(',234', $american);
     }
 
-    public function testTheDecimalCountIsHonoured()
+    public function testTheDecimalCountIsHonoured(): void
     {
         $formatter = new Formatter('en_US', true);
 
@@ -158,13 +158,13 @@ class FormatterTest extends TestCase
         $this->assertEquals('2', $formatter->number(2, 0));
     }
 
-    public function testCurrencyCarriesItsSymbol()
+    public function testCurrencyCarriesItsSymbol(): void
     {
         $this->assertStringContainsString('€', (new Formatter('lv_LV', true))->currency(10, 'EUR'));
         $this->assertStringContainsString('$', (new Formatter('en_US', true))->currency(10, 'USD'));
     }
 
-    public function testPercent()
+    public function testPercent(): void
     {
         $this->assertStringContainsString('25', (new Formatter('en_US', true))->percent(0.25));
         $this->assertStringContainsString('%', (new Formatter('en_US', true))->percent(0.25));
@@ -174,7 +174,7 @@ class FormatterTest extends TestCase
     | Dates
     */
 
-    public function testDatesFollowTheLocale()
+    public function testDatesFollowTheLocale(): void
     {
         $formatter = new Formatter('lv_LV', true);
         $value = new \DateTimeImmutable('2026-08-01 12:00:00', new \DateTimeZone('UTC'));
@@ -183,7 +183,7 @@ class FormatterTest extends TestCase
         $this->assertStringContainsString('2026', $formatter->date($value));
     }
 
-    public function testAStringDateIsAccepted()
+    public function testAStringDateIsAccepted(): void
     {
         $formatter = new Formatter('en_US', true);
 

@@ -19,23 +19,26 @@ class NegotiatorTest extends TestCase
         ]);
     }
 
-    public function testTheHighestQualityLanguageWins()
+    public function testTheHighestQualityLanguageWins(): void
     {
         $locale = Negotiator::best('en;q=0.4,ru;q=0.9,lv;q=0.1', $this->locales());
+        $this->assertNotNull($locale);
 
         $this->assertEquals('lv_ru', $locale->key());
     }
 
-    public function testEqualQualitiesKeepHeaderOrder()
+    public function testEqualQualitiesKeepHeaderOrder(): void
     {
         $locale = Negotiator::best('ru,lv', $this->locales());
+        $this->assertNotNull($locale);
 
         $this->assertEquals('lv_ru', $locale->key());
     }
 
-    public function testAnUnqualifiedTagOutranksAQualifiedOne()
+    public function testAnUnqualifiedTagOutranksAQualifiedOne(): void
     {
         $locale = Negotiator::best('ru;q=0.5,lv', $this->locales());
+        $this->assertNotNull($locale);
 
         $this->assertEquals('lv_lv', $locale->key());
     }
@@ -44,40 +47,43 @@ class NegotiatorTest extends TestCase
      * A browser asking for et-EE should land on the estonian site rather than on whichever
      * country happens to be configured first.
      */
-    public function testAnExactRegionMatchIsPreferred()
+    public function testAnExactRegionMatchIsPreferred(): void
     {
         $locale = Negotiator::best('et-EE', $this->locales());
+        $this->assertNotNull($locale);
 
         $this->assertEquals('ee_et', $locale->key());
     }
 
-    public function testAnUnknownRegionStillMatchesTheLanguage()
+    public function testAnUnknownRegionStillMatchesTheLanguage(): void
     {
         $locale = Negotiator::best('en-GB', $this->locales());
+        $this->assertNotNull($locale);
 
         $this->assertEquals('en', $locale->language);
     }
 
-    public function testZeroQualityIsNotAPreference()
+    public function testZeroQualityIsNotAPreference(): void
     {
         $locale = Negotiator::best('ru;q=0,en;q=0.2', $this->locales());
+        $this->assertNotNull($locale);
 
         $this->assertEquals('en', $locale->language);
     }
 
-    public function testAWildcardIsNotAMatch()
+    public function testAWildcardIsNotAMatch(): void
     {
         $this->assertNull(Negotiator::best('*', $this->locales()));
     }
 
-    public function testNothingConfiguredMatchesNothing()
+    public function testNothingConfiguredMatchesNothing(): void
     {
         $this->assertNull(Negotiator::best('de-DE,fr;q=0.8', $this->locales()));
         $this->assertNull(Negotiator::best('', $this->locales()));
         $this->assertNull(Negotiator::best(null, $this->locales()));
     }
 
-    public function testGarbageDoesNotThrow()
+    public function testGarbageDoesNotThrow(): void
     {
         $this->assertNull(Negotiator::best(';;;,q=,,-,1234', $this->locales()));
     }

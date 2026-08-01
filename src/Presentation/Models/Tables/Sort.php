@@ -197,12 +197,16 @@ class Sort implements SortInterface
      */
     public function sortBy(): string
     {
-        if (is_callable($this->currentColumn->sortBy)) {
-            $sortBy = $this->currentColumn->sortBy;
+        $column = $this->currentColumn
+            ?? throw new \LogicException('Sort has no current column');
+
+        if (is_callable($column->sortBy)) {
+            $sortBy = $column->sortBy;
             return $sortBy($this->currentDirection);
         }
 
-        return $this->currentColumn->sortBy;
+        // A column with no sortBy is ordered by its own id
+        return $column->sortBy ?? $column->id;
     }
 
     /**

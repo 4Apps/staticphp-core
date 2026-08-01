@@ -18,6 +18,7 @@
     "require-dev": {
         "phpoffice/phpspreadsheet": "^3.0 || ^4.0",
         "phpstan/phpstan": "^2.2",
+        "phpstan/phpstan-phpunit": "^2.0",
         "phpunit/phpunit": "^13.0",
         "squizlabs/php_codesniffer": "^4.0",
         "twig/twig": "^3.0"

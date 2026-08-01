@@ -18,14 +18,21 @@ class CacheRedis extends Cache
      * @static
      * @return void
      */
+    /**
+     * @param ?array<string, mixed> $config
+     */
     public function __construct(?array $config = null)
     {
         parent::__construct($config);
 
         $this->redis = new Redis();
-        $this->redis->connect($config['hostname'], $config['port'], $this->config['timeout']);
+        $this->redis->connect(
+            $this->setting('hostname', '127.0.0.1'),
+            $this->settingInt('port', 6379),
+            (float) $this->settingInt('timeout')
+        );
         $this->redis->setOption(Redis::OPT_SERIALIZER, Redis::SERIALIZER_PHP);
-        $this->redis->select($this->config['database'] ?? 0);
+        $this->redis->select($this->settingInt('database'));
     }
 
     /**

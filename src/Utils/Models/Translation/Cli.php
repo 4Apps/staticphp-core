@@ -79,7 +79,7 @@ class Cli
 
         [$command, $positional, $options] = $parsed;
 
-        $bootstrapped = self::bootstrap($basePath, $options['project']);
+        $bootstrapped = self::bootstrap($basePath, self::optionString($options, 'project', 'Application'));
         if ($bootstrapped !== 0) {
             return $bootstrapped;
         }
@@ -93,7 +93,8 @@ class Cli
      * @access private
      * @static
      * @param  string[] $arguments
-     * @return array|int The triple, or an exit code when there is nothing to run
+     * @return array{0: string, 1: list<string>, 2: array<string, bool|string|null>}|int
+     *         The triple, or an exit code when there is nothing to run
      */
     private static function parse(array $arguments): array|int
     {
@@ -165,6 +166,55 @@ class Cli
     }
 
     /**
+     * The configured pdo connections, whatever Config happens to hold.
+     *
+     * @access private
+     * @static
+     * @return array<string, mixed>
+     */
+    private static function pdoConfigs(): array
+    {
+        $db = Config::$items['db'] ?? null;
+        $pdo = (is_array($db) ? ($db['pdo'] ?? null) : null);
+
+        return (is_array($pdo) ? $pdo : []);
+    }
+
+    /**
+     * A command line option as a string.
+     *
+     * Options come off argv as strings, flags as booleans and anything unset as null, so
+     * this is where an option stops being a mixed.
+     *
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @param  string $default
+     * @return string
+     */
+    private static function optionString(array $options, string $key, string $default = ''): string
+    {
+        $value = $options[$key] ?? null;
+
+        return (is_string($value) && $value !== '' ? $value : $default);
+    }
+
+    /**
+     * A command line flag.
+     *
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @return bool
+     */
+    private static function optionFlag(array $options, string $key): bool
+    {
+        return ($options[$key] ?? false) === true;
+    }
+
+    /**
      * Define the framework paths, register the autoloader and load configuration.
      *
      * @access private
@@ -191,7 +241,7 @@ class Cli
         Config::load(['Config']);
 
         foreach ((array) Config::get('autoload_configs', []) as $item) {
-            $parts = explode('/', $item);
+            $parts = explode('/', (is_string($item) ? $item : ''));
             if (count($parts) === 3) {
                 Config::load([$parts[2]], $parts[1], $parts[0]);
             } elseif (count($parts) === 2) {
@@ -202,7 +252,7 @@ class Cli
         }
 
         // Framework defaults for anything the application did not load itself
-        if (empty(Config::$items['db']['pdo'])) {
+        if (self::pdoConfigs() === []) {
             Config::load(['Db'], 'Utils', 'staticphp');
         }
 
@@ -220,18 +270,23 @@ class Cli
      * @static
      * @param  string   $command
      * @param  string[] $positional
-     * @param  array    $options
+     * @param  array<string, bool|string|null> $options
      * @param  string   $basePath
      * @return int
      */
     private static function dispatch(string $command, array $positional, array $options, string $basePath): int
     {
         $settings = (array) Config::get('i18n', []);
-        $connectionName = $options['connection'] ?? ($settings['db_config'] ?? 'default');
+        $configured = $settings['db_config'] ?? null;
+        $connectionName = self::optionString(
+            $options,
+            'connection',
+            (is_string($configured) ? $configured : 'default')
+        );
 
-        $dbConfig = Config::$items['db']['pdo'][$connectionName] ?? null;
-        if ($dbConfig === null) {
-            $known = implode(', ', array_keys(Config::$items['db']['pdo'] ?? []));
+        $dbConfig = self::pdoConfigs()[$connectionName] ?? null;
+        if (is_array($dbConfig) === false) {
+            $known = implode(', ', array_keys(self::pdoConfigs()));
             fwrite(
                 STDERR,
                 "error: no database connection \"{$connectionName}\" in config['db']['pdo']"
@@ -242,6 +297,7 @@ class Cli
         }
 
         try {
+            /** @var array<string, mixed> $dbConfig */
             Db::init($connectionName, $dbConfig);
         } catch (\Throwable $e) {
             fwrite(STDERR, "error: could not connect to \"{$connectionName}\": {$e->getMessage()}\n");
@@ -256,10 +312,13 @@ class Cli
         try {
             // strict: a command that silently degraded would report "0 keys" for a database
             // it never reached, and somebody would believe it
+            $scheme = $settings['db_scheme'] ?? null;
+            $tables = $settings['tables'] ?? null;
+
             $store = new Store(
                 $connectionName,
-                (string) ($settings['db_scheme'] ?? ''),
-                (array) ($settings['tables'] ?? []),
+                (is_string($scheme) ? $scheme : ''),
+                (is_array($tables) ? array_filter($tables, is_string(...)) : []),
                 true,
             );
 
@@ -283,7 +342,7 @@ class Cli
      * @param  Commands $commands
      * @param  string   $command
      * @param  string[] $positional
-     * @param  array    $options
+     * @param  array<string, bool|string|null> $options
      * @param  string   $basePath
      * @return int
      */
@@ -294,13 +353,12 @@ class Cli
         array $options,
         string $basePath
     ): int {
-        $paths = $options['path'] !== null
-            ? array_map('trim', explode(',', (string) $options['path']))
-            : [APP_PATH];
+        $path = self::optionString($options, 'path');
+        $paths = ($path === '' ? [APP_PATH] : array_map('trim', explode(',', $path)));
 
         switch ($command) {
             case 'status':
-                return $commands->status($options['check']);
+                return $commands->status(self::optionFlag($options, 'check'));
 
             case 'missing':
                 return $commands->missing($positional[0] ?? null);
@@ -324,7 +382,11 @@ class Cli
                     return 2;
                 }
 
-                return $commands->export($positional[0], (string) ($options['format'] ?? 'csv'), $options['out']);
+                return $commands->export(
+                    $positional[0],
+                    self::optionString($options, 'format', 'csv'),
+                    self::optionString($options, 'out') ?: null
+                );
 
             case 'import':
                 if (count($positional) < 2) {
@@ -336,12 +398,12 @@ class Cli
                 return $commands->import(
                     $positional[0],
                     $positional[1],
-                    (string) ($options['format'] ?? 'auto'),
-                    $options['overwrite']
+                    self::optionString($options, 'format', 'auto'),
+                    self::optionFlag($options, 'overwrite')
                 );
 
             case 'scan':
-                return $commands->scan($paths, $options['write']);
+                return $commands->scan($paths, self::optionFlag($options, 'write'));
 
             case 'prune':
                 $prompt = function (string $question): string {
@@ -350,7 +412,7 @@ class Cli
                     return (string) fgets(STDIN);
                 };
 
-                return $commands->prune($paths, $options['yes'], $prompt);
+                return $commands->prune($paths, self::optionFlag($options, 'yes'), $prompt);
 
             case 'clear':
                 return $commands->clear($positional[0] ?? null);
@@ -362,9 +424,11 @@ class Cli
 
                 $migrations = (array) Config::get('migrations', []);
 
+                $migrationsDir = $migrations['dir'] ?? null;
+
                 return $commands->install(
-                    $options['upgrade'],
-                    (string) ($migrations['dir'] ?? APP_PATH . '/Migrations'),
+                    self::optionFlag($options, 'upgrade'),
+                    (is_string($migrationsDir) ? $migrationsDir : APP_PATH . '/Migrations'),
                     SP_PATH . '/Utils/Files/I18n',
                     time()
                 );

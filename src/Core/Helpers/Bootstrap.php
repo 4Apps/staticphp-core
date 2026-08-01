@@ -45,9 +45,8 @@ ini_set(
 ini_set('display_errors', (int) Config::$items['debug']);
 
 // Autoload additional config files
-$autoload_configs = Config::get('autoload_configs');
-if ($autoload_configs !== false) {
-    foreach ($autoload_configs as $item) {
+foreach (Config::getArray('autoload_configs') as $item) {
+    if (is_string($item)) {
         $tmp = explode('/', $item);
         $count = count($tmp);
         if ($count == 3) {
@@ -109,7 +108,7 @@ if (Config::get('disable_twig') !== true && class_exists(\Twig\Environment::clas
             return Router::siteUrl($url, $prefix, $current_prefix);
         }
     );
-    Config::get('view_engine')->addFilter($filter);
+    Config::viewEngine()?->addFilter($filter);
 
     // Site url function
     $function = new \Twig\TwigFunction(
@@ -118,7 +117,7 @@ if (Config::get('disable_twig') !== true && class_exists(\Twig\Environment::clas
             return Router::siteUrl($url, $prefix, $current_prefix);
         }
     );
-    Config::get('view_engine')->addFunction($function);
+    Config::viewEngine()?->addFunction($function);
 
     // Start timer function
     $function = new \Twig\TwigFunction(
@@ -127,7 +126,7 @@ if (Config::get('disable_twig') !== true && class_exists(\Twig\Environment::clas
             Timers::startTimer();
         }
     );
-    Config::get('view_engine')->addFunction($function);
+    Config::viewEngine()?->addFunction($function);
 
     // Stop timer function
     $function = new \Twig\TwigFunction(
@@ -136,7 +135,7 @@ if (Config::get('disable_twig') !== true && class_exists(\Twig\Environment::clas
             Timers::stopTimer($name);
         }
     );
-    Config::get('view_engine')->addFunction($function);
+    Config::viewEngine()?->addFunction($function);
 
     // Mark time function
     $function = new \Twig\TwigFunction(
@@ -145,7 +144,7 @@ if (Config::get('disable_twig') !== true && class_exists(\Twig\Environment::clas
             Timers::markTime($name);
         }
     );
-    Config::get('view_engine')->addFunction($function);
+    Config::viewEngine()?->addFunction($function);
 
     // Debug output function
     $function = new \Twig\TwigFunction(
@@ -154,7 +153,7 @@ if (Config::get('disable_twig') !== true && class_exists(\Twig\Environment::clas
             return Logger::debugOutput();
         }
     );
-    Config::get('view_engine')->addFunction($function);
+    Config::viewEngine()?->addFunction($function);
 
     // CSRF helpers - csrfToken(), csrfFieldName() and csrfField().
     // Registering them only makes the token available to templates; validating incoming
@@ -163,9 +162,8 @@ if (Config::get('disable_twig') !== true && class_exists(\Twig\Environment::clas
 }
 
 // Autoload helpers
-$autoload_helpers = Config::get('autoload_helpers');
-if ($autoload_helpers !== false) {
-    foreach ($autoload_helpers as $item) {
+foreach (Config::getArray('autoload_helpers') as $item) {
+    if (is_string($item)) {
         $tmp = explode('/', $item);
         $count = count($tmp);
         if ($count == 3) {

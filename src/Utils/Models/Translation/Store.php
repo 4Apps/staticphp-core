@@ -50,7 +50,7 @@ final class Store
      * @access public
      * @param string $connection Entry of config['db']['pdo']
      * @param string $scheme     Schema to qualify tables with, or an empty string
-     * @param array  $tables     Names for the keys, translations and cached tables
+     * @param array<string, string> $tables Names for the keys, translations and cached tables
      * @param bool   $strict     Rethrow instead of degrading
      */
     public function __construct(
@@ -72,7 +72,8 @@ final class Store
             return $this->driver;
         }
 
-        $name = (string) Db::init($this->connection)->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $name = Db::init($this->connection)->getAttribute(PDO::ATTR_DRIVER_NAME);
+        $name = (is_string($name) ? $name : '');
         if (in_array($name, ['pgsql', 'mysql', 'sqlite'], true) === false) {
             throw new TranslationError("i18n has no sql for the \"{$name}\" driver");
         }
@@ -139,7 +140,7 @@ final class Store
                 $this->connection
             )->fetch(PDO::FETCH_ASSOC);
 
-            return $row === false || $row === null ? null : (int) $row['id'];
+            return (is_array($row) && isset($row['id']) && is_numeric($row['id']) ? (int) $row['id'] : null);
         });
     }
 
@@ -173,7 +174,7 @@ final class Store
                 $this->connection
             )->fetch(PDO::FETCH_ASSOC);
 
-            return $row === false || $row === null ? null : (int) $row['id'];
+            return (is_array($row) && isset($row['id']) && is_numeric($row['id']) ? (int) $row['id'] : null);
         });
     }
 
@@ -474,9 +475,10 @@ final class Store
      * and there is no useful page to render past that.
      *
      * @access private
-     * @param  callable $work
-     * @param  mixed    $onFailure Returned when the call fails and strict mode is off
-     * @return mixed
+     * @template T
+     * @param  callable(): T $work
+     * @param  T $onFailure Returned when the call fails and strict mode is off
+     * @return T
      */
     private function guard(callable $work, mixed $onFailure = null): mixed
     {

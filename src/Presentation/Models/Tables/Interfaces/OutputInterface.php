@@ -7,6 +7,6 @@ namespace StaticPHP\Presentation\Models\Tables\Interfaces;
  */
 interface OutputInterface extends TableInstanceInterface
 {
-    public function makeOutput();
+    public function makeOutput(): mixed;
     public function showOutput(): void;
 }

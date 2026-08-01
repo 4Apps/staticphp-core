@@ -19,23 +19,29 @@ class CacheMemcached extends Cache
      * @static
      * @return void
      */
+    /**
+     * @param ?array<string, mixed> $config
+     */
     public function __construct(?array $config = null)
     {
         parent::__construct($config);
 
-        if (isset($this->config['timeout'])) {
-            ini_set('memcached.default_connect_timeout', $this->config['timeout'] * 1000);
+        $timeout = $this->settingInt('timeout');
+        if ($timeout > 0) {
+            ini_set('memcached.default_connect_timeout', $timeout * 1000);
         }
 
-        $persistentId = empty($this->config['persistent_id']) ? null : $this->config['persistent_id'];
-        $this->memcached = new Memcached($persistentId);
+        $persistentId = $this->setting('persistent_id');
+        $this->memcached = ($persistentId === '' ? new Memcached() : new Memcached($persistentId));
         $this->memcached->setOption(Memcached::OPT_LIBKETAMA_COMPATIBLE, true);
         if (!count($this->memcached->getServerList())) {
-            if (isset($this->config['timeout'])) {
-                $this->memcached->setOption(Memcached::OPT_RECV_TIMEOUT, $this->config['timeout'] * 1000);
-                $this->memcached->setOption(Memcached::OPT_SEND_TIMEOUT, $this->config['timeout'] * 1000);
+            if ($timeout > 0) {
+                $this->memcached->setOption(Memcached::OPT_RECV_TIMEOUT, $timeout * 1000);
+                $this->memcached->setOption(Memcached::OPT_SEND_TIMEOUT, $timeout * 1000);
             }
-            $this->memcached->addServers($this->config['servers']);
+
+            $servers = $this->config['servers'] ?? null;
+            $this->memcached->addServers(is_array($servers) ? $servers : []);
         }
     }
 
@@ -48,7 +54,7 @@ class CacheMemcached extends Cache
      */
     public function setValue(string $key, mixed $value, ?int $ttl = null): bool
     {
-        return $this->memcached->set($this->prefix($key), $value, $ttl);
+        return $this->memcached->set($this->prefix($key), $value, $ttl ?? 0);
     }
 
     /**

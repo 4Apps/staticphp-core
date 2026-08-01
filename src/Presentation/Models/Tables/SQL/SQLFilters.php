@@ -20,7 +20,7 @@ class SQLFilters implements TableInstanceInterface
      *
      * (default value: [])
      *
-     * @var array
+     * @var list<string>
      * @access protected
      */
     protected array $queries = [];
@@ -30,7 +30,7 @@ class SQLFilters implements TableInstanceInterface
      *
      * (default value: [])
      *
-     * @var array
+     * @var list<mixed>
      * @access protected
      */
     protected array $params = [];
@@ -40,7 +40,7 @@ class SQLFilters implements TableInstanceInterface
      *
      * (default value: [])
      *
-     * @var array
+     * @var array<string, mixed>
      * @access protected
      */
     protected array $paramsByKey = [];
@@ -61,7 +61,7 @@ class SQLFilters implements TableInstanceInterface
      * Returns all queries
      *
      * @access public
-     * @return array
+     * @return list<string>
      */
     public function queries(): array
     {
@@ -73,12 +73,14 @@ class SQLFilters implements TableInstanceInterface
      *
      * @access public
      * @param  ?string $key Key
-     * @return ?array
+     * @return ?array<int|string, mixed>
      */
     public function params(?string $key = null): ?array
     {
         if (!empty($key)) {
-            return $this->paramsByKey[$key] ?? null;
+            $byKey = $this->paramsByKey[$key] ?? null;
+
+            return (is_array($byKey) ? $byKey : null);
         }
 
         return $this->params;
@@ -103,17 +105,20 @@ class SQLFilters implements TableInstanceInterface
     /**
      * Return $value as it is or transform it to unix timestamp
      */
-    public static function strtotime(string $value, bool $sqlDate = false)
+    public static function strtotime(string $value, bool $sqlDate = false): string|int|false
     {
         return ($sqlDate === true ? $value : strtotime($value));
     }
 
+    /**
+     * @return array{0: string, 1: list<mixed>}
+     */
     public static function valueToQuery(
         string $fieldName,
-        $value,
+        mixed $value,
         string $compare = '=',
         ?\Closure $valueFormatter = null,
-        $nullQuery = false
+        bool $nullQuery = false
     ): array {
         // NULL is a special case as there is no value to check
         if ($nullQuery === true) {
@@ -143,7 +148,7 @@ class SQLFilters implements TableInstanceInterface
             return [$query, $value];
         }
 
-        $value = (string) $value;
+        $value = (is_scalar($value) ? (string) $value : '');
 
         // Check for range
         $regex = '/(.+)(~)(.+)/';
@@ -181,6 +186,7 @@ class SQLFilters implements TableInstanceInterface
             );
         } else {
             $queryValue = Utils::valueOrClosure($queryValue, $valueFormatter);
+            $queryValue = (is_scalar($queryValue) ? (string) $queryValue : '');
         }
 
         // Figure out query and params
@@ -244,11 +250,24 @@ class SQLFilters implements TableInstanceInterface
     public static function runFilter(Column $filterColumn, $value): ?array
     {
         $columnType = $filterColumn->type;
+
+        // filterBy names the column to compare against and is interpolated into sql below.
+        // The caller only reaches here for a plain string - a closure builds its own filter
+        // data and an empty filterBy means the column is not filtered - but interpolating a
+        // closure would be a fatal and a null would emit a fragment with no left hand side,
+        // so the invariant is enforced rather than assumed.
         $filterBy = $filterColumn->filterBy;
+        if (is_string($filterBy) === false || $filterBy === '') {
+            return null;
+        }
+
+        // Everything below parses text out of the submitted value
+        $rawValue = $value;
+        $value = (is_scalar($value) ? (string) $value : '');
 
         // NULL Query
         $nullQuery = false;
-        if ($filterColumn->filterZeroIsNULL === true && ($value === 0 || $value === '0')) {
+        if ($filterColumn->filterZeroIsNULL === true && ($rawValue === 0 || $value === '0')) {
             $nullQuery = true;
         }
 
@@ -355,12 +374,12 @@ class SQLFilters implements TableInstanceInterface
             || $columnType === ColumnType::DATE || $columnType === ColumnType::DATE_NATIVE
         ) {
             $field = $filterBy;
-            $start = preg_replace(
+            $start = (string) preg_replace(
                 '/^([0-9]{2})\.([0-9]{2})\.([0-9]{4}) ([0-9]{2}):([0-9]{2})$/',
                 '$3-$2-$1 $4:$5',
                 $value
             );
-            $stop = preg_replace(
+            $stop = (string) preg_replace(
                 '/.*([0-9]{2})\.([0-9]{2})\.([0-9]{4}) $4:$5$/',
                 '$3-$2-$1 $4:$5',
                 $value
@@ -400,8 +419,8 @@ class SQLFilters implements TableInstanceInterface
                 ];
             }
 
-            $start = preg_replace('/^([0-9]{2})\.([0-9]{2})\.([0-9]{4})?.*/', '$3-$2-$1', $value);
-            $stop = preg_replace('/.*([0-9]{2})\.([0-9]{2})\.([0-9]{4})$/', '$3-$2-$1', $value);
+            $start = (string) preg_replace('/^([0-9]{2})\.([0-9]{2})\.([0-9]{4})?.*/', '$3-$2-$1', $value);
+            $stop = (string) preg_replace('/.*([0-9]{2})\.([0-9]{2})\.([0-9]{4})$/', '$3-$2-$1', $value);
             if (
                 preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2})/', $start)
                 && preg_match('/([0-9]{4})-([0-9]{2})-([0-9]{2})/', $stop)
@@ -450,9 +469,12 @@ class SQLFilters implements TableInstanceInterface
         return null;
     }
 
-    public function prepareQueries(?\Closure $formatter = null)
+    public function prepareQueries(?\Closure $formatter = null): void
     {
-        $parsedData = $this->tableInstance->filter->parsedData();
+        $filter = $this->tableInstance->filter
+            ?? throw new \LogicException('SQLFilters needs a table whose filtering was initialised');
+
+        $parsedData = $filter->parsedData();
         foreach ($parsedData as $key => $valueData) {
             if (!isset($this->tableInstance->columns[$key])) {
                 continue;
@@ -482,7 +504,7 @@ class SQLFilters implements TableInstanceInterface
             // Collect params
             if (isset($data['param'])) {
                 if (is_array($data['param'])) {
-                    $this->params = array_merge($this->params, $data['param']);
+                    $this->params = array_merge($this->params, array_values($data['param']));
                 } else {
                     $this->params[] = $data['param'];
                 }
@@ -494,14 +516,19 @@ class SQLFilters implements TableInstanceInterface
                 if (is_callable($filterColumn->filterData)) {
                     $filterData = $filterColumn->filterData;
                     $test = $filterData($value);
-                    if ($test !== null) {
-                        $this->tableInstance->filter->setParsedData($key, $test);
+                    if (is_array($test)) {
+                        /** @var array<string, mixed> $test */
+                        $filter->setParsedData($key, $test);
                     }
                 } elseif (is_array($filterColumn->filterData)) {
-                    $this->tableInstance->filter->setParsedData($key, $filterColumn->filterData);
+                    /** @var array<string, mixed> $columnFilterData */
+                    $columnFilterData = $filterColumn->filterData;
+                    $filter->setParsedData($key, $columnFilterData);
                 }
-            } elseif (isset($data['data'])) {
-                $this->tableInstance->filter->setParsedData($key, $data['data']);
+            } elseif (is_array($data['data'] ?? null)) {
+                /** @var array<string, mixed> $parsed */
+                $parsed = $data['data'];
+                $filter->setParsedData($key, $parsed);
             }
         }
     }

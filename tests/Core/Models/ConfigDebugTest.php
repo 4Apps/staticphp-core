@@ -16,12 +16,12 @@ class ConfigDebugTest extends TestCase
         unset(Config::$items['debug'], Config::$items['debug_check']);
     }
 
-    public function testDebugIsOffWithNoConfigAtAll()
+    public function testDebugIsOffWithNoConfigAtAll(): void
     {
         $this->assertFalse(Config::resolveDebug());
     }
 
-    public function testExplicitDebugWins()
+    public function testExplicitDebugWins(): void
     {
         Config::set('debug', true);
         Config::set('debug_check', fn(): bool => false);
@@ -29,7 +29,7 @@ class ConfigDebugTest extends TestCase
         $this->assertTrue(Config::resolveDebug());
     }
 
-    public function testCallbackOpensTheGate()
+    public function testCallbackOpensTheGate(): void
     {
         Config::set('debug', false);
         Config::set('debug_check', fn(): bool => true);
@@ -37,7 +37,7 @@ class ConfigDebugTest extends TestCase
         $this->assertTrue(Config::resolveDebug());
     }
 
-    public function testCallbackClosesTheGate()
+    public function testCallbackClosesTheGate(): void
     {
         Config::set('debug', false);
         Config::set('debug_check', fn(): bool => false);
@@ -45,7 +45,7 @@ class ConfigDebugTest extends TestCase
         $this->assertFalse(Config::resolveDebug());
     }
 
-    public function testCallbackCanReadCookies()
+    public function testCallbackCanReadCookies(): void
     {
         Config::set('debug', false);
         Config::set('debug_check', fn(): bool => ($_COOKIE['sp_debug'] ?? '') === 'secret');
@@ -64,7 +64,7 @@ class ConfigDebugTest extends TestCase
      * check that was not thought through. Opening the panel on it would be worse than
      * ignoring it.
      */
-    public function testTruthyNonBooleanDoesNotOpenTheGate()
+    public function testTruthyNonBooleanDoesNotOpenTheGate(): void
     {
         Config::set('debug', false);
         Config::set('debug_check', fn(): mixed => 'yes');
@@ -72,7 +72,7 @@ class ConfigDebugTest extends TestCase
         $this->assertFalse(Config::resolveDebug());
     }
 
-    public function testNonCallableCheckIsIgnored()
+    public function testNonCallableCheckIsIgnored(): void
     {
         Config::set('debug', false);
         Config::set('debug_check', ['127.0.0.1']);
@@ -83,7 +83,7 @@ class ConfigDebugTest extends TestCase
     /**
      * A throwing check must not take the request down, and must not be read as consent.
      */
-    public function testThrowingCheckFailsClosedRatherThanPropagating()
+    public function testThrowingCheckFailsClosedRatherThanPropagating(): void
     {
         Config::set('debug', false);
         Config::set('debug_check', function (): bool {
@@ -93,7 +93,7 @@ class ConfigDebugTest extends TestCase
         $this->assertFalse(Config::resolveDebug());
     }
 
-    public function testTheOldIpListIsNoLongerConsulted()
+    public function testTheOldIpListIsNoLongerConsulted(): void
     {
         Config::set('debug', false);
         Config::set('debug_ips', ['127.0.0.1']);

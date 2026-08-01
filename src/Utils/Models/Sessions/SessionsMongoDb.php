@@ -12,15 +12,20 @@ use MongoDB\Client;
 
 class SessionsMongoDb extends Sessions
 {
-    protected $mdbConnectionString = null;
-    protected $mdbConnection = null;
-    protected $mdbDatabase = null;
-    protected $mdbCollection = null;
+    protected ?string $mdbConnectionString = null;
+
+    /*
+     * mongodb/mongodb is a suggestion rather than a requirement, so its classes are not
+     * there to name in a type. See the ignoreErrors entry for this file in phpstan.neon.
+     */
+    protected mixed $mdbConnection = null;
+    protected mixed $mdbDatabase = null;
+    protected mixed $mdbCollection = null;
 
     public function __construct(
-        $connectionString,
+        string $connectionString,
         string $databaseName = 'sessions',
-        $sessionName = 'SMDB',
+        string $sessionName = 'SMDB',
         ?Sessions $backupHandler = null
     ) {
         $this->mdbConnectionString = $connectionString;

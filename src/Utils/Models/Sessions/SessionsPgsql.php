@@ -16,7 +16,10 @@ class SessionsPgsql extends Sessions
 {
     public string $dbConfigName = 'sessions';
 
-    public function __construct(array $dbConfig, $sessionName = 'SMC', ?Sessions $backupHandler = null)
+    /**
+     * @param array<string, mixed> $dbConfig
+     */
+    public function __construct(array $dbConfig, string $sessionName = 'SMC', ?Sessions $backupHandler = null)
     {
         Db::init($this->dbConfigName, $dbConfig);
 
@@ -30,7 +33,7 @@ class SessionsPgsql extends Sessions
             [$id, $this->salt],
             $this->dbConfigName
         );
-        if (!empty($res->data)) {
+        if (is_object($res) && is_string($res->data ?? null) && $res->data !== '') {
             return $res->data;
         }
 

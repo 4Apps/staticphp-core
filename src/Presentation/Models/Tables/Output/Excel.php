@@ -48,7 +48,11 @@ class Excel implements OutputInterface
                     $exportKey = $column->dataKey;
                 }
 
-                $cellValue = is_callable($exportKey) ? $exportKey($column, $rowIndex, $rowItem) : $rowItem[$exportKey];
+                $cellValue = (
+                    is_callable($exportKey)
+                    ? $exportKey($column, $rowIndex, $rowItem)
+                    : ($rowItem[(string) $exportKey] ?? null)
+                );
                 $cell = $active_sheet->getCell([$colNr, $rowNr]);
 
                 switch ($column->type) {

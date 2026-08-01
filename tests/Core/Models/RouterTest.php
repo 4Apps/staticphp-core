@@ -46,11 +46,14 @@ class RouterTest extends TestCase
     */
 
     #[DataProvider('unsafeSegmentProvider')]
-    public function testUnsafeSegmentsAreRejected($segment)
+    public function testUnsafeSegmentsAreRejected(?string $segment): void
     {
         $this->assertFalse(Router::isSafeSegment($segment));
     }
 
+    /**
+     * @return array<string, array<int, mixed>>
+     */
     public static function unsafeSegmentProvider(): array
     {
         return [
@@ -68,11 +71,14 @@ class RouterTest extends TestCase
     }
 
     #[DataProvider('safeSegmentProvider')]
-    public function testSafeSegmentsAreAccepted(string $segment)
+    public function testSafeSegmentsAreAccepted(string $segment): void
     {
         $this->assertTrue(Router::isSafeSegment($segment));
     }
 
+    /**
+     * @return array<string, array<int, mixed>>
+     */
     public static function safeSegmentProvider(): array
     {
         return [
@@ -96,21 +102,21 @@ class RouterTest extends TestCase
         return SP_PATH . '/Core';
     }
 
-    public function testPathInsideTheRootIsAccepted()
+    public function testPathInsideTheRootIsAccepted(): void
     {
         $this->assertTrue(
             Router::pathIsWithin($this->root() . '/Models/Router.php', $this->root())
         );
     }
 
-    public function testTraversalOutOfTheRootIsRejected()
+    public function testTraversalOutOfTheRootIsRejected(): void
     {
         $this->assertFalse(
             Router::pathIsWithin($this->root() . '/../../../../etc/passwd', $this->root())
         );
     }
 
-    public function testEncodedTraversalOutOfTheRootIsRejected()
+    public function testEncodedTraversalOutOfTheRootIsRejected(): void
     {
         $this->assertFalse(
             Router::pathIsWithin(
@@ -120,12 +126,12 @@ class RouterTest extends TestCase
         );
     }
 
-    public function testSiblingDirectoryIsRejected()
+    public function testSiblingDirectoryIsRejected(): void
     {
         $this->assertFalse(Router::pathIsWithin(SP_PATH . '/Tests/autoload.php', $this->root()));
     }
 
-    public function testMissingPathIsRejected()
+    public function testMissingPathIsRejected(): void
     {
         $this->assertFalse(Router::pathIsWithin($this->root() . '/nope/nope.php', $this->root()));
     }
@@ -134,7 +140,7 @@ class RouterTest extends TestCase
     | Dispatch visibility
     */
 
-    public function testReflectionCanInvokePrivateMethodsOnThisPhp()
+    public function testReflectionCanInvokePrivateMethodsOnThisPhp(): void
     {
         // Since PHP 8.1 setAccessible() is a no-op and reflection reaches private methods
         // by default. If this ever stops holding, the guard below becomes belt and braces
@@ -145,13 +151,16 @@ class RouterTest extends TestCase
     }
 
     #[DataProvider('nonRoutableMethodProvider')]
-    public function testNonRoutableMethods(string $class, string $name)
+    public function testNonRoutableMethods(string $class, string $name): void
     {
         $method = new \ReflectionMethod($class, $name);
 
         $this->assertFalse(Router::isRoutableMethod($method));
     }
 
+    /**
+     * @return array<string, array<int, mixed>>
+     */
     public static function nonRoutableMethodProvider(): array
     {
         return [
@@ -165,14 +174,14 @@ class RouterTest extends TestCase
         ];
     }
 
-    public function testPublicStaticMethodIsRoutable()
+    public function testPublicStaticMethodIsRoutable(): void
     {
         $method = new \ReflectionMethod(Db::class, 'query');
 
         $this->assertTrue(Router::isRoutableMethod($method));
     }
 
-    public function testMethodLookupIsCaseInsensitiveSoTheGuardMustBeToo()
+    public function testMethodLookupIsCaseInsensitiveSoTheGuardMustBeToo(): void
     {
         // hasMethod() matches case insensitively, so a private method can be reached
         // through a differently cased url segment
@@ -186,21 +195,21 @@ class RouterTest extends TestCase
     | Host header
     */
 
-    public function testListedHostIsAccepted()
+    public function testListedHostIsAccepted(): void
     {
         Config::set('allowed_hosts', ['example.com', 'www.example.com']);
 
         $this->assertEquals('example.com', Router::validateHost('example.com'));
     }
 
-    public function testHostComparisonIsCaseInsensitive()
+    public function testHostComparisonIsCaseInsensitive(): void
     {
         Config::set('allowed_hosts', ['example.com']);
 
         $this->assertEquals('example.com', Router::validateHost('EXAMPLE.com'));
     }
 
-    public function testUnlistedHostIsRejected()
+    public function testUnlistedHostIsRejected(): void
     {
         Config::set('allowed_hosts', ['example.com']);
 
@@ -209,7 +218,7 @@ class RouterTest extends TestCase
         Router::validateHost('evil.test');
     }
 
-    public function testUnlistedHostCarriesA400()
+    public function testUnlistedHostCarriesA400(): void
     {
         Config::set('allowed_hosts', ['example.com']);
 
@@ -221,13 +230,13 @@ class RouterTest extends TestCase
         }
     }
 
-    public function testMalformedHostIsRejectedWithoutAnAllowlist()
+    public function testMalformedHostIsRejectedWithoutAnAllowlist(): void
     {
         $this->expectException(BadRequest::class);
         Router::validateHost("example.com\r\nX-Injected: 1");
     }
 
-    public function testPlainHostIsAcceptedWithoutAnAllowlist()
+    public function testPlainHostIsAcceptedWithoutAnAllowlist(): void
     {
         $this->assertEquals('localhost:8080', Router::validateHost('localhost:8080'));
     }
@@ -239,12 +248,12 @@ class RouterTest extends TestCase
     | internal hop rather than the request the client made.
     */
 
-    public function testForwardedHeadersAreIgnoredByDefault()
+    public function testForwardedHeadersAreIgnoredByDefault(): void
     {
         $this->assertNull(Router::forwardedHeader('HTTP_X_FORWARDED_PROTO'));
     }
 
-    public function testForwardedHeaderIsReadWhenTrusted()
+    public function testForwardedHeaderIsReadWhenTrusted(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https';
@@ -252,7 +261,7 @@ class RouterTest extends TestCase
         $this->assertEquals('https', Router::forwardedHeader('HTTP_X_FORWARDED_PROTO'));
     }
 
-    public function testChainedProxiesLeaveTheOriginalRequestLeftmost()
+    public function testChainedProxiesLeaveTheOriginalRequestLeftmost(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['HTTP_X_FORWARDED_PROTO'] = 'https, http';
@@ -260,21 +269,21 @@ class RouterTest extends TestCase
         $this->assertEquals('https', Router::forwardedHeader('HTTP_X_FORWARDED_PROTO'));
     }
 
-    public function testAbsentHeaderIsNullRatherThanEmpty()
+    public function testAbsentHeaderIsNullRatherThanEmpty(): void
     {
         Config::set('trust_proxy_headers', true);
 
         $this->assertNull(Router::forwardedHeader('HTTP_X_FORWARDED_PORT'));
     }
 
-    public function testDirectTlsIsSecure()
+    public function testDirectTlsIsSecure(): void
     {
         $_SERVER['HTTPS'] = 'on';
 
         $this->assertTrue(Router::requestIsSecure());
     }
 
-    public function testProxiedTlsIsNotSecureWithoutTrust()
+    public function testProxiedTlsIsNotSecureWithoutTrust(): void
     {
         // The connection this process sees is the proxy's plain http hop
         unset($_SERVER['HTTPS']);
@@ -283,7 +292,7 @@ class RouterTest extends TestCase
         $this->assertFalse(Router::requestIsSecure());
     }
 
-    public function testProxiedTlsIsSecureWhenTrusted()
+    public function testProxiedTlsIsSecureWhenTrusted(): void
     {
         Config::set('trust_proxy_headers', true);
         unset($_SERVER['HTTPS']);
@@ -292,7 +301,7 @@ class RouterTest extends TestCase
         $this->assertTrue(Router::requestIsSecure());
     }
 
-    public function testTrustedPlainProxyHopOverridesAStaleHttpsFlag()
+    public function testTrustedPlainProxyHopOverridesAStaleHttpsFlag(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['HTTPS'] = 'on';
@@ -301,7 +310,7 @@ class RouterTest extends TestCase
         $this->assertFalse(Router::requestIsSecure());
     }
 
-    public function testInternalPortIsNotAdvertisedWhenTrusted()
+    public function testInternalPortIsNotAdvertisedWhenTrusted(): void
     {
         Config::set('trust_proxy_headers', true);
 
@@ -314,7 +323,7 @@ class RouterTest extends TestCase
         ]));
     }
 
-    public function testInternalPortLeaksWithoutTrust()
+    public function testInternalPortLeaksWithoutTrust(): void
     {
         $this->assertEquals('http://example.com:8080', $this->buildDomainUrl([
             'HTTP_HOST' => 'example.com',
@@ -324,7 +333,7 @@ class RouterTest extends TestCase
         ]));
     }
 
-    public function testNonStandardForwardedPortIsKept()
+    public function testNonStandardForwardedPortIsKept(): void
     {
         Config::set('trust_proxy_headers', true);
 
@@ -336,7 +345,7 @@ class RouterTest extends TestCase
         ]));
     }
 
-    public function testGarbageForwardedPortFallsBackToTheRealOne()
+    public function testGarbageForwardedPortFallsBackToTheRealOne(): void
     {
         Config::set('trust_proxy_headers', true);
 
@@ -354,7 +363,7 @@ class RouterTest extends TestCase
      * default and X-Forwarded-Port only when told to, so the port has to come from the
      * forwarded scheme rather than from the port this process happens to listen on.
      */
-    public function testProtoWithoutForwardedPortDoesNotAdvertiseTheInternalPort()
+    public function testProtoWithoutForwardedPortDoesNotAdvertiseTheInternalPort(): void
     {
         Config::set('trust_proxy_headers', true);
 
@@ -365,7 +374,7 @@ class RouterTest extends TestCase
         ]));
     }
 
-    public function testPlainProtoWithoutForwardedPortDoesNotAdvertiseTheInternalPort()
+    public function testPlainProtoWithoutForwardedPortDoesNotAdvertiseTheInternalPort(): void
     {
         Config::set('trust_proxy_headers', true);
 
@@ -380,14 +389,14 @@ class RouterTest extends TestCase
      * php documents HTTPS as "a non-empty value", not as "on". iis sets the literal "off"
      * for a plain request, which is why emptiness alone cannot be the test either.
      */
-    public function testNonOnHttpsValuesAreStillSecure()
+    public function testNonOnHttpsValuesAreStillSecure(): void
     {
         $_SERVER['HTTPS'] = '1';
 
         $this->assertTrue(Router::requestIsSecure());
     }
 
-    public function testIisStyleOffIsNotSecure()
+    public function testIisStyleOffIsNotSecure(): void
     {
         $_SERVER['HTTPS'] = 'off';
 
@@ -398,7 +407,7 @@ class RouterTest extends TestCase
      * A server terminating tls without setting HTTPS. The session cookie's Secure flag and
      * the error page's absolute urls both read this, so they cannot be allowed to disagree.
      */
-    public function testPort443WithoutTheHttpsVariableIsSecure()
+    public function testPort443WithoutTheHttpsVariableIsSecure(): void
     {
         unset($_SERVER['HTTPS']);
         $_SERVER['SERVER_PORT'] = '443';
@@ -406,7 +415,7 @@ class RouterTest extends TestCase
         $this->assertTrue(Router::requestIsSecure());
     }
 
-    public function testTrustedPlainProxyHopBeatsThePort443Fallback()
+    public function testTrustedPlainProxyHopBeatsThePort443Fallback(): void
     {
         Config::set('trust_proxy_headers', true);
         unset($_SERVER['HTTPS']);
@@ -416,7 +425,7 @@ class RouterTest extends TestCase
         $this->assertFalse(Router::requestIsSecure());
     }
 
-    public function testDirectTlsStillWorksWhenTrustIsOnButNothingForwards()
+    public function testDirectTlsStillWorksWhenTrustIsOnButNothingForwards(): void
     {
         Config::set('trust_proxy_headers', true);
 
@@ -434,7 +443,7 @@ class RouterTest extends TestCase
     | but is appended to rather than overwritten, so which end is trustworthy matters.
     */
 
-    public function testClientIpIsRemoteAddrByDefault()
+    public function testClientIpIsRemoteAddrByDefault(): void
     {
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
         $_SERVER['HTTP_X_FORWARDED_FOR'] = '203.0.113.7';
@@ -442,7 +451,7 @@ class RouterTest extends TestCase
         $this->assertEquals('10.0.0.9', Router::clientIp());
     }
 
-    public function testClientIpComesFromForwardedForWhenTrusted()
+    public function testClientIpComesFromForwardedForWhenTrusted(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
@@ -456,7 +465,7 @@ class RouterTest extends TestCase
      * $proxy_add_x_forwarded_for, so a client that sends its own X-Forwarded-For puts a
      * value of its choosing leftmost - and applications gate on this value.
      */
-    public function testSpoofedLeftmostEntryIsNotTrusted()
+    public function testSpoofedLeftmostEntryIsNotTrusted(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
@@ -465,7 +474,7 @@ class RouterTest extends TestCase
         $this->assertEquals('203.0.113.7', Router::clientIp());
     }
 
-    public function testExtraHopIsCountedFromTheRight()
+    public function testExtraHopIsCountedFromTheRight(): void
     {
         Config::set('trust_proxy_headers', true);
         Config::set('trusted_proxy_hops', 2);
@@ -477,7 +486,7 @@ class RouterTest extends TestCase
         $this->assertEquals('203.0.113.7', Router::clientIp());
     }
 
-    public function testShorterChainThanConfiguredDoesNotUnderflow()
+    public function testShorterChainThanConfiguredDoesNotUnderflow(): void
     {
         Config::set('trust_proxy_headers', true);
         Config::set('trusted_proxy_hops', 5);
@@ -487,7 +496,7 @@ class RouterTest extends TestCase
         $this->assertEquals('203.0.113.7', Router::clientIp());
     }
 
-    public function testGarbageForwardedForFallsBackToRemoteAddr()
+    public function testGarbageForwardedForFallsBackToRemoteAddr(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
@@ -496,7 +505,7 @@ class RouterTest extends TestCase
         $this->assertEquals('10.0.0.9', Router::clientIp());
     }
 
-    public function testForwardedForPortIsStripped()
+    public function testForwardedForPortIsStripped(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
@@ -505,7 +514,7 @@ class RouterTest extends TestCase
         $this->assertEquals('203.0.113.7', Router::clientIp());
     }
 
-    public function testForwardedForAcceptsIpv6()
+    public function testForwardedForAcceptsIpv6(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
@@ -514,7 +523,7 @@ class RouterTest extends TestCase
         $this->assertEquals('2001:db8::1', Router::clientIp());
     }
 
-    public function testForwardedForAcceptsBracketedIpv6WithPort()
+    public function testForwardedForAcceptsBracketedIpv6WithPort(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
@@ -523,7 +532,7 @@ class RouterTest extends TestCase
         $this->assertEquals('2001:db8::1', Router::clientIp());
     }
 
-    public function testEmptyForwardedForFallsBackToRemoteAddr()
+    public function testEmptyForwardedForFallsBackToRemoteAddr(): void
     {
         Config::set('trust_proxy_headers', true);
         $_SERVER['REMOTE_ADDR'] = '10.0.0.9';
@@ -532,7 +541,7 @@ class RouterTest extends TestCase
         $this->assertEquals('10.0.0.9', Router::clientIp());
     }
 
-    public function testNoAddressAtAllIsNullRatherThanEmptyString()
+    public function testNoAddressAtAllIsNullRatherThanEmptyString(): void
     {
         unset($_SERVER['REMOTE_ADDR']);
 
@@ -541,6 +550,9 @@ class RouterTest extends TestCase
 
     /**
      * Run splitSegments() against a synthetic request and return the domain it derived.
+     */
+    /**
+     * @param array<string, mixed> $server
      */
     private function buildDomainUrl(array $server): string
     {
@@ -569,7 +581,7 @@ class RouterTest extends TestCase
     | Helpers
     */
 
-    public function testFrameworkClassesResolveThroughComposer()
+    public function testFrameworkClassesResolveThroughComposer(): void
     {
         // Composer is the only thing that resolves StaticPHP\ now - the application
         // autoloader probes APP_MODULES_PATH and APP_PATH and nothing else - so a framework
@@ -584,28 +596,29 @@ class RouterTest extends TestCase
         $this->assertNotFalse($loader->findFile(ErrorMessage::class));
     }
 
-    public function testEnsureStartsWithSlash()
+    public function testEnsureStartsWithSlash(): void
     {
         $this->assertEquals('/a', Router::ensureStartsWithSlash('a'));
         $this->assertEquals('/a', Router::ensureStartsWithSlash('/a'));
         $this->assertEquals('', Router::ensureStartsWithSlash(''));
     }
 
-    public function testUrlToNamespace()
+    public function testUrlToNamespace(): void
     {
         $this->assertEquals('MyController', Router::urlToNamespace('my-controller'));
     }
 
-    public function testNamespaceToUrl()
+    public function testNamespaceToUrl(): void
     {
         $this->assertEquals('my-controller', Router::namespaceToUrl('MyController'));
     }
 
-    public function testUrlToFileNeedsThreeParts()
+    public function testUrlToFileNeedsThreeParts(): void
     {
         $this->assertFalse(Router::urlToFile('too/short'));
 
         $test = Router::urlToFile('Module/Class/method');
+        $this->assertIsArray($test);
         $this->assertEquals('Module', $test['module']);
         $this->assertEquals('Class', $test['class']);
         $this->assertEquals('method', $test['method']);

@@ -16,7 +16,24 @@
  * @var string $title
  * @var ?string $description
  * @var string $tone
- * @var array<int, array<string, mixed>> $exceptions
+ * @var list<array{
+ *     class: string,
+ *     message: string,
+ *     code: int|string,
+ *     file: string,
+ *     short_file: string,
+ *     line: int,
+ *     excerpt: array<int, string>,
+ *     frames: list<array{
+ *         index: int,
+ *         call: string,
+ *         file: ?string,
+ *         short_file: ?string,
+ *         line: ?int,
+ *         vendor: bool,
+ *         excerpt: array<int, string>
+ *     }>
+ * }> $exceptions
  * @var array<string, array<string, string>> $groups
  * @var string $reference
  * @var string $report

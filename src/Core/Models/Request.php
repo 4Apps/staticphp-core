@@ -4,6 +4,10 @@ namespace StaticPHP\Core\Models;
 
 class Request
 {
+    /**
+     * @param ?array<string, mixed> $post
+     * @param ?array<string, mixed> $query
+     */
     public static function internal(
         string $url,
         ?array $post = null,
@@ -74,7 +78,7 @@ class Request
      *
      * @access public
      * @static
-     * @param  ?array $argv (default: null, meaning $_SERVER['argv'])
+     * @param  ?list<string> $argv (default: null, meaning $_SERVER['argv'])
      * @return void
      */
     public static function populateFromCli(?array $argv = null): void
@@ -83,7 +87,10 @@ class Request
             return;
         }
 
-        $argv = ($argv === null ? ($_SERVER['argv'] ?? []) : $argv);
+        if ($argv === null) {
+            $fromServer = $_SERVER['argv'] ?? [];
+            $argv = (is_array($fromServer) ? array_values(array_filter($fromServer, is_string(...))) : []);
+        }
 
         // Drop the script name
         array_shift($argv);
@@ -108,7 +115,7 @@ class Request
                     break;
 
                 default:
-                    $url = (string) $argv[$i];
+                    $url = $argv[$i];
                     break;
             }
         }

@@ -7,7 +7,7 @@
 
 /** @var array<string, mixed> $config Bound to Config::$items by Load::config() */
 
-$config['db']['pdo']['default'] = [
+$dbDefaultConnection = [
     'string' => 'mysql:host=localhost;dbname=',
     'username' => '',
     'password' => '',
@@ -26,5 +26,14 @@ $config['db']['pdo']['default'] = [
     // as "5" and strict comparisons against it silently fail.
     'emulate_prepares' => false,
 
-    'debug' => $config['debug'],
+    'debug' => $config['debug'] ?? false,
 ];
+
+// Merged rather than assigned wholesale, so an application that already defined other
+// connections keeps them. $config comes in untyped, so each level is checked on the way.
+$db = (is_array($config['db'] ?? null) ? $config['db'] : []);
+$pdo = (is_array($db['pdo'] ?? null) ? $db['pdo'] : []);
+
+$pdo['default'] = $dbDefaultConnection;
+$db['pdo'] = $pdo;
+$config['db'] = $db;

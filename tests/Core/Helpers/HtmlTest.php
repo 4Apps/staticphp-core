@@ -12,7 +12,7 @@ Load::helper(['Html'], 'Presentation', 'staticphp');
 
 class HtmlTest extends TestCase
 {
-    public function testCss()
+    public function testCss(): void
     {
         html_css('test.css');
         html_css('test2.css');
@@ -27,7 +27,7 @@ class HtmlTest extends TestCase
     }
 
 
-    public function testJs()
+    public function testJs(): void
     {
         html_js('test.js');
         html_js('test2.js');
@@ -42,7 +42,7 @@ class HtmlTest extends TestCase
     }
 
 
-    public function testDropdown()
+    public function testDropdown(): void
     {
         $dropdown = html_dropdown(
             ['1' => 'One', '2' => 'Two'],
@@ -58,7 +58,7 @@ class HtmlTest extends TestCase
         $this->assertStringContainsString('Two', $dropdown);
     }
 
-    public function testDropdownEscapesOptionText()
+    public function testDropdownEscapesOptionText(): void
     {
         $dropdown = html_dropdown(['<img src=x onerror=alert(1)>' => '<script>alert(1)</script>']);
 
@@ -67,7 +67,7 @@ class HtmlTest extends TestCase
         $this->assertStringContainsString('&lt;script&gt;', $dropdown);
     }
 
-    public function testDropdownEscapesOptgroupLabel()
+    public function testDropdownEscapesOptgroupLabel(): void
     {
         $dropdown = html_dropdown(['" onmouseover="alert(1)' => ['1' => 'One']]);
 
@@ -75,13 +75,13 @@ class HtmlTest extends TestCase
         $this->assertStringContainsString('&quot;', $dropdown);
     }
 
-    public function testInputValue()
+    public function testInputValue(): void
     {
         $test = html_escape_input('dfsgf"sdfas"sfsf"');
         $this->assertEquals('dfsgf&quot;sdfas&quot;sfsf&quot;', $test);
     }
 
-    public function testTextareaValue()
+    public function testTextareaValue(): void
     {
         // Quotes are escaped too now - the old version only handled < and >, which is
         // not enough for a value that ends up in an attribute
@@ -89,10 +89,11 @@ class HtmlTest extends TestCase
         $this->assertEquals('dfsgf&quot;sdfas&quot;sfsf&quot;&gt; &lt; /&gt;', $test);
     }
 
-    public function testSelected()
+    public function testSelected(): void
     {
         $current = 1;
         $test = html_set_selected($current, 1);
+        $this->assertNotNull($test);
         $this->assertStringContainsString('selected', $test);
 
         $current = 2;
@@ -100,10 +101,11 @@ class HtmlTest extends TestCase
         $this->assertNull($test);
     }
 
-    public function testChecked()
+    public function testChecked(): void
     {
         $current = 1;
         $test = html_set_checked($current, 1);
+        $this->assertNotNull($test);
         $this->assertStringContainsString('checked', $test);
 
         $current = 2;

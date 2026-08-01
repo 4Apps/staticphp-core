@@ -8,20 +8,32 @@ use Iterator;
 use JsonSerializable;
 use ArrayAccess;
 
+/**
+ * @implements Iterator<string, mixed>
+ * @implements ArrayAccess<string, mixed>
+ */
 class RecordObject implements Iterator, JsonSerializable, ArrayAccess
 {
     public const DATA_RECORD = 0;
     public const DATA_FORMATTED_RECORD = 1;
 
-    protected $record = [];
-    protected $original_record = [];
-    protected $formatted_record = [];
+    /** @var array<string, mixed> */
+    protected array $record = [];
 
-    protected $skip_format = false;
+    /** @var array<string, mixed> */
+    protected array $original_record = [];
+
+    /** @var array<string, mixed> */
+    protected array $formatted_record = [];
+
+    protected bool $skip_format = false;
 
 
     /** =========================================== Class Magic ==================================================== */
-    public function __construct($record, $skip_format = false)
+    /**
+     * @param array<string, mixed> $record
+     */
+    public function __construct(array $record, bool $skip_format = false)
     {
         $this->record = $record;
         $this->skip_format = $skip_format;
@@ -33,7 +45,7 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
     }
 
 
-    public function __get(string $name)
+    public function __get(string $name): mixed
     {
         if (isset($this->record[$name])) {
             return $this->record[$name];
@@ -47,7 +59,7 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
     }
 
 
-    public function __set(string $name, mixed $value)
+    public function __set(string $name, mixed $value): void
     {
         if (isset($this->record[$name])) {
             $this->record[$name] = $value;
@@ -58,9 +70,9 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
         }
     }
 
-    public function __toString()
+    public function __toString(): string
     {
-        return json_encode($this);
+        return (string) json_encode($this);
     }
 
     public function __debugInfo()
@@ -82,7 +94,7 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
 
 
     /** =========================================== Instance methods ==================================================== */
-    public function get(string $name, ?int $from = null)
+    public function get(string $name, ?int $from = null): mixed
     {
         if (($from === null || $from == RecordObject::DATA_RECORD) && isset($this->record[$name])) {
             return $this->record[$name];
@@ -95,17 +107,23 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
         return false;
     }
 
-    public function record()
+    /**
+     * @return array<string, mixed>
+     */
+    public function record(): array
     {
         return $this->record;
     }
 
-    public function originalRecord()
+    /**
+     * @return array<string, mixed>
+     */
+    public function originalRecord(): array
     {
         return $this->original_record;
     }
 
-    public function format()
+    public function format(): void
     {
         foreach ($this->record as $key => $value) {
             if (strpos($key, 'additional_fields_') !== false) {
@@ -113,19 +131,20 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
                 $this->formatted_record[$new_key] = $this->record[$key];
                 unset($this->record[$key]);
 
-                if (!empty($this->formatted_record[$new_key])) {
-                    $this->formatted_record[$new_key] = json_decode($this->formatted_record[$new_key], true);
+                $encoded = $this->formatted_record[$new_key];
+                if (is_string($encoded) && $encoded !== '') {
+                    $this->formatted_record[$new_key] = json_decode($encoded, true);
                 }
             }
         }
     }
 
-    public function save()
+    public function save(): void
     {
         $this->original_record = $this->record;
     }
 
-    public function reload()
+    public function reload(): void
     {
         if ($this->skip_format !== true) {
             $this->format();
@@ -149,8 +168,9 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
 
     public function key(): mixed
     {
-        $var = key($this->record);
-        return $var;
+        // key() reports null once the pointer is past the end, which an iterator only
+        // reaches when valid() is already false
+        return (string) key($this->record);
     }
 
     public function next(): void
@@ -160,9 +180,7 @@ class RecordObject implements Iterator, JsonSerializable, ArrayAccess
 
     public function valid(): bool
     {
-        $key = key($this->record);
-        $var = ($key !== null && $key !== false);
-        return $var;
+        return key($this->record) !== null;
     }
 
 

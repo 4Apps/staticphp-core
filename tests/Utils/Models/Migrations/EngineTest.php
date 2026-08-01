@@ -24,6 +24,7 @@ class EngineTest extends TestCase
     private PDO $pdo;
     private Tracker $tracker;
     private Commands $commands;
+    /** @var list<string> */
     private array $lines = [];
 
     protected function setUp(): void
@@ -94,16 +95,22 @@ class EngineTest extends TestCase
         return $statement->fetchColumn() !== false;
     }
 
+    /**
+     * @return list<string>
+     */
     private function trackedNames(): array
     {
-        return $this->pdo->query('SELECT name FROM migrations ORDER BY name')->fetchAll(PDO::FETCH_COLUMN);
+        $statement = $this->pdo->query('SELECT name FROM migrations ORDER BY name');
+        $this->assertNotFalse($statement);
+
+        return array_values($statement->fetchAll(PDO::FETCH_COLUMN));
     }
 
     /*
     | apply
     */
 
-    public function testApplyRunsPendingMigrationsAndRecordsThem()
+    public function testApplyRunsPendingMigrationsAndRecordsThem(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->write('2026-08-01-110000-posts.sql', 'CREATE TABLE posts (id INTEGER PRIMARY KEY);');
@@ -117,7 +124,7 @@ class EngineTest extends TestCase
         );
     }
 
-    public function testApplyIsIdempotentOnceEverythingHasRun()
+    public function testApplyIsIdempotentOnceEverythingHasRun(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->commands->apply(false, null, 'test');
@@ -127,7 +134,7 @@ class EngineTest extends TestCase
         $this->assertStringContainsString('up to date', $this->outputText());
     }
 
-    public function testApplyRunsMigrationsInChronologicalOrder()
+    public function testApplyRunsMigrationsInChronologicalOrder(): void
     {
         // The second depends on the first, so a wrong order fails outright
         $this->write('2026-08-02-100000-add-column.sql', 'ALTER TABLE users ADD COLUMN email TEXT;');
@@ -136,7 +143,7 @@ class EngineTest extends TestCase
         $this->assertSame(0, $this->commands->apply(false, null, 'test'));
     }
 
-    public function testDryRunChangesNothing()
+    public function testDryRunChangesNothing(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
 
@@ -146,7 +153,7 @@ class EngineTest extends TestCase
         $this->assertStringContainsString('would apply', $this->outputText());
     }
 
-    public function testToStopsAfterTheNamedMigration()
+    public function testToStopsAfterTheNamedMigration(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->write('2026-08-02-100000-posts.sql', 'CREATE TABLE posts (id INTEGER PRIMARY KEY);');
@@ -156,7 +163,7 @@ class EngineTest extends TestCase
         $this->assertFalse($this->tableExists('posts'));
     }
 
-    public function testToRejectsAnUnknownPrefix()
+    public function testToRejectsAnUnknownPrefix(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
 
@@ -171,7 +178,7 @@ class EngineTest extends TestCase
     | neither its tables nor a tracking row.
     */
 
-    public function testAFailingMigrationIsRolledBackAndNotRecorded()
+    public function testAFailingMigrationIsRolledBackAndNotRecorded(): void
     {
         $this->write(
             '2026-08-01-100000-broken.sql',
@@ -184,7 +191,7 @@ class EngineTest extends TestCase
         $this->assertStringContainsString('Rolled back', $this->outputText());
     }
 
-    public function testALaterFailureLeavesEarlierMigrationsApplied()
+    public function testALaterFailureLeavesEarlierMigrationsApplied(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->write('2026-08-02-100000-broken.sql', 'THIS IS NOT SQL;');
@@ -198,7 +205,7 @@ class EngineTest extends TestCase
     | Validation happens before any execution
     */
 
-    public function testAMetaCommandAnywhereInTheQueueStopsEverything()
+    public function testAMetaCommandAnywhereInTheQueueStopsEverything(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->write('2026-08-02-100000-dumped.sql', "\\restrict abc\nSELECT 1;");
@@ -215,7 +222,7 @@ class EngineTest extends TestCase
     | DRIFT
     */
 
-    public function testEditingAnAppliedFileBlocksTheNextApply()
+    public function testEditingAnAppliedFileBlocksTheNextApply(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->commands->apply(false, null, 'test');
@@ -229,7 +236,7 @@ class EngineTest extends TestCase
         $this->assertFalse($this->tableExists('posts'));
     }
 
-    public function testRepairClearsDrift()
+    public function testRepairClearsDrift(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->commands->apply(false, null, 'test');
@@ -242,13 +249,13 @@ class EngineTest extends TestCase
         $this->assertStringNotContainsString('DRIFT', $this->outputText());
     }
 
-    public function testRepairRefusesAPath()
+    public function testRepairRefusesAPath(): void
     {
         $this->assertSame(1, $this->commands->repair('../../etc/passwd'));
         $this->assertStringContainsString('plain migration filename', $this->outputText());
     }
 
-    public function testRepairRefusesAMigrationThatWasNeverApplied()
+    public function testRepairRefusesAMigrationThatWasNeverApplied(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
 
@@ -260,7 +267,7 @@ class EngineTest extends TestCase
     | MISSING
     */
 
-    public function testADeletedFileBlocksTheNextApply()
+    public function testADeletedFileBlocksTheNextApply(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->commands->apply(false, null, 'test');
@@ -271,7 +278,7 @@ class EngineTest extends TestCase
         $this->assertStringContainsString('MISSING', $this->outputText());
     }
 
-    public function testForgetClearsMissing()
+    public function testForgetClearsMissing(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->commands->apply(false, null, 'test');
@@ -284,7 +291,7 @@ class EngineTest extends TestCase
         $this->assertTrue($this->tableExists('users'));
     }
 
-    public function testForgetRefusesAnUnknownMigration()
+    public function testForgetRefusesAnUnknownMigration(): void
     {
         $this->assertSame(1, $this->commands->forget('2026-08-01-100000-nope.sql'));
         $this->assertStringContainsString('no tracking row', $this->outputText());
@@ -294,7 +301,7 @@ class EngineTest extends TestCase
     | baseline
     */
 
-    public function testBaselineRecordsWithoutExecuting()
+    public function testBaselineRecordsWithoutExecuting(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
 
@@ -303,7 +310,7 @@ class EngineTest extends TestCase
         $this->assertFalse($this->tableExists('users'));
     }
 
-    public function testBaselineQuitWritesNothing()
+    public function testBaselineQuitWritesNothing(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
 
@@ -311,7 +318,7 @@ class EngineTest extends TestCase
         $this->assertSame([], $this->trackedNames());
     }
 
-    public function testBaselineSkipsWhatTheOperatorDeclines()
+    public function testBaselineSkipsWhatTheOperatorDeclines(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->write('2026-08-02-100000-posts.sql', 'CREATE TABLE posts (id INTEGER PRIMARY KEY);');
@@ -325,7 +332,7 @@ class EngineTest extends TestCase
         $this->assertSame(['2026-08-01-100000-users.sql'], $this->trackedNames());
     }
 
-    public function testBaselineThenApplyRunsOnlyWhatIsLeft()
+    public function testBaselineThenApplyRunsOnlyWhatIsLeft(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
         $this->commands->baseline(null, true, 'test', fn() => 'y');
@@ -341,7 +348,7 @@ class EngineTest extends TestCase
     | status
     */
 
-    public function testStatusCheckFailsWhileAnythingIsPending()
+    public function testStatusCheckFailsWhileAnythingIsPending(): void
     {
         $this->write('2026-08-01-100000-users.sql', 'CREATE TABLE users (id INTEGER PRIMARY KEY);');
 
@@ -351,7 +358,7 @@ class EngineTest extends TestCase
         $this->assertSame(0, $this->commands->status(true));
     }
 
-    public function testStatusOnAnEmptyDirectorySaysSo()
+    public function testStatusOnAnEmptyDirectorySaysSo(): void
     {
         $this->assertSame(0, $this->commands->status());
         $this->assertStringContainsString('No migrations found', $this->outputText());
@@ -361,20 +368,20 @@ class EngineTest extends TestCase
     | new
     */
 
-    public function testNewWritesAFileThatDiscoveryAccepts()
+    public function testNewWritesAFileThatDiscoveryAccepts(): void
     {
-        $this->assertSame(0, $this->commands->create('add users', gmmktime(14, 30, 0, 8, 1, 2026)));
+        $this->assertSame(0, $this->commands->create('add users', (int) gmmktime(14, 30, 0, 8, 1, 2026)));
         $this->assertFileExists($this->dir . '/2026-08-01-143000-add-users.sql');
 
         // An empty template must not upset a subsequent status
         $this->assertSame(0, $this->commands->status());
     }
 
-    public function testNewRefusesToOverwrite()
+    public function testNewRefusesToOverwrite(): void
     {
-        $this->commands->create('add users', gmmktime(14, 30, 0, 8, 1, 2026));
+        $this->commands->create('add users', (int) gmmktime(14, 30, 0, 8, 1, 2026));
 
-        $this->assertSame(1, $this->commands->create('add users', gmmktime(14, 30, 0, 8, 1, 2026)));
+        $this->assertSame(1, $this->commands->create('add users', (int) gmmktime(14, 30, 0, 8, 1, 2026)));
         $this->assertStringContainsString('already exists', $this->outputText());
     }
 
@@ -382,7 +389,7 @@ class EngineTest extends TestCase
     | Tracking table adoption
     */
 
-    public function testAnUnrelatedTableNamedMigrationsIsRefused()
+    public function testAnUnrelatedTableNamedMigrationsIsRefused(): void
     {
         $this->pdo->exec('CREATE TABLE unrelated (something TEXT)');
 
@@ -393,13 +400,13 @@ class EngineTest extends TestCase
         $tracker->ensureTable();
     }
 
-    public function testAnInvalidTableNameIsRefused()
+    public function testAnInvalidTableNameIsRefused(): void
     {
         $this->expectException(MigrationError::class);
         new Tracker($this->pdo, Driver::forPdo($this->pdo), 'migrations; DROP TABLE users');
     }
 
-    public function testEnsureTableIsSafeToCallRepeatedly()
+    public function testEnsureTableIsSafeToCallRepeatedly(): void
     {
         $this->tracker->ensureTable();
         $this->tracker->ensureTable();

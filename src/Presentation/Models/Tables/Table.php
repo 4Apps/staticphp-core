@@ -13,22 +13,33 @@ class Table implements TableInterface
     public ?Pagination $pagination = null;
     public ?OutputInterface $outputGenerator = null;
 
-    public ?array $columns = null;
-    public ?array $rows = null;
-    public ?array $children = null;
+    /** @var array<string, Column> */
+    public array $columns = [];
+
+    /** @var array<int|string, array<string, mixed>> */
+    public array $rows = [];
+
+    /** @var array<int|string, mixed> */
+    public array $children = [];
 
     public null|\Closure $initRow = null;
 
+    /** @var array<string, mixed>|null */
     public ?array $avgRow = null;
     public RowPosition $avgRowPosition = RowPosition::BODY_TOP;
 
+    /** @var array<string, mixed>|null */
     public ?array $sumRow = null;
     public RowPosition $sumRowPosition = RowPosition::BODY_TOP;
 
+    /** @var array<string, mixed>|null */
     public ?array $customRow = null;
     public RowPosition $customRowPosition = RowPosition::BODY_TOP;
 
+    /** @var array<string, mixed>|null */
     public ?array $beforeDataRow = null;
+
+    /** @var array<string, mixed>|null */
     public ?array $afterDataRow = null;
 
     public bool|\Closure $isEditable = false;
@@ -65,6 +76,9 @@ class Table implements TableInterface
     protected string $urlPrefix = '';
 
 
+    /**
+     * @param array<int, mixed> $columns Validated by setColumns()
+     */
     public function __construct(
         array $columns,
         string $urlPrefix = ''
@@ -94,12 +108,12 @@ class Table implements TableInterface
      *
      * @param string $str Query string
      * @param string $delimiter Delimiter
-     * @return array
+     * @return array<string, string>
      */
-    public function parseQueryString(string $str, string $delimiter = '&')
+    public function parseQueryString(string $str, string $delimiter = '&'): array
     {
         $op = [];
-        $pairs = explode($delimiter, $str);
+        $pairs = explode(($delimiter === '' ? '&' : $delimiter), $str);
         foreach ($pairs as $pair) {
             $ex = explode("=", $pair);
             if (count($ex) < 2) {
@@ -133,11 +147,17 @@ class Table implements TableInterface
     }
 
 
+    /**
+     * @return array<string, Column>
+     */
     public function getColumns(): array
     {
         return $this->columns;
     }
 
+    /**
+     * @param array<int, mixed> $columns
+     */
     public function setColumns(array $columns): void
     {
         foreach ($columns as $column) {
@@ -150,11 +170,17 @@ class Table implements TableInterface
     }
 
 
+    /**
+     * @return array<int|string, array<string, mixed>>
+     */
     public function getRows(): array
     {
         return $this->rows;
     }
 
+    /**
+     * @param array<int|string, array<string, mixed>> $rows
+     */
     public function setRows(array &$rows): void
     {
         $this->rows = &$rows;
@@ -162,7 +188,8 @@ class Table implements TableInterface
         // Format row values
         if ($this->initRow !== null) {
             foreach ($this->rows as $rowIndex => $row) {
-                $this->rows[$rowIndex] = Utils::expandClosure($this->initRow, [$rowIndex, $row]);
+                $formatted = Utils::expandClosure($this->initRow, [$rowIndex, $row]);
+                $this->rows[$rowIndex] = (is_array($formatted) ? $formatted : $row);
             }
         }
 
@@ -179,21 +206,29 @@ class Table implements TableInterface
         }
     }
 
+    /**
+     * @return array<int|string, mixed>
+     */
     public function getChildren(): array
     {
         return $this->children;
     }
 
+    /**
+     * @param array<int|string, mixed> $children
+     */
     public function setChildren(array &$children): void
     {
         $this->children = &$children;
     }
 
-    public function makeOutput()
+    public function makeOutput(): mixed
     {
         if (!empty($this->outputGenerator)) {
             return $this->outputGenerator->makeOutput();
         }
+
+        return null;
     }
 
     public function showOutput(): void

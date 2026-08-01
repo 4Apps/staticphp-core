@@ -15,12 +15,19 @@ use StaticPHP\Presentation\Models\Menu\MenuType;
 class Menu
 {
     public MenuType $type;
+
+    /** @var list<array<string, mixed>> */
     public array $menuList = [];
-    public $preMenuList = '';
-    public $postMenuList = '';
+
+    /** @var string|\Closure */
+    public string|\Closure $preMenuList = '';
+
+    /** @var string|\Closure */
+    public string|\Closure $postMenuList = '';
 
     public bool $parentActive = false;
 
+    /** @var array<string, mixed> */
     private array $itemDefaults = [
         'title' => 'No Title',
 
@@ -41,7 +48,7 @@ class Menu
         'children' => [],
     ];
 
-    public function __construct($parentActive = false)
+    public function __construct(bool|\Closure $parentActive = false)
     {
         if (is_callable($parentActive)) {
             $this->parentActive = $parentActive();
@@ -50,7 +57,7 @@ class Menu
         }
     }
 
-    private function prepareUrl($url)
+    private function prepareUrl(string $url): string
     {
         return str_replace(
             [
@@ -64,14 +71,14 @@ class Menu
                 '%method',
             ],
             [
-                Router::$base_url,
+                (string) Router::$base_url,
                 Controller::moduleUrl(),
                 Controller::controllerUrl(),
                 Controller::methodUrl(),
-                Router::$module,
-                Router::$controller,
-                Router::$class,
-                Router::$method,
+                (string) Router::$module,
+                (string) Router::$controller,
+                (string) Router::$class,
+                (string) Router::$method,
             ],
             $url
         );
@@ -82,7 +89,8 @@ class Menu
      *
      * @access private
      * @param  array $item
-     * @return ?array Null when the item is not to be shown.
+     * @param  array<string, mixed>  $item
+     * @return ?array<string, mixed> Null when the item is not to be shown.
      */
     private function prepareItem(array $item): ?array
     {
@@ -110,7 +118,7 @@ class Menu
         return $item;
     }
 
-    public function html()
+    public function html(): string
     {
         $preMenuContent = '';
         if (is_callable($this->preMenuList)) {
@@ -137,25 +145,31 @@ class Menu
                 $children = [];
                 $childMenuHtml = '';
 
-                foreach ($item['children'] as $child) {
+                foreach ((array) $item['children'] as $child) {
                     // A nested Menu renders itself and joins the group as content
                     if ($child instanceof Menu) {
                         $childMenuHtml .= $child->html();
                         continue;
                     }
 
-                    $child = $this->prepareItem($child);
-                    if ($child === null) {
+                    if (is_array($child) === false) {
                         continue;
                     }
 
-                    $children[] = $child;
+                    /** @var array<string, mixed> $child */
+                    $prepared = $this->prepareItem($child);
+                    if ($prepared === null) {
+                        continue;
+                    }
+
+                    $children[] = $prepared;
                 }
 
                 $item['children'] = $children;
 
                 if ($childMenuHtml !== '') {
-                    $item['contents'] = $childMenuHtml . $item['contents'];
+                    $contents = $item['contents'] ?? '';
+                    $item['contents'] = $childMenuHtml . (is_scalar($contents) ? (string) $contents : '');
                 }
 
                 // A group holds no url of its own, so nothing else would ever mark it
@@ -179,7 +193,7 @@ class Menu
             'post_menu_content' => $postMenuContent,
             'menu_items' => $menuItems,
         ];
-        return Load::view(["Views/components/menu_type_{$this->type->value}.html"], $viewData, true);
+        return (string) Load::view(["Views/components/menu_type_{$this->type->value}.html"], $viewData, true);
     }
 
     /**
@@ -190,7 +204,8 @@ class Menu
      * Dividers and entries without a url are skipped; there is nothing to navigate to.
      *
      * @access public
-     * @return ?array The prepared item with its resolved url under 'full_url', or null.
+     * @return ?array<string, mixed> The prepared item with its resolved url under
+     *                                'full_url', or null.
      */
     public function firstVisibleMenu(): ?array
     {
@@ -209,11 +224,11 @@ class Menu
     }
 
     // MARK: Twig
-    public static function registerTwig()
+    public static function registerTwig(): void
     {
         // Twig is a suggestion of staticphp-core, not a requirement, so there may be no
         // engine to register against
-        if (empty(Config::get('view_engine'))) {
+        if (Config::viewEngine() === null) {
             return;
         }
 
@@ -224,11 +239,15 @@ class Menu
             },
             ['is_safe' => ['html']]
         );
-        Config::$items['view_engine']->addFunction($function);
+        Config::viewEngine()->addFunction($function);
     }
 
-    public static function registerMenu(Menu $instance)
+    public static function registerMenu(Menu $instance): void
     {
+        if (is_array(Config::$items['view_data'] ?? null) === false) {
+            Config::$items['view_data'] = [];
+        }
+
         if ($instance->type == MenuType::MAIN_MENU) {
             Config::$items['view_data']['menu_main'] = $instance;
         }
@@ -240,8 +259,12 @@ class Menu
         }
     }
 
-    public static function hideMenus($menuFlags)
+    public static function hideMenus(int $menuFlags): void
     {
+        if (is_array(Config::$items['view_data'] ?? null) === false) {
+            return;
+        }
+
         if ($menuFlags & MenuType::MAIN_MENU->value) {
             unset(Config::$items['view_data']['menu_main']);
         }

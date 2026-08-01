@@ -40,7 +40,7 @@ class DiscoveryTest extends TestCase
     | Filenames
     */
 
-    public function testAWellFormedFilenameIsAccepted()
+    public function testAWellFormedFilenameIsAccepted(): void
     {
         $file = Discovery::load($this->write('2026-08-01-143000-add-users.sql'));
 
@@ -49,12 +49,15 @@ class DiscoveryTest extends TestCase
     }
 
     #[DataProvider('badFilenameProvider')]
-    public function testBadFilenamesAreRejected($name)
+    public function testBadFilenamesAreRejected(string $name): void
     {
         $this->expectException(MigrationError::class);
         Discovery::load($this->write($name));
     }
 
+    /**
+     * @return array<string, array<int, mixed>>
+     */
     public static function badFilenameProvider(): array
     {
         return [
@@ -68,7 +71,7 @@ class DiscoveryTest extends TestCase
         ];
     }
 
-    public function testDuplicateTimestampsAreRejected()
+    public function testDuplicateTimestampsAreRejected(): void
     {
         $this->write('2026-08-01-143000-add-users.sql');
         $this->write('2026-08-01-143000-add-posts.sql');
@@ -78,7 +81,7 @@ class DiscoveryTest extends TestCase
         Discovery::discover($this->dir);
     }
 
-    public function testDiscoveryReturnsFilesInChronologicalOrder()
+    public function testDiscoveryReturnsFilesInChronologicalOrder(): void
     {
         $this->write('2026-08-02-090000-third.sql');
         $this->write('2026-08-01-143000-first.sql');
@@ -96,7 +99,7 @@ class DiscoveryTest extends TestCase
         );
     }
 
-    public function testAMissingDirectoryIsAnError()
+    public function testAMissingDirectoryIsAnError(): void
     {
         $this->expectException(MigrationError::class);
         Discovery::discover($this->dir . '/nope');
@@ -109,7 +112,7 @@ class DiscoveryTest extends TestCase
     | "is this the file that ran", not "would this file do the same thing".
     */
 
-    public function testChecksumCoversCommentsAndWhitespace()
+    public function testChecksumCoversCommentsAndWhitespace(): void
     {
         $a = Discovery::load($this->write('2026-08-01-143000-a.sql', "SELECT 1;\n"));
         $b = Discovery::load($this->write('2026-08-01-150000-b.sql', "-- note\nSELECT 1;\n"));
@@ -117,14 +120,14 @@ class DiscoveryTest extends TestCase
         $this->assertNotSame($a->checksum, $b->checksum);
     }
 
-    public function testChecksumIsSha256OfTheRawBytes()
+    public function testChecksumIsSha256OfTheRawBytes(): void
     {
         $file = Discovery::load($this->write('2026-08-01-143000-a.sql', 'SELECT 1;'));
 
         $this->assertSame(hash('sha256', 'SELECT 1;'), $file->checksum);
     }
 
-    public function testInvalidUtf8IsRejected()
+    public function testInvalidUtf8IsRejected(): void
     {
         $this->expectException(MigrationError::class);
         $this->expectExceptionMessageMatches('/not valid UTF-8/');
@@ -135,7 +138,7 @@ class DiscoveryTest extends TestCase
     | Directives
     */
 
-    public function testNoTransactionDirectiveIsReadFromTheFirstLine()
+    public function testNoTransactionDirectiveIsReadFromTheFirstLine(): void
     {
         $file = Discovery::load($this->write(
             '2026-08-01-143000-a.sql',
@@ -145,7 +148,7 @@ class DiscoveryTest extends TestCase
         $this->assertTrue($file->noTransaction);
     }
 
-    public function testTheDirectiveIsIgnoredBelowTheFirstLine()
+    public function testTheDirectiveIsIgnoredBelowTheFirstLine(): void
     {
         $file = Discovery::load($this->write(
             '2026-08-01-143000-a.sql',
@@ -162,14 +165,14 @@ class DiscoveryTest extends TestCase
     | there is no psql to interpret them and they arrive as syntax errors.
     */
 
-    public function testMetaCommandsAreFoundWithTheirLineNumbers()
+    public function testMetaCommandsAreFoundWithTheirLineNumbers(): void
     {
         $found = Discovery::findMetaCommands("SELECT 1;\n\\restrict abc\nSELECT 2;\n");
 
         $this->assertSame([2 => '\\restrict abc'], $found);
     }
 
-    public function testABackslashInsideAStringIsNotAMetaCommand()
+    public function testABackslashInsideAStringIsNotAMetaCommand(): void
     {
         $this->assertSame([], Discovery::findMetaCommands("SELECT 'a\\b';\n"));
     }
@@ -178,7 +181,7 @@ class DiscoveryTest extends TestCase
     | Statement counting
     */
 
-    public function testStatementsAreCounted()
+    public function testStatementsAreCounted(): void
     {
         $this->assertSame(1, Discovery::countStatements('SELECT 1;'));
         $this->assertSame(2, Discovery::countStatements('SELECT 1; SELECT 2;'));
@@ -190,23 +193,23 @@ class DiscoveryTest extends TestCase
     | New filenames
     */
 
-    public function testNewFilenameSlugifies()
+    public function testNewFilenameSlugifies(): void
     {
         $this->assertSame(
             '2026-08-01-143000-add-users-table.sql',
-            Discovery::newFilename('Add Users Table!', gmmktime(14, 30, 0, 8, 1, 2026))
+            Discovery::newFilename('Add Users Table!', (int) gmmktime(14, 30, 0, 8, 1, 2026))
         );
     }
 
-    public function testNewFilenameRejectsANameWithNothingUsable()
+    public function testNewFilenameRejectsANameWithNothingUsable(): void
     {
         $this->expectException(MigrationError::class);
-        Discovery::newFilename('!!!', gmmktime(14, 30, 0, 8, 1, 2026));
+        Discovery::newFilename('!!!', (int) gmmktime(14, 30, 0, 8, 1, 2026));
     }
 
-    public function testANewFilenameIsAcceptedByTheLoader()
+    public function testANewFilenameIsAcceptedByTheLoader(): void
     {
-        $name = Discovery::newFilename('add users', gmmktime(14, 30, 0, 8, 1, 2026));
+        $name = Discovery::newFilename('add users', (int) gmmktime(14, 30, 0, 8, 1, 2026));
 
         $this->assertSame($name, Discovery::load($this->write($name))->name);
     }

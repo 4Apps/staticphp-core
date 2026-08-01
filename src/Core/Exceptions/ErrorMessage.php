@@ -57,7 +57,7 @@ class ErrorMessage extends \Exception
         parent::__construct($message, $code, $previous);
     }
 
-    private function gatherTrace()
+    private function gatherTrace(): string
     {
         $previous = $this->getPrevious();
         $stackTrace = empty($previous) ? "\n\nTrace:\n" . $this->getTraceAsString() : '';
@@ -120,8 +120,10 @@ class ErrorMessage extends \Exception
         );
     }
 
-    public function outputMessage($outputType = ErrorMessage::OUTPUT_TYPE_HTML, $includeHtmlTemplate = false)
-    {
+    public function outputMessage(
+        string $outputType = ErrorMessage::OUTPUT_TYPE_HTML,
+        bool $includeHtmlTemplate = false
+    ): void {
         // Set HTTP status code.
         // http_response_code() is protocol agnostic - a literal "HTTP/1.0 ..." status line
         // pins that version onto what may well be an HTTP/2 response.
@@ -232,7 +234,7 @@ XML;
         }
     }
 
-    public static function httpStatusCodeToMessage(int $httpStatusCode)
+    public static function httpStatusCodeToMessage(int $httpStatusCode): string
     {
         switch ($httpStatusCode) {
                 // 2xx Success

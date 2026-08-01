@@ -159,7 +159,7 @@ class Csrf
      */
     public static function registerTwig(): void
     {
-        $engine = Config::get('view_engine');
+        $engine = Config::viewEngine();
         if (empty($engine)) {
             return;
         }

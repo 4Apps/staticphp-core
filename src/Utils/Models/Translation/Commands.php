@@ -20,7 +20,7 @@ final class Commands
      * @access public
      * @param Store    $store
      * @param Locales  $locales
-     * @param array    $config Contents of config['i18n']
+     * @param array<string, mixed> $config Contents of config['i18n']
      * @param callable $out    Receives one line at a time, without its newline
      */
     public function __construct(
@@ -186,6 +186,12 @@ final class Commands
             $body = (string) json_encode($strings, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
         } elseif ($format === 'csv') {
             $handle = fopen('php://temp', 'r+');
+            if ($handle === false) {
+                $this->line('error: could not open a temporary stream for the csv export');
+
+                return 1;
+            }
+
             fputcsv($handle, ['key', 'value'], ',', '"', '');
             foreach ($strings as $key => $value) {
                 fputcsv($handle, [$key, $value ?? ''], ',', '"', '');
@@ -324,7 +330,7 @@ final class Commands
         }
 
         $default = $this->locales->default()->key();
-        $suffix = (string) ($this->config['missing_suffix'] ?? '*');
+        $suffix = (is_string($this->config['missing_suffix'] ?? null) ? $this->config['missing_suffix'] : '*');
         foreach ($new as $key) {
             $id = $this->store->ensureKey($key);
             if ($id !== null) {
@@ -480,7 +486,7 @@ final class Commands
      */
     private function missingFor(string $languageKey): array
     {
-        $suffix = (string) ($this->config['missing_suffix'] ?? '*');
+        $suffix = (is_string($this->config['missing_suffix'] ?? null) ? $this->config['missing_suffix'] : '*');
         $missing = [];
 
         foreach ($this->store->translations($languageKey) as $key => $value) {
@@ -523,7 +529,7 @@ final class Commands
 
         $rows = [];
         foreach ($decoded as $key => $value) {
-            $rows[(string) $key] = (string) ($value ?? '');
+            $rows[(string) $key] = (is_scalar($value) ? (string) $value : '');
         }
 
         return $rows;

@@ -8,7 +8,7 @@ use StaticPHP\Core\Models\Load;
 
 class LoadTest extends TestCase
 {
-    public function testUuid4Shape()
+    public function testUuid4Shape(): void
     {
         $test = Load::uuid4();
 
@@ -18,7 +18,7 @@ class LoadTest extends TestCase
         );
     }
 
-    public function testUuid4DoesNotRepeat()
+    public function testUuid4DoesNotRepeat(): void
     {
         $values = [];
         for ($i = 0; $i < 200; ++$i) {
@@ -28,12 +28,12 @@ class LoadTest extends TestCase
         $this->assertCount(200, array_unique($values));
     }
 
-    public function testRandomHashShape()
+    public function testRandomHashShape(): void
     {
         $this->assertMatchesRegularExpression('/^[0-9a-f]{40}$/', Load::randomHash());
     }
 
-    public function testRandomHashDoesNotRepeat()
+    public function testRandomHashDoesNotRepeat(): void
     {
         $values = [];
         for ($i = 0; $i < 200; ++$i) {
@@ -47,7 +47,7 @@ class LoadTest extends TestCase
     | Template globals
     */
 
-    public function testEnvIsNotExposedToTemplatesByDefault()
+    public function testEnvIsNotExposedToTemplatesByDefault(): void
     {
         $_ENV['A_SECRET_VALUE'] = 'do not leak';
         Config::set('view_env_keys', []);
@@ -57,7 +57,7 @@ class LoadTest extends TestCase
         $this->assertEquals([], $method->invoke(null));
     }
 
-    public function testOnlyAllowlistedEnvKeysAreExposed()
+    public function testOnlyAllowlistedEnvKeysAreExposed(): void
     {
         $_ENV['PUBLIC_VALUE'] = 'fine';
         $_ENV['DB_PASSWORD'] = 'do not leak';
@@ -66,23 +66,25 @@ class LoadTest extends TestCase
         $method = new \ReflectionMethod(Load::class, 'safeEnvForViews');
         $test = $method->invoke(null);
 
+        $this->assertIsArray($test);
         $this->assertEquals(['PUBLIC_VALUE' => 'fine'], $test);
         $this->assertArrayNotHasKey('DB_PASSWORD', $test);
 
         Config::set('view_env_keys', []);
     }
 
-    public function testDatabaseConfigIsNotExposedToTemplates()
+    public function testDatabaseConfigIsNotExposedToTemplates(): void
     {
         Config::set('db', ['pdo' => ['default' => ['password' => 'do not leak']]]);
 
         $method = new \ReflectionMethod(Load::class, 'safeConfigForViews');
         $test = $method->invoke(null);
 
+        $this->assertIsArray($test);
         $this->assertArrayNotHasKey('db', $test);
     }
 
-    public function testSensitiveKeysAreStrippedAtEveryDepth()
+    public function testSensitiveKeysAreStrippedAtEveryDepth(): void
     {
         Config::set('some_service', [
             'endpoint' => 'https://example.test',
@@ -93,13 +95,17 @@ class LoadTest extends TestCase
         $method = new \ReflectionMethod(Load::class, 'safeConfigForViews');
         $test = $method->invoke(null);
 
+        $this->assertIsArray($test);
+        $this->assertIsArray($test['some_service']);
+        $this->assertIsArray($test['some_service']['nested']);
+
         $this->assertEquals('https://example.test', $test['some_service']['endpoint']);
         $this->assertArrayNotHasKey('api_key', $test['some_service']);
         $this->assertArrayNotHasKey('secret', $test['some_service']['nested']);
         $this->assertEquals('fine', $test['some_service']['nested']['public']);
     }
 
-    public function testExtendedDateTimeBuildsItsFormattersLazily()
+    public function testExtendedDateTimeBuildsItsFormattersLazily(): void
     {
         // The constructor used to build four IntlDateFormatters eagerly, which cost ~830us
         // per instance and ran on every request via the bootstrap. Formatting still has to
@@ -108,22 +114,28 @@ class LoadTest extends TestCase
 
         $formatters = new \ReflectionProperty($instance, 'formatters');
 
-        $this->assertSame([], $formatters->getValue($instance), 'formatters built before use');
+        $beforeUse = $formatters->getValue($instance);
+        $this->assertSame([], $beforeUse, 'formatters built before use');
 
         $this->assertNotEmpty($instance->formatDate());
-        $this->assertCount(1, $formatters->getValue($instance), 'more than the needed formatter was built');
+        $afterDate = $formatters->getValue($instance);
+        $this->assertIsArray($afterDate);
+        $this->assertCount(1, $afterDate, 'more than the needed formatter was built');
 
         $this->assertNotEmpty($instance->formatTime());
-        $this->assertCount(2, $formatters->getValue($instance));
+        $afterTime = $formatters->getValue($instance);
+        $this->assertIsArray($afterTime);
+        $this->assertCount(2, $afterTime);
     }
 
-    public function testOrdinaryConfigStillReachesTemplates()
+    public function testOrdinaryConfigStillReachesTemplates(): void
     {
         Config::set('a_plain_setting', 'value');
 
         $method = new \ReflectionMethod(Load::class, 'safeConfigForViews');
         $test = $method->invoke(null);
 
+        $this->assertIsArray($test);
         $this->assertEquals('value', $test['a_plain_setting']);
     }
 
@@ -131,7 +143,7 @@ class LoadTest extends TestCase
     | Module path resolution
     */
 
-    public function testTheFrameworksOwnModulesResolveWithoutAnyConfiguration()
+    public function testTheFrameworksOwnModulesResolveWithoutAnyConfiguration(): void
     {
         // Reserved rather than a $config['module_paths'] entry: an application assigning
         // module_paths used to wipe the registration, and then every framework config load
@@ -146,7 +158,7 @@ class LoadTest extends TestCase
         );
     }
 
-    public function testARegisteredModulePathResolvesAgainstItsDirectory()
+    public function testARegisteredModulePathResolvesAgainstItsDirectory(): void
     {
         Config::set('module_paths', ['site2' => '/srv/app/src/site2/Modules']);
 
@@ -158,7 +170,7 @@ class LoadTest extends TestCase
         );
     }
 
-    public function testAnUnregisteredModulePathIsRefused()
+    public function testAnUnregisteredModulePathIsRefused(): void
     {
         Config::set('module_paths', []);
 
@@ -168,7 +180,7 @@ class LoadTest extends TestCase
         $method->invoke(null, 'nope', 'Pasta', 'Config', 'Config');
     }
 
-    public function testAModulePathWithoutAModuleIsRefused()
+    public function testAModulePathWithoutAModuleIsRefused(): void
     {
         // The entries are module roots, so naming one without a module is meaningless
         $method = new \ReflectionMethod(Load::class, 'resolve');
@@ -202,7 +214,7 @@ class LoadTest extends TestCase
         }
     }
 
-    public function testPlainViewReceivesTheDataItWasGiven()
+    public function testPlainViewReceivesTheDataItWasGiven(): void
     {
         // The fallback used to require the file without extracting $data at all, so a
         // plain view could not be passed anything
@@ -212,7 +224,7 @@ class LoadTest extends TestCase
         $this->assertSame('got:hello', Load::view([$view], $data, true));
     }
 
-    public function testPlainViewCanStillReachConfig()
+    public function testPlainViewCanStillReachConfig(): void
     {
         Config::set('a_plain_setting', 'value');
         $view = $this->writeView('<?php echo $config["a_plain_setting"]; ?>');
@@ -221,7 +233,7 @@ class LoadTest extends TestCase
         $this->assertSame('value', Load::view([$view], $data, true));
     }
 
-    public function testPlainViewDataCannotOverwriteTheRenderersOwnVariables()
+    public function testPlainViewDataCannotOverwriteTheRenderersOwnVariables(): void
     {
         // extract() into the calling scope would let a key named "files" or "path" take
         // over the loop, so the include happens in a scope of its own
@@ -231,7 +243,7 @@ class LoadTest extends TestCase
         $this->assertSame('string|intact', Load::view([$view], $data, true));
     }
 
-    public function testPlainViewOutsideTheModulesDirectoryIsRefused()
+    public function testPlainViewOutsideTheModulesDirectoryIsRefused(): void
     {
         $data = [];
 
@@ -239,7 +251,7 @@ class LoadTest extends TestCase
         Load::view(['../../../etc/passwd'], $data, true);
     }
 
-    public function testAFailingPlainViewDoesNotLeaveABufferOpen()
+    public function testAFailingPlainViewDoesNotLeaveABufferOpen(): void
     {
         // A half closed output buffer would swallow whatever the request printed next
         $level = ob_get_level();

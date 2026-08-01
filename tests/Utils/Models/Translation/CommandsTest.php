@@ -49,13 +49,13 @@ class CommandsTest extends SqliteCase
     | status
     */
 
-    public function testStatusReportsNothingRegisteredYet()
+    public function testStatusReportsNothingRegisteredYet(): void
     {
         $this->assertEquals(0, $this->commands->status());
         $this->assertStringContainsString('Nothing registered yet', $this->outputText());
     }
 
-    public function testStatusCountsTranslatedAndMissing()
+    public function testStatusCountsTranslatedAndMissing(): void
     {
         $this->seed();
 
@@ -71,14 +71,14 @@ class CommandsTest extends SqliteCase
      * The auto-registered placeholder is the source text with a marker on it, which is
      * exactly what "nobody has translated this" looks like.
      */
-    public function testCheckFailsWhileAnythingIsUntranslated()
+    public function testCheckFailsWhileAnythingIsUntranslated(): void
     {
         $this->seed();
 
         $this->assertEquals(1, $this->commands->status(true));
     }
 
-    public function testCheckPassesOnceEverythingIsTranslated()
+    public function testCheckPassesOnceEverythingIsTranslated(): void
     {
         foreach ($this->locales->all() as $locale) {
             $this->store->setTranslation('Log in', $locale->key(), 'x');
@@ -87,7 +87,7 @@ class CommandsTest extends SqliteCase
         $this->assertEquals(0, $this->commands->status(true));
     }
 
-    public function testStatusNamesLanguagesThatHaveRowsButNoConfiguration()
+    public function testStatusNamesLanguagesThatHaveRowsButNoConfiguration(): void
     {
         $this->store->setTranslation('Log in', 'de_de', 'Anmelden');
 
@@ -100,7 +100,7 @@ class CommandsTest extends SqliteCase
     | missing
     */
 
-    public function testMissingListsThePlaceholdersAndTheGaps()
+    public function testMissingListsThePlaceholdersAndTheGaps(): void
     {
         $this->seed();
 
@@ -112,7 +112,7 @@ class CommandsTest extends SqliteCase
         $this->assertStringNotContainsString('Pieslēgties', $output);
     }
 
-    public function testMissingCoversEveryLanguageByDefault()
+    public function testMissingCoversEveryLanguageByDefault(): void
     {
         $this->seed();
 
@@ -128,13 +128,13 @@ class CommandsTest extends SqliteCase
     | set / keys
     */
 
-    public function testSetWritesATranslation()
+    public function testSetWritesATranslation(): void
     {
         $this->assertEquals(0, $this->commands->set('lv_lv', 'Log in', 'Pieslēgties'));
         $this->assertEquals('Pieslēgties', $this->value('Log in', 'lv_lv'));
     }
 
-    public function testKeysListsEverything()
+    public function testKeysListsEverything(): void
     {
         $this->seed();
         $this->reset();
@@ -148,7 +148,7 @@ class CommandsTest extends SqliteCase
     | export / import
     */
 
-    public function testExportAndImportCsvRoundTrip()
+    public function testExportAndImportCsvRoundTrip(): void
     {
         $this->seed();
         $file = $this->workDir . '/lv.csv';
@@ -160,19 +160,21 @@ class CommandsTest extends SqliteCase
         $this->assertEquals('Pieslēgties', $this->value('Log in', 'lv_ru'));
     }
 
-    public function testExportAndImportJsonRoundTrip()
+    public function testExportAndImportJsonRoundTrip(): void
     {
         $this->seed();
         $file = $this->workDir . '/lv.json';
 
         $this->assertEquals(0, $this->commands->export('lv_lv', 'json', $file));
-        $this->assertEquals('Pieslēgties', json_decode((string) file_get_contents($file), true)['Log in']);
+        $exported = json_decode((string) file_get_contents($file), true);
+        $this->assertIsArray($exported);
+        $this->assertEquals('Pieslēgties', $exported['Log in']);
 
         $this->assertEquals(0, $this->commands->import('lv_ru', $file, 'auto'));
         $this->assertEquals('Pieslēgties', $this->value('Log in', 'lv_ru'));
     }
 
-    public function testImportLeavesExistingTranslationsAloneByDefault()
+    public function testImportLeavesExistingTranslationsAloneByDefault(): void
     {
         $this->seed();
         $this->store->setTranslation('Log in', 'lv_ru', 'Войти');
@@ -187,7 +189,7 @@ class CommandsTest extends SqliteCase
         $this->assertStringContainsString('1 left alone', $this->outputText());
     }
 
-    public function testImportOverwritesWhenAsked()
+    public function testImportOverwritesWhenAsked(): void
     {
         $this->seed();
         $this->store->setTranslation('Log in', 'lv_ru', 'Войти');
@@ -200,12 +202,12 @@ class CommandsTest extends SqliteCase
         $this->assertEquals('Pieslēgties', $this->value('Log in', 'lv_ru'));
     }
 
-    public function testImportRefusesAMissingFile()
+    public function testImportRefusesAMissingFile(): void
     {
         $this->assertEquals(2, $this->commands->import('lv_lv', $this->workDir . '/nope.csv'));
     }
 
-    public function testExportRefusesAnUnknownFormat()
+    public function testExportRefusesAnUnknownFormat(): void
     {
         $this->assertEquals(2, $this->commands->export('lv_lv', 'xml'));
     }
@@ -214,7 +216,7 @@ class CommandsTest extends SqliteCase
     | scan / prune
     */
 
-    public function testScanSeparatesNewKeysFromUnusedOnes()
+    public function testScanSeparatesNewKeysFromUnusedOnes(): void
     {
         $this->seed();
         file_put_contents($this->workDir . '/page.php', '<?php _(\'Log in\'); _(\'Register\');');
@@ -228,7 +230,7 @@ class CommandsTest extends SqliteCase
         $this->assertStringContainsString('Sign out', $output);
     }
 
-    public function testScanCanRegisterWhatItFound()
+    public function testScanCanRegisterWhatItFound(): void
     {
         file_put_contents($this->workDir . '/page.php', '<?php _(\'Register\');');
 
@@ -237,7 +239,7 @@ class CommandsTest extends SqliteCase
         $this->assertEquals('Register*', $this->value('Register', 'lv_lv'));
     }
 
-    public function testPruneAsksBeforeDeleting()
+    public function testPruneAsksBeforeDeleting(): void
     {
         $this->seed();
 
@@ -247,7 +249,7 @@ class CommandsTest extends SqliteCase
         $this->assertStringContainsString('Nothing deleted', $this->outputText());
     }
 
-    public function testPruneDeletesKeysAndTheirTranslations()
+    public function testPruneDeletesKeysAndTheirTranslations(): void
     {
         $this->seed();
         file_put_contents($this->workDir . '/page.php', '<?php _(\'Log in\');');
@@ -259,7 +261,7 @@ class CommandsTest extends SqliteCase
         $this->assertNull($this->value('Sign out', 'lv_lv'));
     }
 
-    public function testPruneWithNothingToDoSaysSo()
+    public function testPruneWithNothingToDoSaysSo(): void
     {
         $this->seed();
         file_put_contents($this->workDir . '/page.php', '<?php _(\'Log in\'); _(\'Sign out\');');
@@ -274,7 +276,7 @@ class CommandsTest extends SqliteCase
     | clear
     */
 
-    public function testClearMarksALanguageStale()
+    public function testClearMarksALanguageStale(): void
     {
         $this->store->markFresh('lv_lv');
         $this->assertTrue($this->store->isFresh('lv_lv'));
@@ -284,7 +286,7 @@ class CommandsTest extends SqliteCase
         $this->assertFalse($this->store->isFresh('lv_lv'));
     }
 
-    public function testClearWithoutALanguageMarksEverything()
+    public function testClearWithoutALanguageMarksEverything(): void
     {
         $this->store->markFresh('lv_lv');
         $this->store->markFresh('lv_en');
@@ -299,13 +301,14 @@ class CommandsTest extends SqliteCase
     | install
     */
 
-    public function testInstallCopiesTheSchemaForThisDriver()
+    public function testInstallCopiesTheSchemaForThisDriver(): void
     {
         $result = $this->commands->install(false, $this->workDir, dirname(self::SCHEMA), 1785000000);
 
         $this->assertEquals(0, $result);
 
         $written = glob($this->workDir . '/*-i18n-install.sql');
+        $this->assertIsArray($written);
         $this->assertCount(1, $written);
         $this->assertStringContainsString('CREATE TABLE i18n_keys', (string) file_get_contents($written[0]));
         $this->assertStringContainsString('migrate apply', $this->outputText());
@@ -315,13 +318,13 @@ class CommandsTest extends SqliteCase
      * The old schema only ever shipped for postgres, so there is nothing to upgrade from
      * anywhere else - and saying that is better than emitting something that does not apply.
      */
-    public function testInstallHasNoUpgradePathForSqlite()
+    public function testInstallHasNoUpgradePathForSqlite(): void
     {
         $this->assertEquals(2, $this->commands->install(true, $this->workDir, dirname(self::SCHEMA), 1785000000));
         $this->assertStringContainsString('only ever shipped for postgres', $this->outputText());
     }
 
-    public function testInstallRefusesToOverwrite()
+    public function testInstallRefusesToOverwrite(): void
     {
         $this->commands->install(false, $this->workDir, dirname(self::SCHEMA), 1785000000);
         $this->reset();
@@ -334,7 +337,7 @@ class CommandsTest extends SqliteCase
     | Missing schema
     */
 
-    public function testEveryCommandExplainsAMissingSchema()
+    public function testEveryCommandExplainsAMissingSchema(): void
     {
         Db::query('DROP TABLE i18n_translations', [], $this->connection);
         Db::query('DROP TABLE i18n_keys', [], $this->connection);

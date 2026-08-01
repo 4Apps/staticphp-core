@@ -12,7 +12,7 @@ use StaticPHP\Presentation\Models\Tables\SQL\SQLFilters;
  */
 class SQLFiltersTest extends TestCase
 {
-    public function testDefaultComparisonBindsTheValue()
+    public function testDefaultComparisonBindsTheValue(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', 'needle');
 
@@ -20,7 +20,7 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals(['needle'], $params);
     }
 
-    public function testWildcardComparisonBindsTheValue()
+    public function testWildcardComparisonBindsTheValue(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', '%needle');
 
@@ -28,7 +28,7 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals(['%needle%'], $params);
     }
 
-    public function testInComparisonUsesPlaceholders()
+    public function testInComparisonUsesPlaceholders(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', '@a,b,c');
 
@@ -40,7 +40,7 @@ class SQLFiltersTest extends TestCase
      * The IN branch used to escape by doubling single quotes and interpolating the result,
      * which is only safe under standard_conforming_strings.
      */
-    public function testInComparisonDoesNotInterpolateQuotes()
+    public function testInComparisonDoesNotInterpolateQuotes(): void
     {
         // Splitting on the comma leaves a quote on each side; both are bound rather than
         // escaped and concatenated, so neither reaches the query text
@@ -51,7 +51,7 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals(["x'", "'y"], $params);
     }
 
-    public function testInComparisonSurvivesABackslashPayload()
+    public function testInComparisonSurvivesABackslashPayload(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', "@a\\',b");
 
@@ -63,7 +63,7 @@ class SQLFiltersTest extends TestCase
      * array_map was given the formatter as a one element array, so php padded it with
      * nulls and the cast applied only to the first element.
      */
-    public function testFormatterAppliesToEveryElementOfAnInList()
+    public function testFormatterAppliesToEveryElementOfAnInList(): void
     {
         $toInt = function ($value) {
             return (int) $value;
@@ -74,7 +74,7 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals([1, 2, 3], $params);
     }
 
-    public function testBareInPrefixBindsAnEmptyValue()
+    public function testBareInPrefixBindsAnEmptyValue(): void
     {
         // explode() always yields at least one element, so "@" on its own is a filter for
         // the empty string rather than an empty list - still bound, not interpolated
@@ -84,7 +84,7 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals([''], $params);
     }
 
-    public function testArrayValueBecomesABoundInList()
+    public function testArrayValueBecomesABoundInList(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', ['a', 'b']);
 
@@ -92,14 +92,14 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals(['a', 'b'], $params);
     }
 
-    public function testEmptyArrayValueCollapsesToFalse()
+    public function testEmptyArrayValueCollapsesToFalse(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', []);
 
         $this->assertEquals('1 = 0', $sql);
     }
 
-    public function testRangeComparisonBindsBothBounds()
+    public function testRangeComparisonBindsBothBounds(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', '10~20');
 
@@ -107,7 +107,7 @@ class SQLFiltersTest extends TestCase
         $this->assertEquals(['10', '20'], $params);
     }
 
-    public function testNullQueryNeedsNoParameters()
+    public function testNullQueryNeedsNoParameters(): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', '', '=', null, true);
 
@@ -120,7 +120,7 @@ class SQLFiltersTest extends TestCase
     }
 
     #[DataProvider('comparisonPrefixProvider')]
-    public function testComparisonPrefixesBindTheirValue(string $value, string $expectedSql)
+    public function testComparisonPrefixesBindTheirValue(string $value, string $expectedSql): void
     {
         [$sql, $params] = SQLFilters::valueToQuery('col', $value);
 
@@ -128,6 +128,9 @@ class SQLFiltersTest extends TestCase
         $this->assertCount(1, $params);
     }
 
+    /**
+     * @return array<string, array<int, mixed>>
+     */
     public static function comparisonPrefixProvider(): array
     {
         return [

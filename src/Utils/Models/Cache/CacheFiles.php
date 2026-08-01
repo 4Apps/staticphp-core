@@ -9,11 +9,14 @@ use Exception;
  */
 class CacheFiles extends Cache
 {
+    /**
+     * @param ?array<string, mixed> $config
+     */
     public function __construct(?array $config = null)
     {
         parent::__construct($config);
 
-        $path = $this->config['path'];
+        $path = $this->setting('path');
 
         if (is_dir($path) === false) {
             // 0777 leaves the cache world writable; the web user is the only one that
@@ -45,9 +48,10 @@ class CacheFiles extends Cache
     {
         $key = md5($key);
 
-        $subpath = $this->config['path'] . '/';
-        for ($i = 1; $i <= $this->config['levels']; $i++) {
-            $subpath .= substr($key, -($i * $this->config['sub_path_length']), $this->config['sub_path_length']);
+        $subpath = $this->setting('path') . '/';
+        $length = $this->settingInt('sub_path_length', 2);
+        for ($i = 1; $i <= $this->settingInt('levels'); $i++) {
+            $subpath .= substr($key, -($i * $length), $length);
             $subpath .= '/';
         }
 
@@ -55,7 +59,7 @@ class CacheFiles extends Cache
             mkdir($subpath, 0770, true);
         }
 
-        return $subpath . $this->prefix($key) . '.' . $this->config['ext'];
+        return $subpath . $this->prefix($key) . '.' . $this->setting('ext', 'cache');
     }
 
     /**
@@ -95,9 +99,8 @@ class CacheFiles extends Cache
             return false;
         }
 
-        $contents = file_get_contents($filename);
-        $contents = json_decode($contents, true);
-        if (isset($contents['cacher___encoded'])) {
+        $contents = json_decode((string) file_get_contents($filename), true);
+        if (is_array($contents) && isset($contents['cacher___encoded'])) {
             $contents = $contents['cacher___encoded'];
         }
 

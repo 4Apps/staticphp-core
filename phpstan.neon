@@ -1,16 +1,18 @@
 includes:
     - phpstan-baseline.neon
+    # Teaches analysis that assertNotNull(), assertInstanceOf() and friends narrow the
+    # types they assert, so a test does not have to restate what it just asserted
+    - vendor/phpstan/phpstan-phpunit/extension.neon
 
 parameters:
     paths:
         - src
         - tests
 
-    # The whole tree passes level 5, so phpstan-baseline.neon is empty and every finding is
-    # a real one. Keep it that way - fix what analysis reports rather than regenerating the
-    # baseline with `composer stan-baseline` to make a new finding go away. Raising the
-    # level is the next step, not growing the baseline again.
-    level: 5
+    # phpstan-baseline.neon is empty and stays that way: every finding is a real one. Fix
+    # what analysis reports rather than regenerating the baseline with
+    # `composer stan-baseline` to make a new finding go away.
+    level: 9
 
     # The application may define these global functions; the framework only ever calls them
     # behind function_exists(). Declaring them here is what lets analysis see their shape.
@@ -20,9 +22,13 @@ parameters:
     ignoreErrors:
         # SessionsMongoDb is one of several interchangeable session backends and the only one
         # needing an extension that is not in require. An install that wants it pulls in
-        # mongodb/mongodb; every other install must not be made to.
+        # mongodb/mongodb; every other install must not be made to. Without the package its
+        # classes cannot be named in a type either, so the driver handles stay mixed.
         -
             message: '#Instantiated class MongoDB\\Client not found#'
+            path: src/Utils/Models/Sessions/SessionsMongoDb.php
+        -
+            message: '#(Cannot call method [a-zA-Z]+\(\)|Cannot access property \$[a-zA-Z_]+) on mixed#'
             path: src/Utils/Models/Sessions/SessionsMongoDb.php
 
         # Both factories return null when ICU rejects the locale or the pattern - confirmed

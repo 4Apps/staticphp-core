@@ -26,7 +26,7 @@ class CsrfTest extends TestCase
      * Csrf::token() requires an active session; fake one so the class under test sees
      * PHP_SESSION_ACTIVE without phpunit's own output getting in the way.
      */
-    private function withSession(callable $body)
+    private function withSession(callable $body): mixed
     {
         if (session_status() !== PHP_SESSION_ACTIVE) {
             session_save_path(sys_get_temp_dir());
@@ -40,28 +40,28 @@ class CsrfTest extends TestCase
         return $body();
     }
 
-    public function testTokenIsLongAndHex()
+    public function testTokenIsLongAndHex(): void
     {
         $this->withSession(function () {
             $this->assertMatchesRegularExpression('/^[0-9a-f]{64}$/', Csrf::token());
         });
     }
 
-    public function testTokenIsStableWithinASession()
+    public function testTokenIsStableWithinASession(): void
     {
         $this->withSession(function () {
             $this->assertEquals(Csrf::token(), Csrf::token());
         });
     }
 
-    public function testCorrectTokenValidates()
+    public function testCorrectTokenValidates(): void
     {
         $this->withSession(function () {
             $this->assertTrue(Csrf::validate(Csrf::token()));
         });
     }
 
-    public function testWrongTokenOfEqualLengthIsRejected()
+    public function testWrongTokenOfEqualLengthIsRejected(): void
     {
         $this->withSession(function () {
             Csrf::token();
@@ -69,7 +69,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testTokenPrefixIsRejected()
+    public function testTokenPrefixIsRejected(): void
     {
         $this->withSession(function () {
             $token = Csrf::token();
@@ -77,7 +77,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testEmptyAndNullTokensAreRejected()
+    public function testEmptyAndNullTokensAreRejected(): void
     {
         $this->withSession(function () {
             Csrf::token();
@@ -86,7 +86,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testRequestValidationReadsPost()
+    public function testRequestValidationReadsPost(): void
     {
         $this->withSession(function () {
             $_POST[Csrf::FIELD_NAME] = Csrf::token();
@@ -97,7 +97,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testRequestValidationReadsTheHeader()
+    public function testRequestValidationReadsTheHeader(): void
     {
         $this->withSession(function () {
             $_SERVER[Csrf::HEADER_NAME] = Csrf::token();
@@ -108,7 +108,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testRequestWithoutATokenIsRejected()
+    public function testRequestWithoutATokenIsRejected(): void
     {
         $this->withSession(function () {
             Csrf::token();
@@ -118,7 +118,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testArrayTokenDoesNotBypassValidation()
+    public function testArrayTokenDoesNotBypassValidation(): void
     {
         $this->withSession(function () {
             Csrf::token();
@@ -130,7 +130,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testFieldRendersAHiddenInputCarryingTheToken()
+    public function testFieldRendersAHiddenInputCarryingTheToken(): void
     {
         $this->withSession(function () {
             $token = Csrf::token();
@@ -142,7 +142,7 @@ class CsrfTest extends TestCase
         });
     }
 
-    public function testResetIssuesANewToken()
+    public function testResetIssuesANewToken(): void
     {
         $this->withSession(function () {
             $token = Csrf::token();

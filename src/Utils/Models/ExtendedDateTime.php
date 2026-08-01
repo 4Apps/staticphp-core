@@ -93,47 +93,47 @@ class ExtendedDateTime extends \DateTime
         );
     }
 
-    public function previousMonth()
+    public function previousMonth(): void
     {
         $this->modify('last day of -1 month');
     }
 
-    public function nextMonth()
+    public function nextMonth(): void
     {
         $this->modify('first day of +1 month');
     }
 
-    public function startOfTheMonth()
+    public function startOfTheMonth(): void
     {
         $this->modify('first day of this month 00:00:00');
     }
 
-    public function endOfTheMonth()
+    public function endOfTheMonth(): void
     {
         $this->modify('last day of this month 23:59:59');
     }
 
-    public function startOfTheWeek()
+    public function startOfTheWeek(): void
     {
         $this->modify('this week 00:00:00');
     }
 
-    public function endOfTheWeek()
+    public function endOfTheWeek(): void
     {
         $this->modify('sunday this week 23:59:59');
     }
 
-    public function startOfTheDay()
+    public function startOfTheDay(): void
     {
         $this->modify('00:00:00');
     }
 
-    public function endOfTheDay()
+    public function endOfTheDay(): void
     {
         $this->modify('23:59:59');
     }
 
-    public static function startOfTheMonthFromTimestamp(int $unixTime)
+    public static function startOfTheMonthFromTimestamp(int $unixTime): int
     {
         $tmp = new ExtendedDateTime("@{$unixTime}");
         $tmp->startOfTheMonth();
@@ -141,7 +141,7 @@ class ExtendedDateTime extends \DateTime
         return $tmp->getTimestamp();
     }
 
-    public static function endOfTheMonthFromTimestamp(int $unixTime)
+    public static function endOfTheMonthFromTimestamp(int $unixTime): int
     {
         $tmp = new ExtendedDateTime("@{$unixTime}");
         $tmp->endOfTheMonth();
@@ -156,21 +156,21 @@ class ExtendedDateTime extends \DateTime
 
     public function formatFullDateTime(): string
     {
-        return $this->formatter('fullDateTime')->format($this);
+        return (string) $this->formatter('fullDateTime')->format($this);
     }
 
     public function formatDateTime(): string
     {
-        return $this->formatter('dateTime')->format($this);
+        return (string) $this->formatter('dateTime')->format($this);
     }
 
     public function formatDate(): string
     {
-        return $this->formatter('date')->format($this);
+        return (string) $this->formatter('date')->format($this);
     }
 
     public function formatTime(): string
     {
-        return $this->formatter('time')->format($this);
+        return (string) $this->formatter('time')->format($this);
     }
 }

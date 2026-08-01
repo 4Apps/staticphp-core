@@ -28,29 +28,29 @@ class i18n
     /**
      *  Array holding all i18n config.
      *
-     * @var ?array
+     * @var ?array<string, mixed>
      * @access public
      * @static
      */
-    public static $config = null;
+    public static ?array $config = null;
 
     /**
      *  Array holding info of all available countries, as configured.
      *
-     * @var ?array
+     * @var ?array<string, mixed>
      * @access public
      * @static
      */
-    public static $countries = null;
+    public static ?array $countries = null;
 
     /**
      *  Currently active country, as configured.
      *
-     * @var ?array
+     * @var ?array<string, mixed>
      * @access public
      * @static
      */
-    public static $current_country = null;
+    public static ?array $current_country = null;
 
     /**
      *  Current country's abbreviation code.
@@ -158,9 +158,11 @@ class i18n
             Config::load(['i18n'], 'Utils', 'System');
         }
 
-        self::$config = Config::$items['i18n'];
-        self::$countries = self::$config['available'];
-        self::$locales = Locales::fromConfig(self::$config);
+        /** @var array<string, mixed> $config */
+        $config = (array) (Config::$items['i18n'] ?? []);
+        self::$config = $config;
+        self::$countries = (is_array($config['available'] ?? null) ? $config['available'] : []);
+        self::$locales = Locales::fromConfig($config);
         self::$formatters = [];
         self::$registered = [];
 
@@ -191,7 +193,7 @@ class i18n
 
         self::$current_country = null;
         foreach ((array) self::$countries as $country) {
-            if (($country['code'] ?? null) === $locale->countryCode) {
+            if (is_array($country) && ($country['code'] ?? null) === $locale->countryCode) {
                 self::$current_country = $country;
                 break;
             }
@@ -202,22 +204,25 @@ class i18n
             $strict = (bool) Config::get('debug', false);
         }
 
+        $tables = self::$config['tables'] ?? null;
+        $ttl = self::$config['cache_ttl'] ?? null;
+
         self::$store = new Store(
-            (string) (self::$config['db_config'] ?? 'default'),
-            (string) (self::$config['db_scheme'] ?? ''),
-            (array) (self::$config['tables'] ?? []),
+            self::setting('db_config', 'default'),
+            self::setting('db_scheme'),
+            (is_array($tables) ? array_filter($tables, is_string(...)) : []),
             (bool) $strict,
         );
 
-        $mode = (string) (self::$config['cache'] ?? 'external');
+        $mode = self::setting('cache', 'external');
         self::$catalog = new Catalog(
             self::$store,
             $mode,
-            (string) (self::$config['cache_prefix'] ?? 'language_'),
+            self::setting('cache_prefix', 'language_'),
             $mode === 'internal' && defined('APP_PATH') === true
-                ? APP_PATH . '/Cache/' . (string) (self::$config['cache_subdir'] ?? 'i18n')
+                ? APP_PATH . '/Cache/' . self::setting('cache_subdir', 'i18n')
                 : null,
-            self::$config['cache_ttl'] ?? null,
+            (is_numeric($ttl) ? (int) $ttl : null),
         );
 
         // ICU carries its own locale data, so nothing this class formats needs the system
@@ -249,7 +254,7 @@ class i18n
             // The check this replaced tested in_array($country, ...) against the language
             // list, which only ever passed because every shipped country happens to list
             // its own code as one of its languages
-            $locale = self::$locales->find($country, $language);
+            $locale = self::requireLocales()->find($country, $language);
             if ($locale === null) {
                 throw new TranslationError("i18n has no \"{$country}\" country serving \"{$language}\"");
             }
@@ -258,7 +263,7 @@ class i18n
         }
 
         foreach ((array) Router::$prefixes as $prefix) {
-            $locale = self::$locales->byPrefix((string) $prefix);
+            $locale = self::requireLocales()->byPrefix((string) $prefix);
             if ($locale !== null) {
                 return $locale;
             }
@@ -276,10 +281,10 @@ class i18n
      */
     private static function onUnknownLocale(): Locale
     {
-        $target = self::$locales->default();
+        $target = self::requireLocales()->default();
 
         if (!empty(self::$config['negotiate'])) {
-            $negotiated = Negotiator::best($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? null, self::$locales);
+            $negotiated = Negotiator::best(self::acceptLanguage(), self::requireLocales());
             if ($negotiated !== null) {
                 $target = $negotiated;
             }
@@ -303,7 +308,7 @@ class i18n
     public static function load(?string $language_key = null): void
     {
         self::assertInitialised();
-        self::$catalog->strings($language_key ?? self::$language_key);
+        self::requireCatalog()->strings($language_key ?? self::requireLanguageKey());
     }
 
     /**
@@ -318,7 +323,7 @@ class i18n
     {
         self::assertInitialised();
 
-        return self::$catalog->strings($language_key ?? self::$language_key);
+        return self::requireCatalog()->strings($language_key ?? self::requireLanguageKey());
     }
 
     /**
@@ -327,7 +332,7 @@ class i18n
      * @access public
      * @static
      * @param  string  $text         Source text, which is also the key it is stored under
-     * @param  array   $replace      Placeholders mapped to their values
+     * @param  array<string, mixed> $replace Placeholders mapped to their values
      * @param  ?string $escape       One of: html, attr, input, js, url
      * @param  ?string $language_key Language to translate into, defaulting to the current one
      * @return string
@@ -354,7 +359,7 @@ class i18n
      * @access public
      * @static
      * @param  string  $text         Source pattern, which is also the key
-     * @param  array   $arguments    Named arguments referenced by the pattern
+     * @param  array<string, mixed> $arguments Named arguments referenced by the pattern
      * @param  ?string $escape       One of: html, attr, input, js, url
      * @param  ?string $language_key
      * @return string
@@ -386,13 +391,13 @@ class i18n
 
         $locale = self::localeFor($language_key);
         $chain = !empty(self::$config['fallback'])
-            ? self::$locales->fallbackChain($locale)
+            ? self::requireLocales()->fallbackChain($locale)
             : [$locale];
 
         // An unconfigured key can still be asked for - the cli translates into whatever the
         // caller names - and there is nothing to fall back to in that case
         $requestedKey = $language_key ?? $locale->key();
-        if (self::$locales->byKey($requestedKey) === null) {
+        if (self::requireLocales()->byKey($requestedKey) === null) {
             $chain = [];
         }
 
@@ -402,7 +407,7 @@ class i18n
         }
 
         foreach ($keys as $key) {
-            $strings = self::$catalog->strings($key);
+            $strings = self::requireCatalog()->strings($key);
             if (array_key_exists($text, $strings) === true && $strings[$text] !== null) {
                 return $strings[$text];
             }
@@ -426,7 +431,7 @@ class i18n
      */
     private static function register(string $text, string $languageKey): string
     {
-        $suffixed = $text . (string) (self::$config['missing_suffix'] ?? '*');
+        $suffixed = $text . self::setting('missing_suffix', '*');
 
         if (isset(self::$registered[$languageKey . "\0" . $text]) === true) {
             return $suffixed;
@@ -435,23 +440,23 @@ class i18n
 
         // In-memory either way, so a page using the same unknown string a hundred times
         // does not go looking for it a hundred times
-        self::$catalog->remember($languageKey, $text, $suffixed);
+        self::requireCatalog()->remember($languageKey, $text, $suffixed);
 
-        if (empty(self::$config['auto_register']) || self::$store->isDegraded() === true) {
+        if (empty(self::$config['auto_register']) || self::requireStore()->isDegraded() === true) {
             return $suffixed;
         }
 
-        $id = self::$store->ensureKey($text);
+        $id = self::requireStore()->ensureKey($text);
         if ($id === null) {
             return $suffixed;
         }
 
         // overwrite: false, because another request may have registered it a moment ago and
         // a translator may already have replaced the placeholder with the real thing
-        self::$store->putTranslation($id, $languageKey, $suffixed, false);
+        self::requireStore()->putTranslation($id, $languageKey, $suffixed, false);
 
         // Only now, and only for this language: the warmed table no longer has every key
-        self::$store->markStale($languageKey);
+        self::requireStore()->markStale($languageKey);
 
         return $suffixed;
     }
@@ -473,7 +478,7 @@ class i18n
 
         $languageKey = $language_key ?? self::$language_key;
 
-        if (self::$store->keyId($key) === null) {
+        if (self::requireStore()->keyId($key) === null) {
             throw new TranslationError("Key \"{$key}\" doesn't exist");
         }
 
@@ -494,11 +499,11 @@ class i18n
     {
         self::assertInitialised();
 
-        $languageKey = $language_key ?? self::$language_key;
-        $written = self::$store->setTranslation($key, $languageKey, $text);
+        $languageKey = $language_key ?? self::requireLanguageKey();
+        $written = self::requireStore()->setTranslation($key, $languageKey, $text);
 
         if ($written === true) {
-            self::$catalog->invalidate($languageKey);
+            self::requireCatalog()->invalidate($languageKey);
         }
 
         return $written;
@@ -515,7 +520,7 @@ class i18n
     public static function cacheInvalidate(?string $language_key = null): void
     {
         self::assertInitialised();
-        self::$catalog->invalidate($language_key);
+        self::requireCatalog()->invalidate($language_key);
     }
 
     /*
@@ -606,15 +611,16 @@ class i18n
      *
      * @access public
      * @static
-     * @param  array  $country  Entry of config['i18n']['available']
+     * @param  array<string, mixed> $country Entry of config['i18n']['available']
      * @param  string $language
      * @return string
      */
     public static function urlPrefix(array $country, string $language): string
     {
-        $format = (string) (self::$config['url_format'] ?? '{{country}}-{{language}}');
+        $format = self::setting('url_format', '{{country}}-{{language}}');
+        $code = $country['code'] ?? null;
 
-        return Locales::prefix($format, (string) ($country['code'] ?? ''), $language);
+        return Locales::prefix($format, (is_scalar($code) ? (string) $code : ''), $language);
     }
 
     /**
@@ -630,7 +636,7 @@ class i18n
     {
         self::assertInitialised();
 
-        $locale = self::$locales->byKey($language_key);
+        $locale = self::requireLocales()->byKey($language_key);
         if ($locale === null) {
             throw new TranslationError("i18n has no \"{$language_key}\" language");
         }
@@ -653,8 +659,8 @@ class i18n
         self::assertInitialised();
 
         $locales = $sameCountryOnly === true
-            ? self::$locales->forCountry(self::$locale->countryCode)
-            : self::$locales->all();
+            ? self::requireLocales()->forCountry(self::requireLocale()->countryCode)
+            : self::requireLocales()->all();
 
         return array_map(
             fn(Locale $locale): array => [
@@ -680,12 +686,107 @@ class i18n
     {
         self::assertInitialised();
 
-        return Negotiator::best($header ?? ($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? null), self::$locales);
+        return Negotiator::best($header ?? self::acceptLanguage(), self::requireLocales());
     }
 
     /*
      * =============================================== Accessors =======================================================
      */
+
+    /*
+     * The four collaborators below are null until init() or inject() runs. Every method
+     * that reaches for one assumes it is there, and reaching through a null gave
+     * "call to a member function on null" from somewhere deep in the facade. These say
+     * what actually went wrong instead.
+     */
+
+    /**
+     * The Accept-Language header, if the sapi put a usable one in $_SERVER.
+     *
+     * @access private
+     * @static
+     * @return ?string
+     */
+    private static function acceptLanguage(): ?string
+    {
+        $header = $_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? null;
+
+        return (is_string($header) ? $header : null);
+    }
+
+    /**
+     * One entry of config['i18n'], as a string.
+     *
+     * The configuration is an untyped bag, so this is where a setting stops being a mixed.
+     *
+     * @access private
+     * @static
+     * @param  string $name
+     * @param  string $default
+     * @return string
+     */
+    private static function setting(string $name, string $default = ''): string
+    {
+        $value = self::$config[$name] ?? null;
+
+        return (is_scalar($value) && (string) $value !== '' ? (string) $value : $default);
+    }
+
+    /**
+     * @access private
+     * @static
+     * @return string
+     * @throws TranslationError When i18n has not been initialised
+     */
+    private static function requireLanguageKey(): string
+    {
+        return self::$language_key ?? throw new TranslationError('i18n::init() has not been called');
+    }
+
+    /**
+     * @access private
+     * @static
+     * @return Locales
+     * @throws TranslationError When i18n has not been initialised
+     */
+    private static function requireLocales(): Locales
+    {
+        return self::$locales ?? throw new TranslationError('i18n::init() has not been called');
+    }
+
+    /**
+     * @access private
+     * @static
+     * @return Locale
+     * @throws TranslationError When i18n has not been initialised
+     */
+    private static function requireLocale(): Locale
+    {
+        return self::$locale ?? throw new TranslationError('i18n::init() has not been called');
+    }
+
+    /**
+     * @access private
+     * @static
+     * @return Store
+     * @throws TranslationError When i18n has not been initialised
+     */
+    private static function requireStore(): Store
+    {
+        return self::$store ?? throw new TranslationError('i18n::init() has not been called');
+    }
+
+    /**
+     * @access private
+     * @static
+     * @return Catalog
+     * @throws TranslationError When i18n has not been initialised
+     */
+    private static function requireCatalog(): Catalog
+    {
+        return self::$catalog ?? throw new TranslationError('i18n::init() has not been called');
+    }
+
 
     /**
      * @access public
@@ -706,7 +807,7 @@ class i18n
      */
     public static function isDegraded(): bool
     {
-        return self::$store !== null && self::$store->isDegraded() === true;
+        return self::$store !== null && self::requireStore()->isDegraded() === true;
     }
 
     /**
@@ -756,7 +857,7 @@ class i18n
      *
      * @access public
      * @static
-     * @param  array   $config
+     * @param  array<string, mixed> $config
      * @param  Locale  $locale
      * @param  Store   $store
      * @param  Catalog $catalog
@@ -765,7 +866,7 @@ class i18n
     public static function inject(array $config, Locale $locale, Store $store, Catalog $catalog): void
     {
         self::$config = $config;
-        self::$countries = $config['available'] ?? [];
+        self::$countries = (is_array($config['available'] ?? null) ? $config['available'] : []);
         self::$locales = Locales::fromConfig($config);
         self::$locale = $locale;
         self::$country_code = $locale->countryCode;
@@ -841,6 +942,10 @@ class i18n
      */
     public static function twigRegister(): void
     {
+        if (is_array(Config::$items['view_data'] ?? null) === false) {
+            Config::$items['view_data'] = [];
+        }
+
         Config::$items['view_data']['i18n'] = [
             'country_code' => self::$country_code,
             'language_code' => self::$language_code,
@@ -852,7 +957,7 @@ class i18n
 
         // Twig is a suggestion of staticphp-core, not a requirement. The view_data above is
         // still set, so a plain php view can read it.
-        $engine = Config::get('view_engine');
+        $engine = Config::viewEngine();
         if (empty($engine)) {
             return;
         }
@@ -915,10 +1020,10 @@ class i18n
     private static function localeFor(?string $languageKey): Locale
     {
         if ($languageKey === null || $languageKey === self::$language_key) {
-            return self::$locale;
+            return self::requireLocale();
         }
 
-        return self::$locales->byKey($languageKey) ?? self::$locale;
+        return self::requireLocales()->byKey($languageKey) ?? self::requireLocale();
     }
 
     /**

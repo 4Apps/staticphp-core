@@ -43,7 +43,7 @@ class ErrorPageTest extends TestCase
     // ### Status page ###
     // ###################
 
-    public function testStatusPageIsAWholeDocument()
+    public function testStatusPageIsAWholeDocument(): void
     {
         $page = ErrorPage::status(404);
 
@@ -52,7 +52,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString('<title>404 Not Found</title>', $page);
     }
 
-    public function testStatusPageIsSelfContained()
+    public function testStatusPageIsSelfContained(): void
     {
         $page = ErrorPage::status(500);
 
@@ -65,14 +65,14 @@ class ErrorPageTest extends TestCase
         $this->assertStringNotContainsString('url(', $page);
     }
 
-    public function testStatusPageExplainsTheCodeWithoutBeingTold()
+    public function testStatusPageExplainsTheCodeWithoutBeingTold(): void
     {
         $this->assertStringContainsString('does not exist', ErrorPage::status(404));
         $this->assertStringContainsString('permission', ErrorPage::status(403));
         $this->assertStringContainsString('on our side', ErrorPage::status(500));
     }
 
-    public function testStatusPageEscapesEverythingItIsGiven()
+    public function testStatusPageEscapesEverythingItIsGiven(): void
     {
         $page = ErrorPage::status(400, self::PAYLOAD, self::PAYLOAD, self::PAYLOAD);
 
@@ -80,13 +80,13 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString('&lt;img', $page);
     }
 
-    public function testStatusPageShowsTheReferenceOnlyWhenGivenOne()
+    public function testStatusPageShowsTheReferenceOnlyWhenGivenOne(): void
     {
         $this->assertStringContainsString('Reference', ErrorPage::status(500, null, null, 'abc123'));
         $this->assertStringNotContainsString('Reference', ErrorPage::status(500));
     }
 
-    public function testStatusPageNeverCarriesTheException()
+    public function testStatusPageNeverCarriesTheException(): void
     {
         $exception = new \RuntimeException('the database password is hunter2');
 
@@ -102,7 +102,7 @@ class ErrorPageTest extends TestCase
     // ### Debug page ###
     // ##################
 
-    public function testDebugPageCarriesTheException()
+    public function testDebugPageCarriesTheException(): void
     {
         $page = ErrorPage::debug(new \RuntimeException('totals do not add up'));
 
@@ -112,7 +112,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString(basename(__FILE__), $page);
     }
 
-    public function testDebugPageShowsTheSourceAroundTheThrow()
+    public function testDebugPageShowsTheSourceAroundTheThrow(): void
     {
         $page = ErrorPage::debug(new \RuntimeException('boom'));
 
@@ -121,7 +121,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString('is-error', $page);
     }
 
-    public function testDebugPageFollowsThePreviousChain()
+    public function testDebugPageFollowsThePreviousChain(): void
     {
         $root = new \LogicException('the root cause');
         $wrapper = new \RuntimeException('the outer failure', 0, $root);
@@ -133,7 +133,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString('Caused by', $page);
     }
 
-    public function testDebugPageSurvivesACyclicPreviousChain()
+    public function testDebugPageSurvivesACyclicPreviousChain(): void
     {
         // Pathological, but looping forever inside the error handler would take the
         // process with it
@@ -149,7 +149,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString('second', $page);
     }
 
-    public function testDebugPageEscapesTheExceptionMessage()
+    public function testDebugPageEscapesTheExceptionMessage(): void
     {
         $page = ErrorPage::debug(new \RuntimeException(self::PAYLOAD));
 
@@ -157,7 +157,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString('&lt;img', $page);
     }
 
-    public function testDebugPageEscapesRequestData()
+    public function testDebugPageEscapesRequestData(): void
     {
         $_GET = ['q' => self::PAYLOAD];
         $_POST = [self::PAYLOAD => 'value'];
@@ -168,7 +168,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringNotContainsString('<img src=x', $page);
     }
 
-    public function testDebugPageIsSelfContained()
+    public function testDebugPageIsSelfContained(): void
     {
         $page = ErrorPage::debug(new \RuntimeException('boom'));
 
@@ -181,7 +181,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringNotContainsString('url' . '(', $page);
     }
 
-    public function testDebugPageRedactsCredentials()
+    public function testDebugPageRedactsCredentials(): void
     {
         // Assembled for the same reason - see testDebugPageIsSelfContained()
         $secret = 'hunt' . 'er2';
@@ -199,7 +199,7 @@ class ErrorPageTest extends TestCase
         $this->assertStringContainsString('gints', $page);
     }
 
-    public function testDebugPageTruncatesAbsurdValues()
+    public function testDebugPageTruncatesAbsurdValues(): void
     {
         $_POST = ['blob' => str_repeat('x', ErrorPage::MAX_VALUE_LENGTH * 2)];
 
@@ -215,7 +215,7 @@ class ErrorPageTest extends TestCase
     // ### Plain text ###
     // ##################
 
-    public function testReportIsPlainText()
+    public function testReportIsPlainText(): void
     {
         $report = ErrorPage::report(new \RuntimeException('boom', 0, new \LogicException('why')));
 
@@ -230,7 +230,7 @@ class ErrorPageTest extends TestCase
     // ### Redaction  ###
     // ##################
 
-    public function testRedactionChecksTheKeyWhateverTheValueIs()
+    public function testRedactionChecksTheKeyWhateverTheValueIs(): void
     {
         $redacted = ErrorPage::redact([
             'password' => ['first' => 'a', 'second' => 'b'],
@@ -238,6 +238,7 @@ class ErrorPageTest extends TestCase
             'plain' => 'kept',
         ]);
 
+        $this->assertIsArray($redacted);
         $this->assertSame('***', $redacted['password']);
         $this->assertSame('***', $redacted['api_key']);
         $this->assertSame('kept', $redacted['plain']);
@@ -248,7 +249,7 @@ class ErrorPageTest extends TestCase
     // ### Request id ###
     // ##################
 
-    public function testRequestIdIsStableWithinTheRequest()
+    public function testRequestIdIsStableWithinTheRequest(): void
     {
         $this->assertSame(ErrorPage::requestId(), ErrorPage::requestId());
         $this->assertMatchesRegularExpression('/^[A-Za-z0-9._-]{4,64}$/', ErrorPage::requestId());
@@ -259,7 +260,7 @@ class ErrorPageTest extends TestCase
     // ### Overriding  ###
     // ###################
 
-    public function testAnApplicationCanReplaceTheStatusTemplate()
+    public function testAnApplicationCanReplaceTheStatusTemplate(): void
     {
         $template = tempnam(sys_get_temp_dir(), 'sp_status_') . '.php';
         file_put_contents($template, '<p>custom <?= $esc($code) ?></p>');
@@ -273,7 +274,7 @@ class ErrorPageTest extends TestCase
         }
     }
 
-    public function testARaisingTemplateFallsBackRatherThanTakingTheProcessWithIt()
+    public function testARaisingTemplateFallsBackRatherThanTakingTheProcessWithIt(): void
     {
         $template = tempnam(sys_get_temp_dir(), 'sp_status_') . '.php';
         file_put_contents($template, '<?php throw new \RuntimeException("template is broken");');

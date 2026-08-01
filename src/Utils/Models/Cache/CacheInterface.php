@@ -12,6 +12,7 @@ interface CacheInterface
      *
      * @access public
      * @static
+     * @param  ?array<string, mixed> $config
      * @return void
      */
     public function __construct(?array $config = null);

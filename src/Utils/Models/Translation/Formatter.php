@@ -21,6 +21,7 @@ final class Formatter
      * @var array<string, mixed>
      * @access private
      */
+    /** @var array<string, \MessageFormatter|\IntlDateFormatter|\NumberFormatter> */
     private array $formatters = [];
 
     /**
@@ -51,7 +52,7 @@ final class Formatter
      * @access public
      * @static
      * @param  string $text
-     * @param  array  $replace Placeholder mapped to its value
+     * @param  array<string, mixed> $replace Placeholder mapped to its value
      * @return string
      */
     public static function replace(string $text, array $replace): string
@@ -62,7 +63,7 @@ final class Formatter
 
         $pairs = [];
         foreach ($replace as $search => $value) {
-            $pairs[(string) $search] = $value === null ? '' : (string) $value;
+            $pairs[$search] = (is_scalar($value) ? (string) $value : '');
         }
 
         return strtr($text, $pairs);
@@ -104,7 +105,7 @@ final class Formatter
      * @example $formatter->message('{n, plural, zero{# failu} one{# fails} other{# faili}}', ['n' => 21]);
      * @access public
      * @param  string $pattern
-     * @param  array  $arguments
+     * @param  array<string, mixed> $arguments
      * @return string The pattern itself when ICU rejects it and strict mode is off
      * @throws TranslationError In strict mode
      */
@@ -124,10 +125,12 @@ final class Formatter
             $this->formatters[$key] = $formatter;
         }
 
-        $formatted = $this->formatters[$key]->format($arguments);
+        $messageFormatter = $this->formatters[$key];
+        $formatted = ($messageFormatter instanceof \MessageFormatter ? $messageFormatter->format($arguments) : false);
         if ($formatted === false) {
             return $this->fail(
-                "Could not format \"{$pattern}\": " . $this->formatters[$key]->getErrorMessage(),
+                "Could not format \"{$pattern}\": "
+                    . ($messageFormatter instanceof \MessageFormatter ? $messageFormatter->getErrorMessage() : ''),
                 $pattern
             );
         }
@@ -219,7 +222,8 @@ final class Formatter
             );
         }
 
-        $formatted = $this->formatters[$key]->format($value);
+        $dateFormatter = $this->formatters[$key];
+        $formatted = ($dateFormatter instanceof \IntlDateFormatter ? $dateFormatter->format($value) : false);
         if ($formatted === false) {
             $timestamp = $value instanceof \DateTimeInterface ? $value->getTimestamp() : (int) $value;
 
@@ -238,8 +242,9 @@ final class Formatter
     private function numberFormatter(int $style, ?int $decimals): ?\NumberFormatter
     {
         $key = "number:{$style}:" . ($decimals ?? 'default');
-        if (isset($this->formatters[$key]) === true) {
-            return $this->formatters[$key];
+        $cached = $this->formatters[$key] ?? null;
+        if ($cached instanceof \NumberFormatter) {
+            return $cached;
         }
 
         $formatter = \NumberFormatter::create($this->icuLocale, $style);

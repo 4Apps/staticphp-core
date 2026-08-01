@@ -224,7 +224,7 @@ class Load
                 );
             }
 
-            $root = $paths[$project];
+            $root = (is_string($paths[$project]) ? $paths[$project] : '');
         }
 
         return "{$root}/{$module}/{$type}/{$name}.php";
@@ -238,8 +238,11 @@ class Load
      *
      * @access public
      * @static
-     * @param  array $files
+     * @param  array<int|string, string> $files Bare names, or project => name pairs
      * @param  string|null  $project (default: null)
+     * @param  ?array<string, mixed> &$config Receives the loaded values; defaults to
+     *                                        Config::$items
+     * @param-out array<string, mixed> $config
      * @return void
      */
     public static function config(
@@ -273,7 +276,7 @@ class Load
      *
      * @access public
      * @static
-     * @param  array $files
+     * @param  array<int|string, string> $files Bare names, or project => name pairs
      * @param  string|null  $project (default: null)
      * @return void
      */
@@ -298,7 +301,7 @@ class Load
      *
      * @access public
      * @static
-     * @param  array $files
+     * @param  array<int|string, string> $files Bare names, or project => name pairs
      * @param  string|null  $project (default: null)
      * @return void
      */
@@ -323,7 +326,7 @@ class Load
      *
      * @access public
      * @static
-     * @param  array $files
+     * @param  array<int|string, string> $files Bare names, or project => name pairs
      * @param  string|null  $project (default: null)
      * @return void
      */
@@ -357,15 +360,15 @@ class Load
      *
      * @access private
      * @static
-     * @return array
+     * @return array<string, mixed>
      */
     private static function safeEnvForViews(): array
     {
-        $allowed = (array) Config::get('view_env_keys', []);
+        $allowed = Config::getArray('view_env_keys');
 
         $env = [];
         foreach ($allowed as $key) {
-            if (array_key_exists($key, $_ENV)) {
+            if ((is_int($key) || is_string($key)) && array_key_exists($key, $_ENV)) {
                 $env[$key] = $_ENV[$key];
             }
         }
@@ -382,8 +385,9 @@ class Load
      * @access private
      * @static
      * @param  ?array $config (default: null)
+     * @param  ?array<string, mixed> $config
      * @param  int    $depth  (default: 0)
-     * @return array
+     * @return array<string, mixed>
      */
     private static function safeConfigForViews(?array $config = null, int $depth = 0): array
     {
@@ -402,6 +406,7 @@ class Load
 
             if (is_array($value)) {
                 // Guard against a config array that references itself
+                /** @var array<string, mixed> $value */
                 $safe[$key] = ($depth >= 16 ? [] : self::safeConfigForViews($value, $depth + 1));
                 continue;
             }
@@ -421,8 +426,8 @@ class Load
      *
      * @access private
      * @static
-     * @param  array $files
-     * @param  array $data
+     * @param  array<int|string, string> $files
+     * @param  array<string, mixed>       $data
      * @return string
      */
     private static function renderPlain(array $files, array $data): string
@@ -465,7 +470,8 @@ class Load
      * @access public
      * @static
      * @param  array $files
-     * @param  array        $data  (default: [])
+     * @param  array<int|string, string> $files
+     * @param  array<mixed, mixed> $data  (default: [])
      * @param  bool         $return (default: false)
      * @return string|bool
      */
@@ -481,7 +487,7 @@ class Load
         // No template engine: plain php views. twig/twig is a suggestion of
         // staticphp-core rather than a requirement, so this is the whole view layer for an
         // application that leaves it out, not just an error path.
-        if (empty(Config::$items['view_engine'])) {
+        if (Config::viewEngine() === null) {
             $rendered = self::renderPlain($files, $data);
 
             if (!empty($return)) {
@@ -495,24 +501,24 @@ class Load
 
         // Add default view data
         if (empty($globalsAdded)) {
-            Config::$items['view_engine']->addGlobal('env', self::safeEnvForViews());
-            Config::$items['view_engine']->addGlobal('now', Config::$items['now']);
-            Config::$items['view_engine']->addGlobal('date_time', Config::$items['date_time']);
-            Config::$items['view_engine']->addGlobal('config', self::safeConfigForViews());
-            Config::$items['view_engine']->addGlobal('session', $_SESSION ?? []);
-            Config::$items['view_engine']->addGlobal('cookie', $_COOKIE);
-            Config::$items['view_engine']->addGlobal('base_url', Router::$base_url);
-            Config::$items['view_engine']->addGlobal('namespace', Router::$namespace);
-            Config::$items['view_engine']->addGlobal('class', Router::$class);
-            Config::$items['view_engine']->addGlobal('method', Router::$method);
-            Config::$items['view_engine']->addGlobal('segments', Router::$segments);
+            Config::viewEngine()->addGlobal('env', self::safeEnvForViews());
+            Config::viewEngine()->addGlobal('now', Config::$items['now']);
+            Config::viewEngine()->addGlobal('date_time', Config::$items['date_time']);
+            Config::viewEngine()->addGlobal('config', self::safeConfigForViews());
+            Config::viewEngine()->addGlobal('session', $_SESSION ?? []);
+            Config::viewEngine()->addGlobal('cookie', $_COOKIE);
+            Config::viewEngine()->addGlobal('base_url', Router::$base_url);
+            Config::viewEngine()->addGlobal('namespace', Router::$namespace);
+            Config::viewEngine()->addGlobal('class', Router::$class);
+            Config::viewEngine()->addGlobal('method', Router::$method);
+            Config::viewEngine()->addGlobal('segments', Router::$segments);
             $globalsAdded = true;
         }
 
         // Load view data
         $contents = '';
         foreach ((array) $files as $key => $file) {
-            $contents .= Config::$items['view_engine']->render($file, (array) $data);
+            $contents .= Config::viewEngine()->render($file, (array) $data);
         }
 
         // Output or return view data

@@ -115,7 +115,7 @@ final class Scanner
             );
 
             foreach ($iterator as $item) {
-                if ($item->isFile() === false) {
+                if (($item instanceof \SplFileInfo) === false || $item->isFile() === false) {
                     continue;
                 }
 

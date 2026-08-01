@@ -18,7 +18,7 @@ use StaticPHP\Core\Models\Router;
  * @param string $errstr
  * @param ?string $errfile
  * @param ?int $errline
- * @param ?array $errcontext
+ * @param ?array<string, mixed> $errcontext
  * @return bool Returns whether the error was handled or not.
  */
 function sp_error_handler(
@@ -49,7 +49,7 @@ function sp_error_handler(
  * @param Throwable $exception
  * @return void
  */
-function sp_exception_handler(Throwable $exception)
+function sp_exception_handler(Throwable $exception): void
 {
     // RouterException is a special case
     if ($exception instanceof RouterException) {
@@ -94,9 +94,40 @@ function sp_exception_handler(Throwable $exception)
  */
 function sp_logging_level(string $key): string
 {
-    $level = Config::$items['logging'][$key] ?? null;
+    $level = sp_logging_setting($key);
 
     return (is_string($level) ? $level : Logger::ERROR);
+}
+
+
+/**
+ * One entry of $config['logging'], which is an untyped bag like the rest of the config.
+ *
+ * @access public
+ * @param string $key
+ * @return mixed
+ */
+function sp_logging_setting(string $key): mixed
+{
+    $logging = Config::$items['logging'] ?? null;
+
+    return (is_array($logging) ? ($logging[$key] ?? null) : null);
+}
+
+
+/**
+ * A $_SERVER entry as text, since the sapi decides what it holds.
+ *
+ * @access public
+ * @param string $name
+ * @param string $default
+ * @return string
+ */
+function sp_server(string $name, string $default = ''): string
+{
+    $value = $_SERVER[$name] ?? null;
+
+    return (is_string($value) ? $value : $default);
 }
 
 /**
@@ -137,7 +168,7 @@ function sp_render_exception(Throwable $e): string
  * @param Throwable $e
  * @return void
  */
-function sp_log_error(Throwable $e)
+function sp_log_error(Throwable $e): void
 {
     $e_formatted = sp_format_exception($e, true, false);
     error_log($e_formatted);
@@ -152,7 +183,7 @@ function sp_log_error(Throwable $e)
  * @param Throwable $e
  * @return void
  */
-function sp_send_error_email(Throwable $e)
+function sp_send_error_email(Throwable $e): void
 {
     static $last_error = ['time' => 0];
 
@@ -162,10 +193,10 @@ function sp_send_error_email(Throwable $e)
         return;
     }
 
-    $subject = 'PHP ERROR: "' . ($_SERVER['HTTP_HOST'] ?? 'cli') . '"';
+    $subject = 'PHP ERROR: "' . sp_server('HTTP_HOST', 'cli') . '"';
 
-    $debug_email = Config::$items['logging']['report_email'] ?? null;
-    $email_func = Config::$items['logging']['report_email_func'] ?? null;
+    $debug_email = sp_logging_setting('report_email');
+    $email_func = sp_logging_setting('report_email_func');
     if (!empty($debug_email) && is_callable($email_func)) {
         $email_func(
             $debug_email,
@@ -176,8 +207,8 @@ function sp_send_error_email(Throwable $e)
         );
     }
 
-    $webhook = Config::$items['logging']['report_webhook'] ?? null;
-    $webhook_func = Config::$items['logging']['report_webhook_func'] ?? null;
+    $webhook = sp_logging_setting('report_webhook');
+    $webhook_func = sp_logging_setting('report_webhook_func');
     if (!empty($webhook) && is_callable($webhook_func)) {
         $webhook_func($webhook, $subject, $e_formatted, 'error');
     }
@@ -220,8 +251,8 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
 
     // Current url
     $url  = (Router::requestIsSecure() ? 'https://' : 'http://');
-    $url .= (isset($_SERVER['SERVER_NAME']) ? $_SERVER['SERVER_NAME'] : '[unknown host name]');
-    $url .= (!empty($_SERVER['REQUEST_URI']) ? $_SERVER['REQUEST_URI'] : '[unknown url]');
+    $url .= sp_server('SERVER_NAME', '[unknown host name]');
+    $url .= sp_server('REQUEST_URI', '[unknown url]');
 
     $stackTrace = $e->getTraceAsString();
     $previous = $e->getPrevious();
@@ -261,15 +292,10 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
     } elseif (isset($_SESSION)) {
         $session = sp_remove_sensitive_data($_SESSION);
     }
-    $session = json_encode($session, (defined('JSON_PRETTY_PRINT') ? JSON_PRETTY_PRINT : null));
+    $session = json_encode($session, JSON_PRETTY_PRINT);
 
     // Server
-    $server = json_encode(
-        sp_remove_sensitive_data($_SERVER),
-        defined('JSON_PRETTY_PRINT')
-            ? JSON_PRETTY_PRINT
-            : null
-    );
+    $server = json_encode(sp_remove_sensitive_data($_SERVER), JSON_PRETTY_PRINT);
 
     // Post
     // Redacted like the rest: a failed login posts the password, and the log and the
@@ -282,9 +308,9 @@ function sp_format_exception(Throwable $e, bool $full = false, bool $markup = tr
 
     // Format message
     if ($markup === true) {
-        $session = str_replace([" ", "\n"], ['&nbsp;', '<br />'], $session);
-        $server = str_replace([" ", "\n"], ['&nbsp;', '<br />'], $server);
-        $post = str_replace([" ", "\n"], ['&nbsp;', '<br />'], $post);
+        $session = str_replace([" ", "\n"], ['&nbsp;', '<br />'], (string) $session);
+        $server = str_replace([" ", "\n"], ['&nbsp;', '<br />'], (string) $server);
+        $post = str_replace([" ", "\n"], ['&nbsp;', '<br />'], (string) $post);
     }
 
     $msg = '';

@@ -12,14 +12,24 @@ use Redis;
 
 class SessionsRedis extends Sessions
 {
-    protected $redis = null;
+    protected Redis $redis;
 
-    public function __construct($dbConfig, $sessionName = 'SMDB', ?Sessions $backupHandler = null)
+    /**
+     * @param array<string, mixed> $dbConfig
+     */
+    public function __construct(array $dbConfig, string $sessionName = 'SMDB', ?Sessions $backupHandler = null)
     {
         $this->redis = new Redis();
-        $this->redis->connect($dbConfig['hostname'], $dbConfig['port']);
+        $host = $dbConfig['hostname'] ?? null;
+        $port = $dbConfig['port'] ?? null;
+        $database = $dbConfig['database'] ?? null;
+
+        $this->redis->connect(
+            (is_string($host) ? $host : '127.0.0.1'),
+            (is_numeric($port) ? (int) $port : 6379)
+        );
         $this->redis->setOption(Redis::OPT_SERIALIZER, Redis::SERIALIZER_PHP);
-        $this->redis->select(isset($dbConfig['database']) ? $dbConfig['database'] : 1);
+        $this->redis->select(is_numeric($database) ? (int) $database : 1);
 
         parent::__construct($sessionName, $backupHandler);
     }
@@ -27,7 +37,7 @@ class SessionsRedis extends Sessions
     public function read(string $id): string|false
     {
         $data = $this->redis->get($this->id($id));
-        if (!empty($data)) {
+        if (is_string($data) && $data !== '') {
             return $data;
         }
 

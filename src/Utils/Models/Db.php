@@ -22,13 +22,50 @@ class Db
     private static array $dbLinks = [];
 
     /**
+     * The configured pdo connections, whatever Config happens to hold.
+     *
+     * @access private
+     * @static
+     * @return array<string, mixed>
+     */
+    private static function pdoConfigs(): array
+    {
+        $db = Config::$items['db'] ?? null;
+        $pdo = (is_array($db) ? ($db['pdo'] ?? null) : null);
+
+        return (is_array($pdo) ? $pdo : []);
+    }
+
+    /**
+     * Coerce a configuration value to a string.
+     *
+     * Values arrive from Config::$items, which is an untyped bag by design, so this is
+     * where a connection setting stops being a mixed. Anything that is not a scalar has no
+     * sensible string form and becomes an empty one.
+     *
+     * @access private
+     * @static
+     * @param  mixed  $value
+     * @param  string $default
+     * @return string
+     */
+    private static function configString(mixed $value, string $default = ''): string
+    {
+        if (is_string($value)) {
+            return $value;
+        }
+
+        return (is_scalar($value) ? (string) $value : $default);
+    }
+
+    /**
      * Holds references to db configuration arrays.
      *
-     * @var mixed[]
+     * @var array<string, array<string, mixed>>
      * @access private
      * @static
      */
-    private static $dbConfigs;
+    private static array $dbConfigs = [];
 
     /**
      * Cache for last statment.
@@ -67,6 +104,9 @@ class Db
      * @param  array  $config (default: null)
      * @return PDO Returns pdo instance.
      */
+    /**
+     * @param ?array<string, mixed> $config
+     */
     public static function init(string $name = 'default', ?array $config = null): PDO
     {
         // Don't make a new connection if there is one connected with the name.
@@ -80,11 +120,12 @@ class Db
 
         // Check if there is such configuration
         if (empty($config)) {
-            if (empty(Config::$items['db']['pdo'][$name])) {
+            $pdoConfig = self::pdoConfigs()[$name] ?? null;
+            if (is_array($pdoConfig) === false) {
                 throw new \Exception('Db configuration not found');
             }
 
-            $config = Config::$items['db']['pdo'][$name];
+            $config = $pdoConfig;
         }
 
         // Set config
@@ -107,7 +148,7 @@ class Db
         // whichever the driver happens to pick.
         $options[PDO::ATTR_EMULATE_PREPARES] = (bool) ($config['emulate_prepares'] ?? false);
 
-        $dsn = $config['string'];
+        $dsn = self::configString($config['string'] ?? null);
 
         // The charset belongs in the DSN. Setting it afterwards with "SET NAMES" changes
         // the connection but not what PDO believes the connection is, so with emulated
@@ -115,18 +156,27 @@ class Db
         // multi-byte injection hole. It is also one round trip on every connect, and with
         // persistent connections that lands on requests that reuse a pooled handle.
         if (!empty($config['charset'])) {
-            if (preg_match('/^[A-Za-z0-9_]+$/', $config['charset']) !== 1) {
-                throw new \InvalidArgumentException("Invalid charset: \"{$config['charset']}\"");
+            $charset = self::configString($config['charset']);
+            if (preg_match('/^[A-Za-z0-9_]+$/', $charset) !== 1) {
+                throw new \InvalidArgumentException("Invalid charset: \"{$charset}\"");
             }
 
             if (str_starts_with($dsn, 'mysql:') && stripos($dsn, 'charset=') === false) {
-                $dsn .= (str_ends_with($dsn, ';') ? '' : ';') . 'charset=' . $config['charset'];
+                $dsn .= (str_ends_with($dsn, ';') ? '' : ';') . 'charset=' . $charset;
             }
         }
 
         // Open new connection to DB. Credentials are optional - a sqlite dsn carries none,
         // and requiring the keys made every sqlite config warn twice per connect
-        self::$dbLinks[$name] = new PDO($dsn, $config['username'] ?? null, $config['password'] ?? null, $options);
+        $username = $config['username'] ?? null;
+        $password = $config['password'] ?? null;
+
+        self::$dbLinks[$name] = new PDO(
+            $dsn,
+            ($username === null ? null : self::configString($username)),
+            ($password === null ? null : self::configString($password)),
+            $options
+        );
 
         return self::$dbLinks[$name];
     }
@@ -152,7 +202,7 @@ class Db
 
         // Connect on first use, so a request that never touches the database does not pay
         // for a connect (or, with persistent connections, a pool checkout)
-        if ($connect === true && !empty(Config::$items['db']['pdo'][$name])) {
+        if ($connect === true && !empty(self::pdoConfigs()[$name])) {
             return self::init($name);
         }
 
@@ -182,6 +232,9 @@ class Db
      * @param  string       $name  (default: 'default')
      * @return PDOStatement Returns statement created by query.
      */
+    /**
+     * @param array<int|string, mixed> $data
+     */
     public static function query(string $query, array $data = [], string $name = 'default'): PDOStatement
     {
         if (empty($query)) {
@@ -203,7 +256,7 @@ class Db
             if (!empty($data)) {
                 $log_data = array_map(
                     function ($item) {
-                        return (is_integer($item) == true ? $item : "'" . $item . "'");
+                        return (is_integer($item) == true ? (string) $item : "'" . self::configString($item) . "'");
                     },
                     (array)$data
                 );
@@ -213,7 +266,7 @@ class Db
                 for ($i = 0; $i < $q_count; ++$i) {
                     $pos = strpos($log, $replace);
                     if ($pos !== false) {
-                        $log = substr_replace($log, $log_data[$i], $pos, strlen($replace));
+                        $log = substr_replace($log, (string) $log_data[$i], $pos, strlen($replace));
                     }
                 }
             }
@@ -236,6 +289,9 @@ class Db
      * @param  string $name  (default: 'default')
      * @return mixed  Returns array or object of the one record from database.
      */
+    /**
+     * @param array<int|string, mixed> $data
+     */
     public static function fetch(string $query, array $data = [], string $name = 'default'): mixed
     {
         return self::query($query, $data, $name)->fetch();
@@ -251,9 +307,13 @@ class Db
      * @param  string $name  (default: 'default')
      * @return array  Returns array of arrays or objects containing all rows returned by database.
      */
+    /**
+     * @param  array<int|string, mixed> $data
+     * @return list<mixed>
+     */
     public static function fetchAll(string $query, array $data = [], string $name = 'default'): array
     {
-        return self::query($query, $data, $name)->fetchAll();
+        return array_values(self::query($query, $data, $name)->fetchAll());
     }
 
     /**
@@ -292,7 +352,7 @@ class Db
             throw new \InvalidArgumentException("Invalid column name: \"{$key}\"");
         }
 
-        $wrap = self::$dbConfigs[$name]['wrap_column'] ?? '';
+        $wrap = self::configString(self::$dbConfigs[$name]['wrap_column'] ?? null);
         if (strpos($key, '.') === false) {
             return $wrap . $key . $wrap;
         }
@@ -309,12 +369,13 @@ class Db
      * @access private
      * @static
      * @param  string $key Condition key, e.g. "age >" or "name NOT LIKE"
-     * @return array  Returns [column, operator]
+     * @return array{0: string, 1: string}  Returns [column, operator]
      */
     private static function splitCondition(string $key): array
     {
-        $expl = preg_split('/\s+/', trim($key));
-        $column = array_shift($expl);
+        // preg_split only reports false on a malformed pattern, which this one is not
+        $expl = (array) preg_split('/\s+/', trim($key));
+        $column = (string) array_shift($expl);
         $operator = (empty($expl) ? '=' : strtoupper(implode(' ', $expl)));
 
         if (in_array($operator, self::$allowedOperators, true) === false) {
@@ -340,10 +401,13 @@ class Db
      * @param  array  $params Parameters collected so far, appended to in place
      * @return string Returns the WHERE clause, or an empty string when there are no conditions
      */
+    /**
+     * @param list<mixed> $params
+     */
     private static function buildWhere(mixed $where, string $name, array &$params): string
     {
         if (is_array($where) === false) {
-            return (empty($where) ? '' : "WHERE {$where}");
+            return (empty($where) ? '' : 'WHERE ' . self::configString($where));
         }
 
         $cond = [];
@@ -400,6 +464,9 @@ class Db
      * @param  string        $name  (default: 'default')
      * @return PDOStatement Returns statement created by query.
      */
+    /**
+     * @param array<string, mixed> $data
+     */
     public static function insert(
         string $table,
         array $data,
@@ -426,8 +493,8 @@ class Db
         }
 
         // Compile KEYS and VALUES
-        $keys = implode(', ', $keys);
-        $values = implode(', ', $values);
+        $keys = implode(', ', array_map(self::configString(...), $keys));
+        $values = implode(', ', array_map(self::configString(...), $values));
 
         // Run Query
         $query = self::query("INSERT INTO {$table} ({$keys}) VALUES ({$values}) {$returning}", $params, $name);
@@ -448,6 +515,10 @@ class Db
      * @param  string $name  (default: 'default')
      * @return PDOStatement Returns statement created by query.
      */
+    /**
+     * @param array<string, mixed>     $data
+     * @param array<int|string, mixed> $where
+     */
     public static function update(string $table, array $data, array $where, string $name = 'default'): PDOStatement
     {
         // Make SET
@@ -460,7 +531,7 @@ class Db
             }
 
             if (isset($key[0]) && $key[0] === '!') {
-                $set[] = self::wrapColumn(substr($key, 1), $name) . " = {$value}";
+                $set[] = self::wrapColumn(substr($key, 1), $name) . ' = ' . self::configString($value);
             } else {
                 $set[] = self::wrapColumn((string) $key, $name) . ' = ?';
                 $params[] = $value;
@@ -637,7 +708,7 @@ class Db
 
         $res = (array) $res;
 
-        return (empty($res['id']) ? null : (int) $res['id']);
+        return (empty($res['id']) ? null : (int) self::configString($res['id']));
     }
 
 
@@ -651,7 +722,6 @@ class Db
      */
     public static function close(string $name = 'default'): void
     {
-        self::$dbLinks[$name] = null;
         unset(self::$dbLinks[$name]);
     }
 }

@@ -25,7 +25,7 @@ class Cache implements CacheInterface
      *
      * (default value: [])
      *
-     * @var array
+     * @var array<string, mixed>
      * @access private
      * @static
      */
@@ -59,14 +59,50 @@ class Cache implements CacheInterface
     }
 
 
+    /**
+     * @param ?array<string, mixed> $config
+     */
     public function __construct(?array $config = null)
     {
-        $this->config = $config;
+        $this->config = $config ?? [];
     }
 
     public function prefix(string $key): string
     {
-        return (!empty($this->config['prefix']) ? "{$this->config['prefix']}{$key}" : $key);
+        return $this->setting('prefix') . $key;
+    }
+
+    /**
+     *  One entry of the backend's configuration, as a string.
+     *
+     *  Configuration arrives from Config::$items, which is an untyped bag, so this is
+     *  where a cache setting stops being a mixed.
+     *
+     * @access protected
+     * @param  string $name
+     * @param  string $default
+     * @return string
+     */
+    protected function setting(string $name, string $default = ''): string
+    {
+        $value = $this->config[$name] ?? null;
+
+        return (is_scalar($value) && (string) $value !== '' ? (string) $value : $default);
+    }
+
+    /**
+     *  One entry of the backend's configuration, as an int.
+     *
+     * @access protected
+     * @param  string $name
+     * @param  int    $default
+     * @return int
+     */
+    protected function settingInt(string $name, int $default = 0): int
+    {
+        $value = $this->config[$name] ?? null;
+
+        return (is_numeric($value) ? (int) $value : $default);
     }
 
     public function setValue(string $key, mixed $value, ?int $ttl = null): bool
@@ -145,6 +181,9 @@ class Cache implements CacheInterface
             $backend = self::getBackend($name);
         } else {
             $backend = reset(self::$backends);
+            if ($backend === false) {
+                throw new Exception('No cache backend is registered');
+            }
         }
 
         return $backend->getValue($key);
@@ -210,6 +249,9 @@ class Cache implements CacheInterface
             $backend = self::getBackend($name);
         } else {
             $backend = reset(self::$backends);
+            if ($backend === false) {
+                throw new Exception('No cache backend is registered');
+            }
         }
 
         return $backend->getTTL($key);

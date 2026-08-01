@@ -14,22 +14,22 @@ class Timers
      *
      * (default value: [])
      *
-     * @var array
+     * @var list<float>
      * @access protected
      * @static
      */
-    protected static $started_timers = [];
+    protected static array $started_timers = [];
 
     /**
      * Array for finished timers.
      *
      * (default value: [])
      *
-     * @var array
+     * @var array<string, float>
      * @access protected
      * @static
      */
-    protected static $finished_timers = [];
+    protected static array $finished_timers = [];
 
     /*
     |-------------------------------------------------------------------------------------------------------------------
@@ -45,7 +45,7 @@ class Timers
      * @static
      * @return void
      */
-    public static function startTimer()
+    public static function startTimer(): void
     {
         self::$started_timers[] = microtime(true);
     }
@@ -58,7 +58,7 @@ class Timers
      * @param  string $name
      * @return float  Returns time in microseconds it took timer to execute.
      */
-    public static function stopTimer($name, $returnSeconds = false)
+    public static function stopTimer($name, bool $returnSeconds = false): float
     {
         self::$finished_timers[$name] = round(microtime(true) - array_pop(self::$started_timers), 5);
 
@@ -88,7 +88,7 @@ class Timers
      * @static
      * @return void
      */
-    public static function logTimers()
+    public static function logTimers(): void
     {
         global $microtime;
 

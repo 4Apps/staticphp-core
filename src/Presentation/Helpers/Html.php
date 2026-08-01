@@ -14,7 +14,7 @@
 |--------------------------------------------------------------------------
 */
 
-function html_css()
+function html_css(): void
 {
     static $files = [];
 
@@ -38,7 +38,7 @@ function html_css()
     }
 }
 
-function html_js()
+function html_js(): void
 {
     static $files = [];
 
@@ -68,16 +68,30 @@ function html_js()
 |--------------------------------------------------------------------------
 */
 
-// Return html dropdown
+/**
+ * Return html dropdown
+ *
+ * @param  iterable<mixed, mixed>    $items      Option values mapped to their labels, or
+ *                                               nested arrays for an optgroup
+ * @param  mixed                     $selected   Selected value, or an array of them
+ * @param  ?array<int|string, string> $addons    Extra attributes keyed by option value;
+ *                                               "#" carries the attributes for the select
+ * @param  array<mixed, mixed>|false $add_empty  Single [value => label] placed first
+ * @param  ?string                   $as_value   Property of each item to use as the value
+ * @param  ?string                   $as_text    Property of each item to use as the label
+ * @param  bool                      $grouped    Rendering inside an optgroup, so no
+ *                                               surrounding select element
+ * @return string
+ */
 function html_dropdown(
-    $items,
-    $selected = null,
-    $addons = null,
-    $add_empty = false,
-    $as_value = null,
-    $as_text = null,
-    $grouped = false
-) {
+    iterable $items,
+    mixed $selected = null,
+    ?array $addons = null,
+    array|false $add_empty = false,
+    ?string $as_value = null,
+    ?string $as_text = null,
+    bool $grouped = false
+): string {
     $select = (empty($grouped) ? '<select' . (!empty($addons['#']) ? ' ' . $addons['#'] : '') . '>' : '');
 
     // Add empty option
@@ -125,9 +139,11 @@ function html_dropdown(
 }
 
 // Escape a value for html text or for a quoted attribute
-function html_escape($value)
+function html_escape(mixed $value): string
 {
-    if (is_array($value) || is_object($value)) {
+    if ($value instanceof Stringable) {
+        $value = (string) $value;
+    } elseif (is_scalar($value) === false) {
         $value = '';
     }
 
@@ -137,23 +153,25 @@ function html_escape($value)
 // Set value for inputs
 // Escaping only the double quote left "<", "'" and "&" through, which is unsafe in every
 // context except a double quoted attribute - html_escape covers all of them.
-function html_escape_input($value)
+function html_escape_input(mixed $value): string
 {
     return html_escape($value);
 }
 
 // Set value for textareas
-function html_escape_textarea($value)
+function html_escape_textarea(mixed $value): string
 {
     return html_escape($value);
 }
 
 // Set selected for html select element
-function html_set_selected(&$current, $needle)
+function html_set_selected(mixed &$current, mixed $needle): ?string
 {
     // Check in the array
     if (is_array($current)) {
-        return (isset($current[$needle]) || in_array($needle, $current) ? ' selected="selected"' : null);
+        $hasKey = ((is_int($needle) || is_string($needle)) && isset($current[$needle]));
+
+        return ($hasKey || in_array($needle, $current) ? ' selected="selected"' : null);
     }
 
     // Else just compare them
@@ -161,11 +179,13 @@ function html_set_selected(&$current, $needle)
 }
 
 // Set checked for html checbox elements
-function html_set_checked(&$current, $needle)
+function html_set_checked(mixed &$current, mixed $needle): ?string
 {
     // Check in the array
     if (is_array($current)) {
-        return (isset($current[$needle]) || in_array($needle, $current) ? ' checked="checked"' : null);
+        $hasKey = ((is_int($needle) || is_string($needle)) && isset($current[$needle]));
+
+        return ($hasKey || in_array($needle, $current) ? ' checked="checked"' : null);
     }
 
     // Else just compare them

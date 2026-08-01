@@ -12,7 +12,7 @@ Load::helper(['Helpers'], 'Utils', 'staticphp');
 
 class OtherTest extends TestCase
 {
-    public function testFixFloat()
+    public function testFixFloat(): void
     {
         $number = fixFloat('10,30');
         $this->assertEquals(10.3, $number);
@@ -22,7 +22,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testTrimChars()
+    public function testTrimChars(): void
     {
         $test = "\r\nAAA\t\n\r\0\x0B";
         trimChars($test);
@@ -30,7 +30,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testTrimCharsWalksArrays()
+    public function testTrimCharsWalksArrays(): void
     {
         // The signature exists for this: array_walk hands the key over as the second
         // argument, and it must not be mistaken for the character mask
@@ -45,7 +45,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testIsBlank()
+    public function testIsBlank(): void
     {
         $this->assertTrue(isBlank(''));
         $this->assertTrue(isBlank('   '));
@@ -58,7 +58,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testIsBlankOrNull()
+    public function testIsBlankOrNull(): void
     {
         $this->assertTrue(isBlankOrNull(''));
         $this->assertTrue(isBlankOrNull("\t"));
@@ -68,7 +68,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testValueOrNull()
+    public function testValueOrNull(): void
     {
         $this->assertNull(valueOrNull(''));
         $this->assertNull(valueOrNull(0));
@@ -76,7 +76,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testIsArrayKeyBlank()
+    public function testIsArrayKeyBlank(): void
     {
         $array = ['set' => 'value', 'cleared' => '', 'nulled' => null];
 
@@ -89,7 +89,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testIsArrayKeyBlankOrNull()
+    public function testIsArrayKeyBlankOrNull(): void
     {
         $array = ['set' => 'value', 'cleared' => '', 'nulled' => null];
 
@@ -100,7 +100,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testCNumberFormat()
+    public function testCNumberFormat(): void
     {
         $this->assertEquals('1 235', cNumberFormat(1234.56));
         $this->assertEquals('1234.56', cNumberFormat(1234.56, 2, '.', ''));
@@ -113,9 +113,9 @@ class OtherTest extends TestCase
     }
 
 
-    public function testLocaleDateFormat()
+    public function testLocaleDateFormat(): void
     {
-        $when = mktime(14, 30, 0, 5, 9, 2017);
+        $when = (int) mktime(14, 30, 0, 5, 9, 2017);
 
         $this->assertEquals('09.05.2017', localeDateFormat('dd.MM.yyyy', $when, 'en_US'));
         $this->assertEquals('2017-05-09 14:30', localeDateFormat('yyyy-MM-dd HH:mm', $when, 'en_US'));
@@ -131,7 +131,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testUploadCodeToMessage()
+    public function testUploadCodeToMessage(): void
     {
         $this->assertStringContainsString('upload_max_filesize', uploadCodeToMessage(UPLOAD_ERR_INI_SIZE));
         $this->assertEquals('No file was uploaded', uploadCodeToMessage(UPLOAD_ERR_NO_FILE));
@@ -139,7 +139,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testPadEmptyArrayForDropdown()
+    public function testPadEmptyArrayForDropdown(): void
     {
         $test = padEmptyArrayForDropdown([1 => 'One', 2 => 'Two'], '', '- select -');
         $this->assertEquals(['', 1, 2], array_keys($test));
@@ -147,14 +147,14 @@ class OtherTest extends TestCase
     }
 
 
-    public function testUuid4()
+    public function testUuid4(): void
     {
         $test = uuid4();
         $this->assertEquals(36, strlen($test));
     }
 
 
-    public function testParseQueryString()
+    public function testParseQueryString(): void
     {
         $test = parseQueryString('aa=bb&cc=dd');
         $this->assertEquals(['aa' => 'bb', 'cc' => 'dd'], $test);
@@ -164,25 +164,39 @@ class OtherTest extends TestCase
     }
 
 
-    public function testWeekRange()
+    public function testWeekRange(): void
     {
         $year = (int) date('Y');
         $weeks = getIsoWeeksInYear($year);
         for ($i = 1; $i <= $weeks; ++$i) {
-            $test = weekRange($i, $year);
-            $this->assertTrue(count($test) == 2 && !empty($test[0]) && !empty($test[1]));
+            [$start, $end] = weekRange($i, $year);
+
+            $this->assertIsInt($start);
+            $this->assertIsInt($end);
+
+            // An iso week runs monday to sunday, so the range has to start on a monday,
+            // end on a sunday, and cover exactly seven days
+            $this->assertSame('1', date('N', $start), "week {$i} does not start on a monday");
+            $this->assertSame('7', date('N', $end), "week {$i} does not end on a sunday");
+            $this->assertSame(6, (int) floor(($end - $start) / 86400), "week {$i} is not seven days");
         }
     }
 
 
-    public function testMonthRangeDateTime()
+    public function testMonthRangeDateTime(): void
     {
-        $test = monthRangeDateTime();
-        $this->assertTrue(count($test) == 2 && !empty($test[0]) && !empty($test[1]));
+        [$start, $end] = monthRangeDateTime();
+
+        $this->assertSame('01', $start->format('d'));
+        $this->assertSame('00:00:00', $start->format('H:i:s'));
+
+        $this->assertSame($start->format('Y-m'), $end->format('Y-m'));
+        $this->assertSame($end->format('t'), $end->format('d'));
+        $this->assertSame('23:59:59', $end->format('H:i:s'));
     }
 
 
-    public function testExtractArrayByKeys()
+    public function testExtractArrayByKeys(): void
     {
         $testArr = ['post' => 'data', 'is' => 'awesome'];
 
@@ -206,21 +220,21 @@ class OtherTest extends TestCase
     }
 
 
-    public function testAnyEmpty()
+    public function testAnyEmpty(): void
     {
         $this->assertFalse(anyEmpty(['a', 'b', 'c']));
         $this->assertTrue(anyEmpty(['a', 'b', '']));
     }
 
 
-    public function testAllEmpty()
+    public function testAllEmpty(): void
     {
         $this->assertFalse(allEmpty(['', '', 'c']));
         $this->assertTrue(allEmpty(['', '', '']));
     }
 
 
-    public function testTmpFilename()
+    public function testTmpFilename(): void
     {
         $test = tmpFilename('test_', '_test');
         $this->assertStringContainsString('test_', $test);
@@ -228,7 +242,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testGroupArray()
+    public function testGroupArray(): void
     {
         $rows = [
             ['id' => 1, 'name' => 'Name 1'],
@@ -238,21 +252,25 @@ class OtherTest extends TestCase
 
         $test = groupArray($rows, 'id');
         $this->assertEquals([1, 2], array_keys($test));
+        $this->assertIsArray($test[1]);
+        $this->assertIsArray($test[2]);
         $this->assertCount(2, $test[1]);
         $this->assertCount(1, $test[2]);
         $this->assertEquals($rows[0], $test[1][0]);
 
         $test = groupArray($rows, ['id', 'name']);
+        $this->assertIsArray($test[1]);
         $this->assertEquals([$rows[0]], $test[1]['Name 1']);
         $this->assertEquals([$rows[2]], $test[1]['Name 3']);
 
         // $unique replaces the list with the row itself
         $test = groupArray($rows, ['id', 'name'], true);
+        $this->assertIsArray($test[1]);
         $this->assertEquals($rows[0], $test[1]['Name 1']);
     }
 
 
-    public function testGroupArrayWithCallbacks()
+    public function testGroupArrayWithCallbacks(): void
     {
         $rows = [
             ['id' => 1, 'name' => 'Name 1'],
@@ -275,7 +293,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testSimpleArray()
+    public function testSimpleArray(): void
     {
         $rows = [
             ['id' => 1, 'name' => 'One'],
@@ -296,26 +314,26 @@ class OtherTest extends TestCase
     }
 
 
-    public function testSimpleArrayThrowsOnMissingColumn()
+    public function testSimpleArrayThrowsOnMissingColumn(): void
     {
         $this->expectException(\InvalidArgumentException::class);
         simpleArray([['id' => 1]], 'id', 'name', null, null, false);
     }
 
 
-    public function testWeekOfMonth()
+    public function testWeekOfMonth(): void
     {
         // 1 May 2017 was a Monday, so the weeks line up exactly
-        $this->assertEquals(1, weekOfMonth(mktime(0, 0, 0, 5, 1, 2017)));
-        $this->assertEquals(2, weekOfMonth(mktime(0, 0, 0, 5, 8, 2017)));
-        $this->assertEquals(5, weekOfMonth(mktime(0, 0, 0, 5, 31, 2017)));
+        $this->assertEquals(1, weekOfMonth((int) mktime(0, 0, 0, 5, 1, 2017)));
+        $this->assertEquals(2, weekOfMonth((int) mktime(0, 0, 0, 5, 8, 2017)));
+        $this->assertEquals(5, weekOfMonth((int) mktime(0, 0, 0, 5, 31, 2017)));
 
         // January carries the previous year's week number over the turn
-        $this->assertEquals(1, weekOfMonth(mktime(0, 0, 0, 1, 1, 2017)));
+        $this->assertEquals(1, weekOfMonth((int) mktime(0, 0, 0, 1, 1, 2017)));
     }
 
 
-    public function testYearRangeDateTime()
+    public function testYearRangeDateTime(): void
     {
         [$start, $end] = yearRangeDateTime(2017);
 
@@ -328,7 +346,7 @@ class OtherTest extends TestCase
     }
 
 
-    public function testSqlTimestampToDatetime()
+    public function testSqlTimestampToDatetime(): void
     {
         $this->assertNull(sqlTimestampToDatetime(null));
         $this->assertNull(sqlTimestampToDatetime(''));
@@ -339,14 +357,14 @@ class OtherTest extends TestCase
     }
 
 
-    public function testValidISODate()
+    public function testValidISODate(): void
     {
         $this->assertFalse(validISODate('9.5.2017'));
         $this->assertTrue(validISODate('2017-05-09'));
     }
 
 
-    public function testValidISODateTime()
+    public function testValidISODateTime(): void
     {
         $this->assertFalse(validISODateTime('9.5.2017 3:3'));
         $this->assertTrue(validISODateTime('2017-05-09T03:03:10+02:00'));

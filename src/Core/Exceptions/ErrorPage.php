@@ -118,6 +118,23 @@ class ErrorPage
     }
 
     /**
+     * A $_SERVER entry as text.
+     *
+     * The sapi decides what goes in $_SERVER, so every entry is a mixed, and a non-string
+     * entry is treated as absent.
+     *
+     * @param string $name
+     * @param string $default
+     * @return string
+     */
+    private static function server(string $name, string $default = ''): string
+    {
+        $value = $_SERVER[$name] ?? null;
+
+        return (is_string($value) ? $value : $default);
+    }
+
+    /**
      * The same exception as plain text, for the clipboard button, a terminal or a log.
      *
      * @param Throwable $e
@@ -129,7 +146,7 @@ class ErrorPage
 
         $url = self::currentUrl();
         if ($url !== null) {
-            $lines[] = 'Url: ' . ($_SERVER['REQUEST_METHOD'] ?? 'GET') . ' ' . $url;
+            $lines[] = 'Url: ' . self::server('REQUEST_METHOD', 'GET') . ' ' . $url;
         }
 
         foreach (self::chain($e) as $index => $exception) {
@@ -259,9 +276,12 @@ class ErrorPage
 
             // This is already the last thing standing. Nothing downstream is going to
             // catch a second exception, so fall back to markup that cannot fail.
+            $code = $data['code'] ?? 500;
+            $title = $data['title'] ?? 'Error';
+
             return self::minimal(
-                (int) ($data['code'] ?? 500),
-                (string) ($data['title'] ?? 'Error')
+                (is_numeric($code) ? (int) $code : 500),
+                (is_string($title) ? $title : 'Error')
             );
         }
     }
@@ -274,7 +294,7 @@ class ErrorPage
      */
     private static function templateFor(string $name): string
     {
-        $configured = Config::$items['error_pages'][$name] ?? null;
+        $configured = Config::getArray('error_pages')[$name] ?? null;
         if (is_string($configured) && is_file($configured)) {
             return $configured;
         }
@@ -370,7 +390,16 @@ class ErrorPage
      * into what the template prints.
      *
      * @param Throwable $e
-     * @return array<int, array<string, mixed>>
+     * @return list<array{
+     *     class: string,
+     *     message: string,
+     *     code: int|string,
+     *     file: string,
+     *     short_file: string,
+     *     line: int,
+     *     excerpt: array<int, string>,
+     *     frames: list<array{index: int, call: string, file: ?string, short_file: ?string, line: ?int, vendor: bool, excerpt: array<int, string>}>
+     * }>
      */
     private static function chain(Throwable $e): array
     {
@@ -409,7 +438,7 @@ class ErrorPage
 
     /**
      * @param Throwable $e
-     * @return array<int, array<string, mixed>>
+     * @return list<array{index: int, call: string, file: ?string, short_file: ?string, line: ?int, vendor: bool, excerpt: array<int, string>}>
      */
     private static function frames(Throwable $e): array
     {
@@ -445,7 +474,13 @@ class ErrorPage
      */
     private static function formatCall(array $frame): string
     {
-        $call = ($frame['class'] ?? '') . ($frame['type'] ?? '') . ($frame['function'] ?? '{closure}');
+        $part = static fn(mixed $value, string $fallback = ''): string => (
+            is_string($value) ? $value : $fallback
+        );
+
+        $call = $part($frame['class'] ?? null)
+            . $part($frame['type'] ?? null)
+            . $part($frame['function'] ?? null, '{closure}');
 
         // zend.exception_ignore_args is on by default, so most of the time there is
         // nothing here to describe.
@@ -600,12 +635,14 @@ class ErrorPage
             }
 
             $name = str_replace(' ', '-', ucwords(strtolower(str_replace('_', ' ', substr((string) $key, 5)))));
-            $headers[$name] = $value;
+            $headers[$name] = (is_scalar($value) ? (string) $value : '');
         }
 
         ksort($headers);
 
-        return self::redact($headers);
+        $redacted = self::redact($headers);
+
+        return (is_array($redacted) ? array_filter($redacted, is_string(...)) : []);
     }
 
     /**
@@ -618,11 +655,12 @@ class ErrorPage
         }
 
         // The application may publish a scrubbed view of its own session
-        if (function_exists('formatSession')) {
-            return (array) self::redact(formatSession());
-        }
+        $session = (function_exists('formatSession') ? self::redact(formatSession()) : self::redact($_SESSION));
 
-        return (array) self::redact($_SESSION);
+        /** @var array<string, mixed> $session */
+        $session = (array) $session;
+
+        return $session;
     }
 
     /**
@@ -637,7 +675,7 @@ class ErrorPage
                 'Php' => PHP_VERSION,
                 'Sapi' => PHP_SAPI,
                 'Os' => PHP_OS_FAMILY,
-                'Environment' => (string) (Config::$items['environment'] ?? ''),
+                'Environment' => Config::getString('environment'),
                 'Memory' => self::formatBytes(memory_get_usage(true))
                     . ' (peak ' . self::formatBytes(memory_get_peak_usage(true)) . ')',
                 'Memory limit' => (string) ini_get('memory_limit'),
@@ -663,8 +701,8 @@ class ErrorPage
             return null;
         }
 
-        $host = $_SERVER['HTTP_HOST'] ?? $_SERVER['SERVER_NAME'] ?? null;
-        if (empty($host)) {
+        $host = self::server('HTTP_HOST', self::server('SERVER_NAME'));
+        if ($host === '') {
             return null;
         }
 
@@ -673,7 +711,7 @@ class ErrorPage
         // flag and base_url cannot disagree about whether a request was encrypted
         $scheme = Router::requestIsSecure() ? 'https' : 'http';
 
-        return $scheme . '://' . $host . ($_SERVER['REQUEST_URI'] ?? '');
+        return $scheme . '://' . $host . self::server('REQUEST_URI');
     }
 
     /**

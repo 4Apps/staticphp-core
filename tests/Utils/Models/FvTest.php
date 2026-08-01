@@ -14,7 +14,7 @@ class FvTest extends TestCase
     | defects it had rather than claiming the approach is sound.
     */
 
-    public function testNestedScriptTagDoesNotSurviveStripping()
+    public function testNestedScriptTagDoesNotSurviveStripping(): void
     {
         // Stripping ran once, so "<scr<script>ipt>" reassembled into a working tag
         $test = Fv::xss('<scr<script>ipt>alert(1)</scr</script>ipt>');
@@ -22,42 +22,42 @@ class FvTest extends TestCase
         $this->assertStringNotContainsStringIgnoringCase('<script', $test);
     }
 
-    public function testDoublyNestedScriptTagDoesNotSurvive()
+    public function testDoublyNestedScriptTagDoesNotSurvive(): void
     {
         $test = Fv::xss('<scr<scr<script>ipt>ipt>alert(1)');
 
         $this->assertStringNotContainsStringIgnoringCase('<script', $test);
     }
 
-    public function testPlainScriptTagIsRemoved()
+    public function testPlainScriptTagIsRemoved(): void
     {
         $test = Fv::xss('<script>alert(1)</script>');
 
         $this->assertStringNotContainsStringIgnoringCase('<script', $test);
     }
 
-    public function testIframeIsRemoved()
+    public function testIframeIsRemoved(): void
     {
         $test = Fv::xss('<iframe src="http://example.test"></iframe>');
 
         $this->assertStringNotContainsStringIgnoringCase('<iframe', $test);
     }
 
-    public function testSvgIsRemoved()
+    public function testSvgIsRemoved(): void
     {
         $test = Fv::xss('<svg onload=alert(1)></svg>');
 
         $this->assertStringNotContainsStringIgnoringCase('<svg', $test);
     }
 
-    public function testOnAttributesAreRemoved()
+    public function testOnAttributesAreRemoved(): void
     {
         $test = Fv::xss('<img src=x onerror=alert(1)>');
 
         $this->assertStringNotContainsStringIgnoringCase('onerror', $test);
     }
 
-    public function testPlainTextIsLeftAlone()
+    public function testPlainTextIsLeftAlone(): void
     {
         $this->assertEquals('Hello world', Fv::xss('Hello world'));
     }
@@ -66,40 +66,40 @@ class FvTest extends TestCase
     | Validators
     */
 
-    public function testEmailAcceptsLongTlds()
+    public function testEmailAcceptsLongTlds(): void
     {
         // The old pattern capped the tld at four characters
         $this->assertTrue(Fv::email('someone@example.technology'));
         $this->assertTrue(Fv::email('someone@example.com'));
     }
 
-    public function testEmailRejectsMalformedAddresses()
+    public function testEmailRejectsMalformedAddresses(): void
     {
         $this->assertFalse(Fv::email('not-an-address'));
         $this->assertFalse(Fv::email('a@b'));
         $this->assertFalse(Fv::email(''));
     }
 
-    public function testLengthExactForm()
+    public function testLengthExactForm(): void
     {
         $this->assertTrue(Fv::length('abc', 3));
         $this->assertFalse(Fv::length('abcd', 3));
     }
 
-    public function testLengthAtLeastForm()
+    public function testLengthAtLeastForm(): void
     {
         $this->assertTrue(Fv::length('abcdef', 3, '>'));
         $this->assertFalse(Fv::length('ab', 3, '>'));
     }
 
-    public function testLengthAtMostForm()
+    public function testLengthAtMostForm(): void
     {
         // This branch tested '>' a second time, so it was unreachable
         $this->assertTrue(Fv::length('abc', 5, '<'));
         $this->assertFalse(Fv::length('abcdefg', 5, '<'));
     }
 
-    public function testLengthRangeForm()
+    public function testLengthRangeForm(): void
     {
         $this->assertTrue(Fv::length('abcd', 3, '5'));
         $this->assertFalse(Fv::length('ab', 3, '5'));
@@ -110,7 +110,7 @@ class FvTest extends TestCase
      * bound used to test chr($to) - never a digit - and fall through to the "exactly
      * $from" default. Only the string form was covered, which is how it went unnoticed.
      */
-    public function testLengthRangeFormAcceptsIntegerBounds()
+    public function testLengthRangeFormAcceptsIntegerBounds(): void
     {
         $this->assertTrue(Fv::length('abcd', 3, 5));
         $this->assertTrue(Fv::length('abcde', 3, 5));
@@ -118,19 +118,19 @@ class FvTest extends TestCase
         $this->assertFalse(Fv::length('abcdef', 3, 5));
     }
 
-    public function testLengthExactFormWithNoUpperBound()
+    public function testLengthExactFormWithNoUpperBound(): void
     {
         $this->assertTrue(Fv::length('abc', 3, null));
         $this->assertFalse(Fv::length('abcd', 3, null));
     }
 
-    public function testIntegerValidator()
+    public function testIntegerValidator(): void
     {
         $this->assertTrue(Fv::integer('123'));
         $this->assertFalse(Fv::integer('12a'));
     }
 
-    public function testIpv4Validator()
+    public function testIpv4Validator(): void
     {
         $this->assertTrue(Fv::ipv4('192.168.0.1'));
         $this->assertFalse(Fv::ipv4('999.0.0.1'));
@@ -140,7 +140,7 @@ class FvTest extends TestCase
     | Error messages
     */
 
-    public function testErrorMessagesEscapeTheRejectedValue()
+    public function testErrorMessagesEscapeTheRejectedValue(): void
     {
         // The docblock on Fv shows these being echoed directly into a page
         $fv = new Fv(['email' => '<script>alert(1)</script>']);
@@ -154,7 +154,7 @@ class FvTest extends TestCase
         $this->assertStringContainsString('&lt;script&gt;', $error[0]);
     }
 
-    public function testErrorMessagesEscapeTheFieldTitle()
+    public function testErrorMessagesEscapeTheFieldTitle(): void
     {
         $fv = new Fv(['name' => '']);
         $fv->addRules([
@@ -171,7 +171,7 @@ class FvTest extends TestCase
         $this->assertStringNotContainsString('<img', $error[0]);
     }
 
-    public function testMissingFieldProducesAnError()
+    public function testMissingFieldProducesAnError(): void
     {
         $fv = new Fv([]);
         $fv->addRules(['email' => ['valid' => ['required']]]);
@@ -180,7 +180,7 @@ class FvTest extends TestCase
         $this->assertTrue($fv->hasError('email'));
     }
 
-    public function testValidInputPasses()
+    public function testValidInputPasses(): void
     {
         $fv = new Fv(['email' => 'someone@example.com']);
         $fv->addRules(['email' => ['valid' => ['required', 'email']]]);
@@ -189,10 +189,10 @@ class FvTest extends TestCase
         $this->assertFalse($fv->hasError('email'));
     }
 
-    public function testSetInputValueEscapesItsOutput()
+    public function testSetInputValueEscapesItsOutput(): void
     {
         $fv = new Fv(['name' => '" onfocus="alert(1)']);
 
-        $this->assertStringNotContainsString('" onfocus="', $fv->setInputValue('name'));
+        $this->assertStringNotContainsString('" onfocus="', (string) $fv->setInputValue('name'));
     }
 }
