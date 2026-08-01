@@ -140,18 +140,29 @@ Formatter::escape($text, 'html');
 An unrecognised mode is silently a no-op, so a typo in the third argument of
 `i18n::translate()` gets you unescaped output. There is no error for it.
 
-For `<b> "q" (a) & ā/b`:
+Every mode, for the input `<b> "q" (a) & ā/b`:
 
 ```text
-html   &lt;b&gt; &quot;q&quot; (a) &amp; ā/b
-js     <b> "q" (a) & ā\/b
-url    %3Cb%3E%20%22q%22%20%28a%29%20%26%20%C4%81%2Fb
+html       &lt;b&gt; &quot;q&quot; (a) &amp; ā/b
+attr       &lt;b&gt; &quot;q&quot; (a) &amp; ā/b
+input      &lt;b&gt; &quot;q&quot; (a) &amp; ā/b
+js         \u003Cb\u003E \u0022q\u0022 (a) \u0026 ā\/b
+url        %3Cb%3E%20%22q%22%20%28a%29%20%26%20%C4%81%2Fb
+null       <b> "q" (a) & ā/b
+nonsense   <b> "q" (a) & ā/b
 ```
 
 The js mode produces a correctly escaped **body** for a quoted literal - `json_encode`
 produces a complete javascript string literal, quotes included, and trimming them leaves the
-body. The escaper this replaced handled `'`, `\r` and `\n` and nothing else, so a backslash
-or a `</script>` in a translation walked straight out of the literal it was meant to sit in.
+body. The four `JSON_HEX_*` flags are why `<`, `>`, `&` and `"` come back hex escaped as
+`\u003C`, `\u003E`, `\u0026` and `\u0022` rather than passing through: none of them can then
+close the literal or the surrounding `<script>` block. `JSON_UNESCAPED_UNICODE` is why `ā`
+survives as itself, and the forward slash is escaped as `\/`. A `</script>` in a translation
+comes out as `\u003C\/script\u003E`, which is what makes
+the result safe to drop inside a `<script>` block.
+
+The escaper this replaced handled `'`, `\r` and `\n` and nothing else, so a backslash or a
+`</script>` in a translation walked straight out of the literal it was meant to sit in.
 
 ## message()
 
@@ -199,7 +210,8 @@ entirely; note that in an ICU pattern every ascii letter is a field, so literal 
 to be quoted or they come out as garbage.
 
 `$decimals` on `number()` sets both `MIN_FRACTION_DIGITS` and `MAX_FRACTION_DIGITS`, so it
-is an exact width rather than a maximum: `number(1.5, 4)` is `1.5000`.
+is an exact width rather than a maximum: on the `lv_LV` formatter above, `number(1.5, 4)` is
+`1,5000`, and `number(2, 0)` is `2`.
 
 ## Through the facade
 

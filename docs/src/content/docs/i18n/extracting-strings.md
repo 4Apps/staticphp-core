@@ -315,7 +315,13 @@ place it was found.
 `--write` registers the keys in the first list under the **default** language key -
 `Locales::default()`, the first language of the first country - with `missing_suffix`
 appended, without overwriting anything that is already there. Then every language is marked
-stale. Nothing in the second list is touched: `scan` never deletes.
+stale, and a final line says what was written:
+
+```text
+2 keys registered under lv_lv
+```
+
+Nothing in the second list is touched: `scan` never deletes.
 
 `scan` exits 0 whatever it finds.
 
@@ -340,8 +346,13 @@ Delete them? [y/N]
 
 Only `y` or `yes`, case insensitively, proceeds; anything else prints `Nothing deleted.` and
 exits 0. `--yes` skips the question. Deleting a key deletes its translations too, and every
-language is marked stale afterwards. Nothing to prune prints `Nothing to prune.` and exits
-0.
+language is marked stale afterwards, followed by a count of what went:
+
+```text
+2 keys deleted.
+```
+
+Nothing to prune prints `Nothing to prune.` and exits 0.
 
 ## clear
 

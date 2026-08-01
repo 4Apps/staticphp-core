@@ -152,6 +152,12 @@ i18n has no "lv" country serving "de"
 
 There is no fallback here on purpose. A caller that named a pairing meant it.
 
+**Both arguments are required for this step.** The check is `$country !== null && $language
+!== null`, so a half-given pairing does not reach it: `i18n::init('lv')` and
+`i18n::init(null, 'en')` both fall through to the url prefix below, and the argument that
+was given is silently ignored. There is no error for it - with a `/ee-ru/...` url, both of
+those calls resolve to `ee_ru`.
+
 ### 2. The url prefix
 
 With no arguments, `init()` walks `Router::$prefixes` **in the order the router stripped

@@ -116,7 +116,7 @@ i18n::translate('Log in');
 i18n::translate('Hello %name%', ['%name%' => $user->name], 'html');
 
 // ICU message, which is what handles plurals
-i18n::format('{n, plural, zero{# faili} one{# fails} other{# faili}}', ['n' => $count]);
+i18n::format('{n, plural, zero{# failu} one{# fails} other{# faili}}', ['n' => $count]);
 ```
 
 Both take the same four arguments:
