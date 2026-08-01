@@ -94,8 +94,12 @@ reference, so a call straight to it has to pass a variable.
 
 That file has to exist. `render()` names it but does not create it, and a route whose view
 is missing is a 500 rather than an empty page - a `Twig\Error\LoaderError` when twig is
-installed, a fatal `require` when it is not. Write
-`APP_MODULES_PATH/Site/Views/home.php`:
+installed. Without twig the failure is a `RuntimeException` rather than the `require`
+itself: `Load::view()` checks the resolved path with `Router::pathIsWithin()` first, and
+`realpath()` of a file that does not exist returns `false`, so the check fails before
+`require` ever runs. The message names the wrong cause - `View outside of the modules
+directory: "Site/Views/home.php"` reads like a path escaping `APP_MODULES_PATH`, but the
+file is simply missing. Write `APP_MODULES_PATH/Site/Views/home.php`:
 
 ```html
 <!DOCTYPE html>

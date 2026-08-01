@@ -10,7 +10,7 @@ on:
   # docs-only pull request fires no workflow at all and the links validator never runs
   # before merge. This trigger builds and validates; it deploys nothing.
   pull_request:
-    branches: [master]
+    branches: [master, develop]
     paths:
       - 'docs/**'
       - '.github/workflows/docs.yml'
@@ -37,6 +37,10 @@ jobs:
     name: Build (pull request)
     if: github.event_name == 'pull_request'
     runs-on: ubuntu-latest
+    # Overrides the workflow-level grant of pages: write / id-token: write - this job
+    # builds and validates only, it deploys nothing and does not need either.
+    permissions:
+      contents: read
     defaults:
       run:
         working-directory: docs

@@ -54,9 +54,32 @@ name=an;state=open;note=x%3By
 ```
 
 It is parsed by `Table::parseQueryString($filterData, ';')`, which urldecodes both halves of
-each pair, so a value containing a semicolon has to arrive as `%3B`. Pairs with no `=` are
-dropped. Keys that do not match a column id are kept in the parsed array but ignored by
-everything downstream.
+each pair, so a value containing a semicolon has to arrive as `%3B` - **when that string is
+handed to `parse()` directly**. Pairs with no `=` are dropped. Keys that do not match a
+column id are kept in the parsed array but ignored by everything downstream.
+
+:::caution[Single encoding does not survive the query-string transport]
+[The recommended way of getting a filter string to `initData()`](/staticphp-core/presentation/tables/#from-script-to-controller)
+reads it out of `$_GET`, and PHP decodes the query string into `$_GET` once before that
+code ever runs. A value that is `%3B`-encoded exactly once arrives already turned into a
+literal `;` - the same character `parseQueryString()` splits pairs on - so everything after
+it in that value is lost as a fragment with no `=` in it and gets dropped. The same happens
+to `/`: the worked example's own `explode('/', ..., 3)`, which splits `$_GET['table']` into
+the filter, sort and page fragments before any of them reaches `Filters`, trims the value at
+the first literal slash. A value containing either character needs to survive two decodes,
+so it has to be percent-encoded twice over that transport: `;` as `%253B`, `/` as `%252F`.
+
+Requested through a real HTTP request, with a `name` column filtering on `u.name`:
+
+```text
+?table=name=x%3By/name=asc/1   -> filterData: 'name=x;y'    -> WHERE u.name::TEXT ILIKE ? ['%x%']    (truncated at the ;)
+?table=name=x%253By/name=asc/1 -> filterData: 'name=x%3By'  -> WHERE u.name::TEXT ILIKE ? ['%x;y%']  (correct)
+```
+
+Called directly with a filter string - no `$_GET` decode in front of it, the way `Parsing`
+below does it - `parseQueryString()` only ever sees one decode, so single encoding is
+correct there. It is the query-string transport that adds the second one.
+:::
 
 ### It cannot arrive as a url segment
 
