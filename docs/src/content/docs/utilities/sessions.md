@@ -79,9 +79,9 @@ regenerate() with no active session          => false
 `session.use_only_cookies` and `session.use_strict_mode` are forced on, garbage collection
 runs on one request in a hundred, and `session.gc_maxlifetime` takes the `$lifetime`
 argument. The cookie gets `path=/`, an empty domain, `httponly`, the `$sameSite` value, and
-`secure` only when `$_SERVER['HTTPS']` is literally `on` - so plain http development keeps
-working, and a site behind a TLS-terminating proxy that does not set `HTTPS` will not get a
-secure cookie.
+`secure` only when `$_SERVER['HTTPS']` lowercases to `on` - so `On` and `ON` count, plain
+http development keeps working, and a site behind a TLS-terminating proxy that does not set
+`HTTPS` will not get a secure cookie.
 
 `$this->expire` is `session_cache_expire() * 60`, which on a stock php is 10800 seconds. It
 is unrelated to `$lifetime`, and it is what the APCu, Memcached and Redis backends pass as
@@ -126,10 +126,16 @@ backend does not use it; it stores the raw session id.
 | APCu      | `SessionsApcu`      | `ext-apcu`                             |
 | Memcached | `SessionsMemcached` | `ext-memcached`                        |
 | MongoDB   | `SessionsMongoDb`   | `ext-mongodb` **and** `mongodb/mongodb` (the `MongoDB\Client` class) |
-| Postgres  | `SessionsPgsql`     | `ext-pdo_pgsql`, plus the table below  |
+| Postgres  | `SessionsPgsql`     | a pdo postgres driver (inferred - see below), plus the table below |
 | Redis     | `SessionsRedis`     | `ext-redis`                            |
 
-None of those is in `composer.json` - not under `require`, not under `suggest`, and the
+Four of those five are what the class references by name - `Redis`, `Memcached`,
+`MongoDB\Client`, `apcu_fetch()`. The Postgres row is an inference: `SessionsPgsql` goes
+through `Db`, which is PDO, and its sql is postgres, so it needs whatever pdo driver that
+implies. Nothing in `src/` names `pdo_pgsql`, and `composer.json` requires only the generic
+`ext-pdo`.
+
+None of the five is in `composer.json` - not under `require`, not under `suggest`, and the
 mongodb library is not a dependency at all. On a host with only the framework's own required
 extensions:
 
@@ -170,6 +176,19 @@ new SessionsRedis($dbConfig, $sessionName = 'SMDB', ?Sessions $backupHandler = n
 All five pass only `$sessionName` and `$backupHandler` up to `parent::__construct()`, so the
 `86400` lifetime and `Lax` same-site defaults cannot be changed through any of them. Only a
 bare `new Sessions(...)` accepts them.
+:::
+
+:::note[Four of these five were not exercised]
+The container used to check this page has none of apcu, memcached, redis or mongodb, so the
+four sections below are read from source rather than observed - the only thing actually run
+against them is the constructor failure above. Statements about what a store then does with
+what it was handed - that redis records expire on their own, that libketama hashes keys
+consistently across a memcached server list - are the documented meaning of the call the
+class makes, not a behaviour seen here.
+
+The Postgres section is different: its shipped schema and its garbage collection statement
+were run against a real postgres, and that capture is shown. The handler driving through
+php's session machinery was not.
 :::
 
 ### APCu

@@ -94,6 +94,11 @@ so registration order decides. `exists()` returns true as soon as any backend sa
 With a `$name`, every call goes to that backend alone. Registering the same name twice
 throws, and so does naming a backend that was never registered.
 
+Do not read a fan-out return value as "it worked everywhere". `set()` discards what each
+backend returned and hands back a hardcoded `true`; `remove()` keeps only the **last**
+backend's status and returns that. A single-backend call - one with a `$name` - does return
+that backend's own result.
+
 Captured against one registered `CacheFiles` backend:
 
 ```text
@@ -190,6 +195,13 @@ Two things to know before choosing this backend:
 
 A miss returns `false`, which is indistinguishable from a cached `false`.
 
+:::note[Not exercised here]
+The three sections below are documented from source only. The container used to check this
+page has none of apcu, memcached or redis, so the file backend above is the only one whose
+behaviour was observed rather than read. Statements about what a store does with what it was
+handed are the documented meaning of the call the class makes.
+:::
+
 ### APCu
 
 Reads `prefix` only, and maps straight onto `apcu_store()`, `apcu_fetch()` and
@@ -219,9 +231,3 @@ unconditionally and passed as the connect timeout; `0` means no limit.
 briefly exists without an expiry. `removeKey()` returns the `DEL` reply count coerced to
 `bool`. This is also the only backend implementing `doesItemExist()` (`EXISTS`) and
 `getTTL()` (`TTL`).
-
-:::note[Not exercised here]
-The APCu, Memcached and Redis backends are documented from source only. The container used
-to check this page has none of the three extensions, so the file backend is the only one
-whose behaviour above was observed rather than read.
-:::

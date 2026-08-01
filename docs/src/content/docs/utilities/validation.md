@@ -365,8 +365,8 @@ Both compare `$_SERVER['REQUEST_METHOD']` case-insensitively. `isPost()` optiona
 requires that every name in `$isset` - a string or an array of strings - is present in
 `$_POST`; note that it looks at the real `$_POST`, not at the instance's own `post` array.
 
-Four instance methods repopulate a form from the input, each returning `false` when the
-field is absent:
+Four instance methods repopulate a form from the input, each returning `false` when the field
+is missing - or, as below, when its value is merely falsy:
 
 ```text
 setInputValue('name')          => ' value="a&quot; onfocus=&quot;x"'
@@ -383,15 +383,46 @@ setValue('colour')             => 'red'
 | ----------------------------- | ------------------------------------------------------------- |
 | `setInputValue($name)`        | ` value="..."`, html-escaped                                  |
 | `setSelected($name, $test)`   | ` selected="selected"` when the value equals `$test`, or is an array containing it |
-| `setChecked($name)`           | ` checked="checked"` when the value is non-empty              |
+| `setChecked($name)`           | ` checked="checked"` - its empty-string branch is unreachable, see below |
 | `setValue($name)`             | the raw value, unescaped                                      |
 
 `$name` is a string, or an array of keys that walks into nested input:
 `setInputValue(['tags', 0])` reads `$post['tags'][0]`, which is what `name="tags[]"` sends.
 
-`setInputValue()` escapes with a bare `htmlspecialchars()` - default flags, so single quotes
-survive. It is safe inside the double-quoted attribute it builds, which is the only place it
-is meant to go. `setValue()` escapes nothing; escape it yourself.
+:::caution[A falsy value is treated as a missing field]
+All four guard with `if (($field = $this->getField($name)) == false)` - a loose comparison,
+not a check for the `false` that `getField()` returns when the key is absent. So `'0'`, `''`,
+`0` and `null` all take the early return, and a quantity of zero or a cleared text field
+silently loses its repopulated value:
+
+```text
+php 8.4.24
+
+htmlspecialchars("a' b\" c")         => 'a&#039; b&quot; c'
+setInputValue('name')                => ' value="O&#039;Brien &quot;Bob&quot;"'
+
+with post = ['qty' => '0', 'note' => '', 'ok' => 'y']
+
+setInputValue('ok')                  => ' value="y"'
+setInputValue('qty')                 => false
+setInputValue('note')                => false
+setInputValue('absent')              => false
+setValue('qty')                      => false
+setChecked('qty')                    => false
+setSelected('qty', '0')              => false
+```
+
+This is the same php falsiness that makes `required('0')` fail, one section up. There is no
+flag to turn it off; if a form has a legitimately zero or empty value to preserve, read
+`$fv->post[$name]` directly.
+:::
+
+The first two rows above are the other thing worth knowing here. `setInputValue()` calls
+`htmlspecialchars()` with no flags, and since php 8.1 the default is
+`ENT_QUOTES | ENT_SUBSTITUTE | ENT_HTML401` - this package requires php 8.4, so single quotes
+are escaped too and the output is safe in a single- or double-quoted attribute alike. It
+builds a double-quoted one, which is where it is meant to go. `setValue()` escapes nothing;
+escape it yourself.
 
 ## Twig filters
 

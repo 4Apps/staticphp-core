@@ -115,19 +115,31 @@ issues a new one. Do it on login and on logout, alongside
 ## Templates
 
 The bootstrap calls `Csrf::registerTwig()` for you when a twig environment was built, so
-these three functions are available in templates with no further setup:
+these three functions are available in templates with no further setup.
+
+The ready-made field, which is what most forms want:
 
 ```twig
 <form method="post">
     {{ csrfField() }}
+</form>
+```
+
+Or build the input yourself, when the markup has to differ:
+
+```twig
+<form method="post">
     <input type="hidden" name="{{ csrfFieldName() }}" value="{{ csrfToken() }}">
 </form>
 ```
 
+Use one or the other. Both together put two `__csrf` inputs in the same form, which is not a
+security problem - php keeps the last and the values are identical - but it is not what you
+meant to write.
+
 `csrfField()` is registered with `['is_safe' => ['html']]`, so twig does not escape the tag
 it returns; the token inside it was already escaped by `field()`. The other two return plain
-strings and twig escapes them normally. Use either the ready-made field or the pair, not
-both - the example above shows both only to name all three functions.
+strings and twig escapes them normally.
 
 `registerTwig()` returns without doing anything when `Config::get('view_engine')` is empty,
 which is the case in an application that left twig out. Registering the functions makes the
