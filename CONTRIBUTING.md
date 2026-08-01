@@ -49,7 +49,8 @@ makes it true.
 ## Releasing
 
 1. `.version` is right for what is about to ship.
-2. `CHANGELOG.md`: rename the `unreleased` heading to the version and today's date.
+2. `CHANGELOG.md`: rename the `unreleased` heading to `major.minor` and today's date, e.g.
+   `## 2.1 - 2026-09-14`. The patch number belongs on the tag, not in the changelog.
 3. `./scripts/code_tests.bash` is green, and CI is green on `master`.
 4. Tag it:
 

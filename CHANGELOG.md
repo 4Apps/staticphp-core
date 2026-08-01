@@ -2,7 +2,12 @@
 
 Notable changes per release. Dates are ISO 8601.
 
-## 2.0.0 - unreleased
+Headings are `major.minor`, because that is the part a human decides and the part that
+carries meaning. Tags additionally carry a patch number derived from the commit count -
+`v2.0.326` is a release of the 2.0 line - so there are more tags than there are headings
+here. See CONTRIBUTING.md.
+
+## 2.0 - 2026-08-01
 
 The first release of the framework as a composer package. Everything below is breaking;
 [UPGRADE.md](UPGRADE.md) is the step by step, and there is no compatibility shim, because
