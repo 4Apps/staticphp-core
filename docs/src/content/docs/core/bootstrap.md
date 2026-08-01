@@ -1,61 +1,19 @@
 ---
 title: Bootstrap
-description: The two entry points into the framework and the order the boot sequence runs in.
+description: The ten steps requiring the framework bootstrap runs, and why each sits where it does.
 sidebar:
     order: 1
 ---
 
-`StaticPHP\Core\Bootstrap` is a final class holding two constants and no methods:
+`require StaticPHP\Core\Bootstrap::FILE` is the whole of starting the framework. This page
+is what that one line sets in motion, in order.
 
-```php
-<?php
-
-namespace StaticPHP\Core;
-
-final class Bootstrap
-{
-    public const FILE = __DIR__ . '/Helpers/Bootstrap.php';
-    public const AUTOLOAD = __DIR__ . '/Helpers/Autoload.php';
-}
-```
-
-Both are built from `__DIR__`, so they resolve to wherever composer put the package -
-`vendor/4apps/staticphp-core/src/Core/...` in an installed application, and somewhere else
-entirely in a source checkout. That is the whole reason the class exists: a front
-controller cannot spell either path out, but it can resolve `StaticPHP\Core\Bootstrap`
-through PSR-4 and read the answer off it.
-
-| Constant               | File                             | Brings up                                        |
-| ---------------------- | -------------------------------- | ------------------------------------------------ |
-| `Bootstrap::FILE`      | `src/Core/Helpers/Bootstrap.php` | Everything: config, error handlers, views, router |
-| `Bootstrap::AUTOLOAD`  | `src/Core/Helpers/Autoload.php`  | Path constants and the application autoloader     |
-
-## Why a constant and not a method
-
-`Helpers/Bootstrap.php` sets `$microtime` at global scope, and `Timers::markTime()` and
-`Timers::logTimers()` read it back with `global $microtime`. A `require` inside a static
-method would put that variable in the method's scope instead, where nothing can reach it -
-so the `require` has to happen in the caller's own file. Exposing the path as a constant is
-what makes that possible without every front controller hardcoding a vendor layout.
-
-`Bootstrap::AUTOLOAD` is the smaller door. It defines the path constants and registers the
-application autoloader, and stops there - no configuration, no error handlers, no view
-engine, no router. The cli tools use it to bring up just enough of the framework to reach a
-database.
-
-```php
-<?php
-
-// A script that needs the path constants and the application classes, nothing more
-require dirname(__DIR__) . '/vendor/autoload.php';
-
-define('PUBLIC_PATH', __DIR__ . '/Public');
-
-require StaticPHP\Core\Bootstrap::AUTOLOAD;
-```
-
-The front controller pattern and the constants `Autoload.php` defines are covered in
-[the front controller](/staticphp-core/getting-started/front-controller/).
+`Bootstrap::FILE` and `Bootstrap::AUTOLOAD`, the path constants they resolve, and why the
+entry point is a constant rather than a `run()` method are covered in
+[the front controller](/staticphp-core/getting-started/front-controller/). The short version
+is that `Bootstrap::AUTOLOAD` brings up the path constants and the application autoloader
+and nothing else, while `Bootstrap::FILE` - the file this page describes - brings up
+everything.
 
 ## The boot sequence
 
@@ -192,16 +150,10 @@ templates instead. See [Load](/staticphp-core/core/load/).
 
 ## The application autoloader
 
-`src/Core/Helpers/Autoload.php` also registers a second `spl_autoload_register()` callback,
-after composer's. Composer owns everything under `StaticPHP\` and everything in `vendor`;
-this callback owns the application tree, whose namespace roots are module names
-(`Pasta\Controllers\Quality`) resolved against whichever application served the request.
-
-It tries `APP_MODULES_PATH` then `APP_PATH`, includes `<root>/<class path>.php` if it
-exists, and gives up otherwise. Each component of the class name must match
-`/^[a-zA-Z_][a-zA-Z0-9_]*$/`, and the resolved file is confirmed with `realpath()` to be
-under the root before it is included - class names arrive here from url segments by way of
-the router, so a name containing `..` would otherwise be an arbitrary file include.
-
-Why this is not PSR-4 at all, and what it buys, is the subject of
-[running multiple applications](/staticphp-core/guides/multiple-applications/).
+Step 2 above also registers a second `spl_autoload_register()` callback, in
+`src/Core/Helpers/Autoload.php`. It is what resolves the application tree, whose namespace
+roots are module names rather than a PSR-4 prefix - see
+[the front controller](/staticphp-core/getting-started/front-controller/) for what it
+resolves and how, and
+[running multiple applications](/staticphp-core/guides/multiple-applications/) for why it
+exists at all.

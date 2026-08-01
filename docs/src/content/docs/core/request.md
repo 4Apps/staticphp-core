@@ -1,6 +1,6 @@
 ---
 title: Request
-description: Internal sub-requests, the cli superglobals, and how the request content type is negotiated.
+description: Running a url as an internal sub-request, and building the superglobals from argv under cli.
 sidebar:
     order: 4
 ---
@@ -101,91 +101,8 @@ entries **by reference**. Rewriting the superglobals after the configuration was
 leave the configuration describing the wrong request - which is exactly why this call sits
 where it does in the boot sequence. See [bootstrap](/staticphp-core/core/bootstrap/).
 
-`$_SERVER['CONTENT_TYPE']` being set only for post data is what makes the content type
-negotiation below behave sensibly under cli: a GET has no content type, so the negotiation
-falls through to `NONE` and the response comes out as html.
-
-## RequestContentType
-
-```php
-<?php
-
-namespace StaticPHP\Core\Interfaces;
-
-enum RequestContentType: string
-{
-    case JSON = 'application/json';
-    case XML = 'application/xml';
-    case TEXT = 'text/plain';
-    case HTML = 'text/html';
-    case FORM = 'application/x-www-form-urlencoded';
-    case MULTIPART = 'multipart/form-data';
-    case NONE = 'none';
-
-    public static function fromString(string $contentType): RequestContentType;
-}
-```
-
-A string-backed enum, in the `Interfaces` namespace despite being an enum. `fromString()`
-lower-cases its argument, cuts it at the first `;` and then at the first `,`, and matches
-the remainder against the six media types exactly. Anything unrecognised - including an
-empty string - is `NONE`.
-
-Cutting at `;` is what strips `charset=utf-8` and `boundary=...`. Cutting at `,` is what
-makes a full `Accept` header usable: `application/json, text/plain, */*` is reduced to its
-first entry, and no quality values are considered. It is first-listed-wins, not
-highest-q-wins.
-
-## How the content type is chosen
-
-Negotiation happens once, in `Router::populatePostFromJson()`, the first statement of
-`Router::init()`:
-
-```php
-<?php
-
-$contentType = (isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '');
-$acceptType = (isset($_SERVER["HTTP_ACCEPT"]) ? trim($_SERVER["HTTP_ACCEPT"]) : '');
-
-self::$request_content_type = RequestContentType::fromString(
-    empty($contentType) ? $acceptType : $contentType
-);
-```
-
-So the request's own `Content-Type` decides, and `Accept` is consulted only when there is
-no `Content-Type` at all. A browser GET has no `Content-Type` and an `Accept` header
-starting with `text/html`, and lands on `HTML`; a client that posts json gets `JSON` from
-its `Content-Type` whatever it says it accepts.
-
-That is the whole negotiation. The result is stored on `Router::$request_content_type`, and
-the only thing it is ever read for is to feed
-`ErrorMessage::outputTypeFromRequestType()` - from the two catch blocks in `init()` and
-from `Router::error()`. It decides the format of *error responses*, not of successful ones.
-A controller returning an array always
-sends json; a controller returning a string always sends what it printed.
-
-| `RequestContentType` | Error output type |
-| -------------------- | ----------------- |
-| `JSON`               | `json`            |
-| `XML`                | `xml`             |
-| `TEXT`               | `plain`           |
-| `HTML`               | `html`            |
-| `FORM`               | `html`            |
-| `MULTIPART`          | `html`            |
-| `NONE`               | `html`            |
-
-## Json bodies in $_POST
-
-The second half of `populatePostFromJson()` reads `php://input`, `json_decode()`s it and
-copies each top-level key into `$_POST` - but only when the request's `Content-Type` is
-exactly `application/json`, compared against `RequestContentType::JSON->value` as a raw
-string. A `Content-Type` carrying a charset parameter does not match this comparison, even
-though `fromString()` would have normalised it for the negotiation above.
-
-A malformed body is ignored silently: the copy happens only if `json_last_error()` is
-`JSON_ERROR_NONE` and the decoded value is an array.
-
-The check is deliberately against `Content-Type` and never `Accept`. `application/json` is
-not a CORS-safelisted content type, so a cross-origin request carrying a json body has to
-pass a preflight first; `Accept` is safelisted, so honouring it here would let any site
-post json into `$_POST`.
+`$_SERVER['CONTENT_TYPE']` is set only when there is post data, which is what keeps the
+framework's content type negotiation sensible under cli: a GET has no content type, so the
+negotiation falls through to `NONE` and errors come out as html. That negotiation is a
+router concern rather than one of this class - see
+[the router](/staticphp-core/core/router/).

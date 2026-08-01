@@ -108,29 +108,12 @@ it is included.
 
 ## What the bootstrap does
 
-Requiring `Bootstrap::FILE` runs the following, in order:
+Requiring `Bootstrap::FILE` runs ten steps: the path constants, the cli superglobals, the
+application's configuration, the error handlers, the view engine, and finally
+`Router::init()`, which parses the url and calls a controller. Each one is listed with the
+ordering constraint that puts it where it is in
+[the boot sequence](/staticphp-core/core/bootstrap/).
 
-1. Records `$microtime` at global scope, for `Timers`.
-2. Requires `Autoload.php` - the path constants and the application autoloader above.
-3. Calls `Request::populateFromCli()`, which builds the request superglobals from `argv`
-   when running under cli. It has to happen before the configuration below, which binds
-   references into `$_SERVER`.
-4. Loads `Config` and `Routing` from the application: `Config::load(['Config', 'Routing'])`
-   reads `APP_PATH/Config/Config.php` and `APP_PATH/Config/Routing.php`.
-5. Sets `now`, `date_time` and `debug` in the configuration. Debug is on when
-   `$config['debug']` is true or when `$config['client_ip']` is listed in
-   `$config['debug_ips']`; `error_reporting` and `display_errors` follow from it.
-6. Loads every config file named in `$config['autoload_configs']`.
-7. Registers the error and exception handlers, `sp_error_handler` and
-   `sp_exception_handler`.
-8. Builds the twig environment, unless `$config['disable_twig']` is true or the library is
-   not installed. The loader looks in `APP_MODULES_PATH`, `APP_PATH` and
-   `SP_PATH . '/Core/Views'`; templates are cached in `APP_PATH . '/Cache/Views/'` unless
-   debug is on. A `siteUrl` filter and `siteUrl`, `startTimer`, `stopTimer`, `markTime` and
-   `debugOutput` functions are registered, along with the CSRF helpers.
-9. Loads every helper named in `$config['autoload_helpers']`.
-10. Calls `Router::init()`, which parses the url, finds a controller and calls it.
-
-Steps 4 to 9 are configuration; step 10 is the request. Both are covered next:
+The rest of this section covers the two parts of it you write yourself:
 [configuration](/staticphp-core/getting-started/configuration/) and
 [your first route](/staticphp-core/getting-started/first-route/).

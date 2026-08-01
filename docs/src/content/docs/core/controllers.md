@@ -10,8 +10,9 @@ it. Nothing is registered and nothing is instantiated - the router resolves a cl
 from the url, builds a `\ReflectionClass` and invokes the method statically.
 
 Extending `StaticPHP\Core\Controllers\Controller` is optional. It buys a `construct()` hook
-that publishes the current urls to the view data, and four helper methods. A class that
-extends nothing works exactly the same way as far as the router is concerned.
+that publishes the current urls to the view data, and five helper methods - `moduleUrl()`,
+`controllerUrl()`, `methodUrl()`, `render()` and `write()`. A class that extends nothing
+works exactly the same way as far as the router is concerned.
 
 ```php
 <?php
@@ -72,9 +73,12 @@ For every request that resolves to a controller, the router calls, in order:
 Both hooks are called only if the class has them. `construct()` is invoked with `$class`
 and `$method` as references, and the method to dispatch is resolved *after* it returns - so
 a `construct()` that declares `?string &$method` and reassigns it redirects the call to a
-different method on the same class. The inherited `Controller::construct()` declares both
-by value and does not do this. What it changes is the router's local copy, not
-`Router::$method`, so the view data and the url properties still name the original.
+different method on the same class.
+
+A `construct()` that does reassign it changes only the router's local copy, not
+`Router::$method`, so the view data and the url properties still name the method the url
+asked for. The inherited `Controller::construct()` declares both parameters by value and
+never reassigns them, so none of this applies unless you write your own.
 
 The two return values are combined before anything is printed: `null` yields to the other,
 two arrays are merged with `array_merge()`, and anything else is concatenated as a string.

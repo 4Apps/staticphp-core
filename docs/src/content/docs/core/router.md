@@ -45,12 +45,13 @@ which is not always what the name suggests.
 | `$module_url`           | `$module` in url form - `my-module`.                                                                     |
 | `$controller_url`       | Url path to the controller, no leading slash - `site/admin/home`.                                        |
 | `$method_url`           | Url path to the method - `site/admin/home/order-history`.                                                |
-| `$request_content_type` | A `RequestContentType`, negotiated at the top of `init()`. See [Request](/staticphp-core/core/request/). |
+| `$request_content_type` | A `RequestContentType`, negotiated at the top of `init()` - see below.                                  |
 
 `$module_url`, `$controller_url` and `$method_url` are relative paths, not absolute urls.
 `Controller::moduleUrl()` and its siblings are what run them through `siteUrl()`.
 
-`Router::debug()` prints all of the above with `print_r()`, in that order.
+`Router::debug()` prints most of the above with `print_r()`, in that order - it covers
+everything except `$default_route` and `$request_content_type`.
 
 ### What `$initial_segments` is not
 
@@ -108,6 +109,88 @@ the client. It is then passed to `sp_log_error()` and `sp_send_error_email()` if
 
 Note that `outputMessage()` prints; `init()` returns normally afterwards, and neither catch
 block calls `exit`.
+
+### Content type negotiation
+
+`populatePostFromJson()` is the first thing `init()` calls, and its first job is not the
+json body its name refers to - it is deciding what format this request is in:
+
+```php
+<?php
+
+$contentType = (isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '');
+$acceptType = (isset($_SERVER["HTTP_ACCEPT"]) ? trim($_SERVER["HTTP_ACCEPT"]) : '');
+
+self::$request_content_type = RequestContentType::fromString(
+    empty($contentType) ? $acceptType : $contentType
+);
+```
+
+The request's own `Content-Type` decides, and `Accept` is consulted only when there is no
+`Content-Type` at all. A browser GET has no `Content-Type` and an `Accept` header starting
+with `text/html`, so it lands on `HTML`; a client that posts json gets `JSON` from its
+`Content-Type` whatever it says it accepts.
+
+`StaticPHP\Core\Interfaces\RequestContentType` is the string-backed enum holding the
+result - in the `Interfaces` namespace despite being an enum:
+
+```php
+<?php
+
+enum RequestContentType: string
+{
+    case JSON = 'application/json';
+    case XML = 'application/xml';
+    case TEXT = 'text/plain';
+    case HTML = 'text/html';
+    case FORM = 'application/x-www-form-urlencoded';
+    case MULTIPART = 'multipart/form-data';
+    case NONE = 'none';
+
+    public static function fromString(string $contentType): RequestContentType;
+}
+```
+
+`fromString()` lower-cases its argument, cuts it at the first `;` and then at the first `,`,
+and matches the remainder against the six media types exactly. Anything unrecognised -
+including an empty string - is `NONE`.
+
+Cutting at `;` is what strips `charset=utf-8` and `boundary=...`. Cutting at `,` is what
+makes a full `Accept` header usable: `application/json, text/plain, */*` is reduced to its
+first entry. No quality values are considered - it is first-listed-wins, not
+highest-q-wins.
+
+That is the whole negotiation, and the only thing the result is ever read for is to feed
+`ErrorMessage::outputTypeFromRequestType()`, from the two catch blocks above and from
+`Router::error()`. It decides the format of *error responses*, not of successful ones: a
+controller returning an array always sends json, and a controller returning a string always
+sends what it printed.
+
+| `RequestContentType` | Error output type |
+| -------------------- | ----------------- |
+| `JSON`               | `json`            |
+| `XML`                | `xml`             |
+| `TEXT`               | `plain`           |
+| `HTML`               | `html`            |
+| `FORM`               | `html`            |
+| `MULTIPART`          | `html`            |
+| `NONE`               | `html`            |
+
+### Json bodies in $_POST
+
+The second half of `populatePostFromJson()` reads `php://input`, `json_decode()`s it and
+copies each top-level key into `$_POST` - but only when the request's `Content-Type` is
+exactly `application/json`, compared against `RequestContentType::JSON->value` as a raw
+string. A `Content-Type` carrying a charset parameter does not match this comparison, even
+though `fromString()` would have normalised it for the negotiation above.
+
+A malformed body is ignored silently: the copy happens only if `json_last_error()` is
+`JSON_ERROR_NONE` and the decoded value is an array.
+
+The check is deliberately against `Content-Type` and never `Accept`. `application/json` is
+not a CORS-safelisted content type, so a cross-origin request carrying a json body has to
+pass a preflight first; `Accept` is safelisted, so honouring it here would let any site post
+json into `$_POST`.
 
 ## splitSegments()
 
