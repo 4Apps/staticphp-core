@@ -20,10 +20,12 @@ not a class and there is nothing to instantiate.
 }
 ```
 
-`README.md` makes a point of composer's `files` autoload being eager - twig plus the symfony
-polyfills it pulls in load eight files on every request whether or not a template is ever
-rendered - and this package declines to add to that. Nothing in `src/` requires the helpers
-file either, so on a stock installation none of these functions exist.
+`README.md` makes a point of composer's `files` autoload being eager - every entry is
+required before any application code runs, and twig plus the symfony polyfills it pulls in
+account for
+[seven entries, nine php files at runtime](/staticphp-core/guides/without-twig/#eager-means-before-any-of-your-code-runs) -
+and this package declines to add to that. Nothing in `src/` requires the helpers file
+either, so on a stock installation none of these functions exist.
 
 Load it explicitly through
 [`Load::helper()`](/staticphp-core/core/load/#loading-files), naming the module and the

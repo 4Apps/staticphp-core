@@ -90,6 +90,59 @@ with twig it is a template name resolved by the loader, which searches
 value, so an array literal is fine there; `Load::view()` itself declares `$data` by
 reference, so a call straight to it has to pass a variable.
 
+## The view
+
+That file has to exist. `render()` names it but does not create it, and a route whose view
+is missing is a 500 rather than an empty page - a `Twig\Error\LoaderError` when twig is
+installed, a fatal `require` when it is not. Write
+`APP_MODULES_PATH/Site/Views/home.php`:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></title>
+</head>
+<body>
+    <h1><?= htmlspecialchars($title, ENT_QUOTES, 'UTF-8') ?></h1>
+    <p>Served by <?= htmlspecialchars($module_url, ENT_QUOTES, 'UTF-8') ?></p>
+</body>
+</html>
+```
+
+`$title` is the key the controller put in `$data`. `$module_url` comes for free: extending
+`Controller` runs `construct()`, which publishes `current_url`, `module_url`,
+`controller_url`, `method_url`, `module`, `controller`, `class` and `method` into
+`Config::$items['view_data']`, and `Load::view()` merges that into every view's data. There
+is no automatic escaping on this path, which is why the two values above are escaped by
+hand.
+
+Requesting `/` now serves:
+
+```html
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <title>Home</title>
+</head>
+<body>
+    <h1>Home</h1>
+    <p>Served by http://localhost/site</p>
+</body>
+</html>
+```
+
+:::caution[The file extension does not decide the renderer]
+`Load::view()` looks at `$config['view_engine']`, not at the file name. With twig installed
+and `disable_twig` unset, `home.php` is handed to twig, which treats `<?= ... ?>` as literal
+text and prints it. Write the file as a twig template in that case - `{{ title }}` rather
+than `<?= $title ?>` - or set `$config['disable_twig'] = true`. The plain php path above is
+what a stock `composer require 4apps/staticphp-core` gives you, since
+[twig is a suggestion rather than a requirement](/staticphp-core/getting-started/installation/#twig-is-a-suggestion-not-a-requirement).
+:::
+
 ## What the url maps to
 
 The first segment is the module, the following segments locate the controller file, and
@@ -179,5 +232,23 @@ $config['error_pages'] = [
 ];
 ```
 
-The router has more to it than this - prefixes, url helpers, the `before_controller` hook
-and `__callStatic` dispatch. See [the router](/staticphp-core/core/router/).
+## Next
+
+That is a working application: a front controller, a configuration, a route, a controller
+and a view. Everything after this is reference, and the Core section is where it starts:
+
+-   [The boot sequence](/staticphp-core/core/bootstrap/) - the ten steps `Bootstrap::FILE`
+    runs, and the ordering constraint behind each.
+-   [The router](/staticphp-core/core/router/) - prefixes, url helpers, content type
+    negotiation and the `before_controller` hook.
+-   [Controllers](/staticphp-core/core/controllers/) - the `construct()` and `destruct()`
+    hooks, and `__callStatic` dispatch for urls no method matches.
+-   [Load](/staticphp-core/core/load/) - how views, configs and helpers resolve to files,
+    and what a view is and is not allowed to see.
+-   [Errors](/staticphp-core/core/errors/) - the exception hierarchy behind the 404 above,
+    and what gets logged, emailed or shown.
+
+Beyond Core: [the database layer](/staticphp-core/database/db/),
+[internationalisation](/staticphp-core/i18n/overview/),
+[the utilities](/staticphp-core/utilities/cache/) and
+[the table subsystem](/staticphp-core/presentation/tables/).

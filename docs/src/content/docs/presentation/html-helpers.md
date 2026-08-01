@@ -239,6 +239,10 @@ The scalar comparison is `==`. PHP 8 made that much safer for strings - `0 == 'a
 false now - but two numeric strings are still compared numerically, so an id of `'1'`
 matches an option keyed `'01'`, and `null` still equals `''`.
 
+See also [`Fv::setSelected()` and
+`Fv::setChecked()`](/staticphp-core/utilities/validation/#form-helpers), which answer the
+same question against the submitted request rather than against a variable you pass in.
+
 ## Against the table generator
 
 [`Output\Html`](/staticphp-core/presentation/output-html/) does not use any of these

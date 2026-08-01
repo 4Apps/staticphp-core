@@ -5,9 +5,9 @@ sidebar:
     order: 3
 ---
 
-`Filters` owns one url segment and turns it into an array of filter values. It does not
-build queries and it does not render inputs - the SQL layer reads its output to make a
-`WHERE` clause, and the HTML output reads it to prefill the filter row.
+`Filters` takes one string off the request and turns it into an array of filter values. It
+does not build queries and it does not render inputs - the SQL layer reads its output to
+make a `WHERE` clause, and the HTML output reads it to prefill the filter row.
 
 ## The interface
 
@@ -57,6 +57,44 @@ It is parsed by `Table::parseQueryString($filterData, ';')`, which urldecodes bo
 each pair, so a value containing a semicolon has to arrive as `%3B`. Pairs with no `=` are
 dropped. Keys that do not match a column id are kept in the parsed array but ignored by
 everything downstream.
+
+### It cannot arrive as a url segment
+
+:::caution[The router rejects a segment containing `=`]
+Every url segment has to match
+[`Router::isSafeSegment()`](/staticphp-core/core/router/#safety-helpers) -
+`/^[a-zA-Z][a-zA-Z0-9_-]*$/` - because the same segments become a file path and a class
+name. A filter string does not. `/admin/users/index/name=an/name=asc/1` returns 404 before
+the controller is loaded, and percent-encoding does not help: segments are `rawurldecode()`d
+before the check, so `name%3Dan` fails identically. A purely numeric page segment fails the
+same test.
+
+Bring the string in on the query string instead, and pass it to
+[`Table::initData()`](/staticphp-core/presentation/tables/#assembling-a-table) yourself.
+:::
+
+That is only half the problem, because `initData()` also builds the urls the output
+generator links to, and it builds them by concatenating the filter and sort strings into a
+path:
+
+```php
+<?php
+
+$this->filter = new Filters($this, "{$this->urlPrefix}%filter/{$sortData}", $filterData);
+$this->sort = new Sort($this, "{$this->urlPrefix}{$filterData}/%sort", $sortData);
+$this->pagination = new Pagination($this, "{$this->urlPrefix}{$filterData}/{$sortData}/%pagination", $page);
+```
+
+So a table given a `$urlPrefix` of `/admin/users/index` emits sort links the router will
+404 on. `Filters::setUrl()` and `Sort::setUrl()` can re-point two of the three afterwards;
+`Pagination` has no `setUrl()` at all, so the only lever that reaches all three is
+`$urlPrefix` itself.
+
+The shape that works is a `$urlPrefix` ending in a query parameter, which turns the three
+concatenated fragments into that parameter's value rather than into path segments. The
+worked example is on
+[tables](/staticphp-core/presentation/tables/#from-script-to-controller). Until the
+component learns to build query strings of its own, that is the way in.
 
 ## Parsing
 

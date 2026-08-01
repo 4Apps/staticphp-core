@@ -108,10 +108,11 @@ it is included.
 
 ## What the bootstrap does
 
-Requiring `Bootstrap::FILE` runs ten steps: the path constants, the cli superglobals, the
-application's configuration, the error handlers, the view engine, and finally
-`Router::init()`, which parses the url and calls a controller. Each one is listed with the
-ordering constraint that puts it where it is in
+Requiring `Bootstrap::FILE` runs ten steps, in this order: the boot timestamp, the path
+constants and the application autoloader, the cli superglobals, `Config.php` and
+`Routing.php`, the debug decision, the extra config files, the error handlers, the view
+engine, the extra helpers, and finally `Router::init()`, which parses the url and calls a
+controller. Each one is listed with the ordering constraint that puts it where it is in
 [the boot sequence](/staticphp-core/core/bootstrap/).
 
 The rest of this section covers the two parts of it you write yourself:

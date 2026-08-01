@@ -54,37 +54,11 @@ to describe the url they were asked to serve, and the configuration has to follo
 
 ## Reading and writing
 
-Everything is static. The full public surface of `Config`:
-
-```php
-<?php
-
-public static array $items = [];
-
-public static function &get(string $name, mixed $default = null): mixed;
-public static function set(string $name, mixed $value): void;
-
-public static function &getViewData(string $name, mixed $default = null): mixed;
-public static function setViewData(string|array $name, mixed $value = null): void;
-
-public static function merge(string $name, mixed $value, bool $owerwrite = true): mixed;
-public static function load(array $files, ?string $module = null, ?string $project = null): void;
-```
-
-Some details worth knowing before you rely on them:
-
--   `get()` returns by reference, and decides with `isset()`. A key whose value is `null`
-    is therefore indistinguishable from a missing key: both return `$default`.
--   `getViewData()` and `setViewData()` read and write `Config::$items['view_data']`, which
-    is the array merged into the data of every rendered view. `setViewData()` also accepts
-    an array, in which case it sets each key and ignores `$value`.
--   `merge()` behaves by the type of what is already stored: arrays are merged with
-    `array_merge()`, or with `+` when `$owerwrite` is false; objects are cast to arrays,
-    merged and cast back; integers and floats are added; anything else is concatenated as a
-    string. The parameter really is spelled `$owerwrite`, which matters if you pass it by
-    name.
--   Nested keys have no special support. `$config['db']['pdo']['default']` is a plain
-    nested array reached as `Config::get('db')['pdo']['default']`.
+Everything on `Config` is static, and `Config::$items` is public. `get()`, `set()`,
+`getViewData()`, `setViewData()`, `merge()` and `load()` are the whole surface; the
+behaviour that catches people out - `get()` deciding with `isset()` and returning by
+reference, `merge()` branching on the stored value's type, the `$owerwrite` spelling, and
+the absence of any dot-path support - is on [the Config API](/staticphp-core/core/config/).
 
 ## Loading more config files
 
@@ -104,11 +78,10 @@ Config::load(['Rates'], 'Billing');
 Config::load(['Db'], 'Utils', 'staticphp');
 ```
 
-Any other project name must be a key of `$config['module_paths']`, which maps a name to a
-directory holding modules; an unknown name throws an `InvalidArgumentException`, and so
-does naming a project without a module, because module paths point at a directory of
-modules rather than at a file. A file name may also carry its own project as a string key,
-so `Config::load(['Db' => 'staticphp'], 'Utils')` is the same call as the third one above.
+`Config::load()` is a thin wrapper over `Load::config()`, so the rules for resolving a
+module and a project to a directory - including what any name other than `staticphp` has to
+be, and the per-file `['Db' => 'staticphp']` form - are
+[`Load`'s](/staticphp-core/core/load/#how-a-name-resolves-to-a-path).
 
 Instead of calling `load()` by hand, list the files in `$config['autoload_configs']` and
 the bootstrap loads them for you, after `debug` has been worked out and before the error
@@ -178,7 +151,7 @@ Beyond the subsystem sections above, these are the keys the package itself looks
 | `error_pages`                                 | `ErrorPage`, to override the status and debug templates     |
 | `view_env_keys`                               | `Load`, the only `$_ENV` keys exposed to templates          |
 | `view_data`                                   | `Load::view()`, merged into every view's data               |
-| `logging.log_level`, `logging.report_level`   | the error handlers, to decide what is logged and emailed    |
+| `logging.display_level`, `logging.log_level`, `logging.report_level` | the error handlers, to decide what is shown, logged and emailed |
 | `environment`                                 | the debug error page, shown in the runtime summary          |
 
 The bootstrap writes `now`, `date_time`, `debug`, and - when twig is in use - `view_engine`

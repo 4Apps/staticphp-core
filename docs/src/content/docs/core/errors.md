@@ -121,7 +121,7 @@ public static function httpStatusCodeToMessage(int $httpStatusCode);
 `outputTypeFromRequestType()` maps the negotiated request content type onto one of the four
 output types - json to json, xml to xml, text to plain, and everything else including
 `NONE` to html. It does not accept `null`. See
-[content type negotiation](/staticphp-core/core/router/).
+[content type negotiation](/staticphp-core/core/router/#content-type-negotiation).
 
 `httpStatusCodeToMessage()` is a switch over the common 2xx, 3xx, 4xx and 5xx codes
 returning the reason phrase, and `'Unknown Status Code'` for anything not listed. Note that

@@ -183,13 +183,12 @@ All five pass only `$sessionName` and `$backupHandler` up to `parent::__construc
 bare `new Sessions(...)` accepts them.
 :::
 
-:::note[Four of these five were not exercised]
-The container used to check this page has none of apcu, memcached, redis or mongodb, so the
-four sections below are read from source rather than observed - the only thing actually run
-against them is the constructor failure above. Statements about what a store then does with
-what it was handed - that redis records expire on their own, that libketama hashes keys
-consistently across a memcached server list - are the documented meaning of the call the
-class makes, not a behaviour seen here.
+:::note[Four of these five are described rather than exercised]
+The four sections below are described from the source and from the client libraries'
+documented behaviour; the only thing shown as run against them is the constructor failure
+above. A claim about what a store then does with what it was handed - that redis records
+expire on their own, that libketama hashes keys consistently across a memcached server list -
+is the documented meaning of the call the class makes rather than a result seen here.
 
 The Postgres section is different: its shipped schema and its garbage collection statement
 were run against a real postgres, and that capture is shown. The handler driving through

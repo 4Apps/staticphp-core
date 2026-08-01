@@ -1,6 +1,6 @@
 ---
 title: Bootstrap
-description: The ten steps requiring the framework bootstrap runs, and why each sits where it does.
+description: The ten steps the framework bootstrap runs, and why each sits where it does.
 sidebar:
     order: 1
 ---

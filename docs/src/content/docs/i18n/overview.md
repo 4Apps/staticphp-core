@@ -17,19 +17,21 @@ written as, with a marker on it, rather than as an identifier.
 ## The three moving parts
 
 ```text
-Accept-Language / url prefix
+url prefix       ->  Locales::byPrefix()   tried first, and wins outright
+Accept-Language  ->  Negotiator            consulted only when there is no prefix
         |
-   Negotiator + Locales  ->  Locale        one country and language pairing
+      Locale                               one country and language pairing
         |
       Catalog  ->  Store   ->  database    the string table for that locale
         |
     Formatter  ->  ICU                     plurals, numbers, dates
 ```
 
-1. **Negotiation picks a locale.** `Locales` holds every configured country and language
-   pairing; `Negotiator` reads `Accept-Language` when the url carries no language prefix of
-   its own. The result is one immutable `Locale`. See
-   [locales and negotiation](/staticphp-core/i18n/locales/).
+1. **Resolution picks a locale.** `Locales` holds every configured country and language
+   pairing and answers `byPrefix()` for the prefixes the router stripped. `Negotiator` never
+   sees the url: it reads `Accept-Language`, and only on a request that carried no prefix of
+   its own. Either way the result is one immutable `Locale`. See
+   [locales and negotiation](/staticphp-core/i18n/locales/#negotiation-precedence).
 2. **The store loads a catalog.** `Store` is every database call the layer makes; `Catalog`
    is the warmed string table for one language, memoised per request and cached between
    them. See [catalogs](/staticphp-core/i18n/catalogs/).
@@ -50,7 +52,7 @@ each key is explained here on the page for the part that reads it.
 | `available`            | `Locales::fromConfig()` - countries, languages, optional `locale` override |
 | `url_format`           | `Locales::prefix()` - `{{country}}` and `{{language}}` |
 | `redirect`             | `i18n::init()`, on a request with no prefix    |
-| `negotiate`            | `i18n::init()`, to pick the redirect target    |
+| `negotiate`            | `i18n::init()`, to pick the locale when the url carries no prefix |
 | `fallback`             | `i18n::translate()` and `i18n::format()`       |
 | `auto_register`        | key registration on first sight                |
 | `missing_suffix`       | the marker appended to an untranslated string  |
@@ -64,6 +66,28 @@ pairing and **prepends** them to `$config['url_prefixes']`, so `/lv-en/some/page
 recognised by the router as a prefix instead of as the first controller segment.
 
 ## Starting it
+
+The tables come first. `i18n_keys`, `i18n_translations` and `i18n_cached` are where every
+string lives, and nothing creates them for you:
+
+```bash
+./staticphp i18n install
+./staticphp migrate apply
+```
+
+`i18n install` copies the schema for the configured driver into the migrations directory as
+a migration and prints where it put it; `migrate apply` runs it. Both are covered under
+[extracting strings](/staticphp-core/i18n/extracting-strings/#install) and
+[the migrations cli](/staticphp-core/database/migrations-cli/#apply).
+
+:::caution[A missing schema does not announce itself]
+Outside strict mode `Store::guard()` treats "no such table" like any other database failure:
+it sets the degraded flag, writes one line to `error_log()` and returns a neutral value. The
+request keeps serving, and every string on the page renders as `Log in*` for as long as the
+tables are absent. See [degrading](/staticphp-core/i18n/catalogs/#degrading).
+:::
+
+Then, per request:
 
 ```php
 <?php

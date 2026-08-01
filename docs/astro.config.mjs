@@ -26,6 +26,20 @@ export default defineConfig({
                 baseUrl: 'https://github.com/gintsmurans/staticphp-core/edit/master/docs/',
             },
 
+            // Starlight emits twitter:card=summary_large_image unconditionally, so a site
+            // with no og:image advertises a card it cannot fill. Both files live in
+            // public/ and are copied verbatim; the url has to be absolute for a scraper.
+            head: [
+                {
+                    tag: 'meta',
+                    attrs: { property: 'og:image', content: 'https://gintsmurans.github.io/staticphp-core/og.png' },
+                },
+                {
+                    tag: 'meta',
+                    attrs: { name: 'twitter:image', content: 'https://gintsmurans.github.io/staticphp-core/og.png' },
+                },
+            ],
+
             // Fontsource ships the @font-face rules and the woff2 files as packages, which
             // keeps the fonts self-hosted without a build step or a third-party CDN call.
             customCss: [

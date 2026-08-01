@@ -224,7 +224,9 @@ public static function escape($value): string
 `ENT_QUOTES` covers both quote characters, so the result is safe in a double- or
 single-quoted attribute as well as in text. `ENT_SUBSTITUTE` replaces invalid UTF-8 rather
 than returning an empty string, which is the failure mode that turns a mis-encoded byte into
-a silently blank cell. Arrays and objects become the empty string; `null` becomes `''` and
+a silently blank cell. Outside a table,
+[`html_escape()`](/staticphp-core/presentation/html-helpers/#escaping) is the free function
+with the same flags. Arrays and objects become the empty string; `null` becomes `''` and
 `true` becomes `'1'`:
 
 ```text
@@ -253,7 +255,8 @@ escaped what they interpolated and escaping again would show the tags. Everythin
 raw data and gets escaped unless the column opted out with
 [`$escapeDataHtml: false`](/staticphp-core/presentation/columns/#presentation).
 
-Several things are **not** escaped, by design, and must not carry user input:
+Several things are **not** escaped, and must not carry user input. These are the ones the
+application controls:
 
 - `Column::$description`, spliced into the header `title="..."` attribute.
 - `Column::$sortLinkAttribute`, spliced into the `<a>` tag.
@@ -262,6 +265,26 @@ Several things are **not** escaped, by design, and must not carry user input:
   class fragments.
 - `Column::$dataColumnPrefix` and `$dataColumnAddon`.
 - The `$title` argument of `htmlDataRow()`, written into `title="..."`.
+
+Two more carry **request** data, which is the difference that matters when auditing a table:
+
+- **The sort link `href`.** `sortLinkHtml()` writes `'<a href="' . $url . '" '` with no
+  escaping at all. `$url` is `Sort::url()` with `%sort` substituted, and `Sort::url()` is
+  the string `initData()` built as `"{$urlPrefix}{$filterData}/%sort"` - so the filter
+  string the request supplied is interpolated into an attribute verbatim. A filter value
+  holding a `"` closes the attribute.
+
+- **The filter input value.** `filterInputValue()` writes
+  `' value="' . str_replace('"', '&quot;', $parsedData[$field]['title']) . '"'`, and the
+  same for `data-value=`.
+
+:::caution[`filterInputValue()` is narrower than `Html::escape()`]
+That `str_replace()` handles the double quote and nothing else. `<`, `>`, `&` and `'` all
+pass through unchanged, so the value is safe in a double-quoted attribute and in nothing
+else - not in a single-quoted one, and not if the surrounding markup is ever reparsed. It is
+not the `htmlspecialchars(ENT_QUOTES | ENT_SUBSTITUTE)` documented above, despite sitting in
+the same class and filling in a value that came straight off the url.
+:::
 
 ## The header row
 

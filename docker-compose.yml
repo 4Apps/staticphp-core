@@ -38,6 +38,13 @@ services:
         image: node:22-slim
         container_name: staticphp_core_docs
         restart: "no"
+        # node:22-slim runs as root, and docs/ is a bind mount, so npm install would leave a
+        # root-owned node_modules on the host. Same fix as develop's LOCAL_USER_ID, applied
+        # at run time because this image is not built here. HOME follows, or npm writes its
+        # cache to /root.
+        user: "${LOCAL_USER_ID:-1000}:${LOCAL_GROUP_ID:-1000}"
+        environment:
+            - HOME=/tmp
         working_dir: /srv/docs
         volumes:
             - ./docs:/srv/docs:cached

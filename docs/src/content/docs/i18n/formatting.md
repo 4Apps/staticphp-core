@@ -154,10 +154,12 @@ nonsense   <b> "q" (a) & ā/b
 
 The js mode produces a correctly escaped **body** for a quoted literal - `json_encode`
 produces a complete javascript string literal, quotes included, and trimming them leaves the
-body. The four `JSON_HEX_*` flags are why `<`, `>`, `&` and `"` come back hex escaped as
-`\u003C`, `\u003E`, `\u0026` and `\u0022` rather than passing through: none of them can then
-close the literal or the surrounding `<script>` block. `JSON_UNESCAPED_UNICODE` is why `ā`
-survives as itself, and the forward slash is escaped as `\/`. A `</script>` in a translation
+body. The four `JSON_HEX_*` flags are why `<`, `>`, `&`, `'` and `"` come back hex escaped as
+`\u003C`, `\u003E`, `\u0026`, `\u0027` and `\u0022` rather than passing through - `JSON_HEX_TAG`
+covers two of the five - so none of them can close the literal or the surrounding `<script>`
+block. `JSON_UNESCAPED_UNICODE` is why `ā` survives as itself. The forward slash is escaped as
+`\/` for a different reason: `JSON_UNESCAPED_SLASHES` is *not* passed, and escaping it is
+`json_encode()`'s default. A `</script>` in a translation
 comes out as `\u003C\/script\u003E`, which is what makes
 the result safe to drop inside a `<script>` block.
 

@@ -313,8 +313,9 @@ stripping pass that ran once so that `<scr<script>ipt>` reassembled into a worki
 the approach is still weaker than the alternatives.
 
 The deprecation note points elsewhere for both jobs. To render untrusted text, escape it:
-twig does that by default, and `html_escape()` from `src/Presentation/Helpers/Html.php` does
-it in php. To allow a subset of markup, use a parser-based, allowlist sanitizer such as
+twig does that by default, and
+[`html_escape()`](/staticphp-core/presentation/html-helpers/#escaping) from
+`src/Presentation/Helpers/Html.php` does it in php. To allow a subset of markup, use a parser-based, allowlist sanitizer such as
 `symfony/html-sanitizer`.
 
 ## Record helpers
@@ -388,6 +389,10 @@ setValue('colour')             => 'red'
 
 `$name` is a string, or an array of keys that walks into nested input:
 `setInputValue(['tags', 0])` reads `$post['tags'][0]`, which is what `name="tags[]"` sends.
+
+See also [`html_set_selected()` and
+`html_set_checked()`](/staticphp-core/presentation/html-helpers/#attribute-helpers), which
+do the same job for a value you already hold rather than for one read out of `$_POST`.
 
 :::caution[A falsy value is treated as a missing field]
 All four guard with `if (($field = $this->getField($name)) == false)` - a loose comparison,

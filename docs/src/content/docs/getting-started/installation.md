@@ -58,9 +58,13 @@ on the pages that describe them:
 ## Twig is a suggestion, not a requirement
 
 Twig 3.0 or newer is listed under `suggest`, not `require`. Composer's `files` autoload is
-eager: twig plus the symfony polyfills it pulls in load eight files on every request
-whether or not a template is ever rendered. Leaving the library out of an api-only
-application's dependencies is what removes that cost - lazy class loading alone would not.
+eager: twig plus the symfony polyfills it pulls in contribute seven `files` entries, which
+come to nine php files at runtime, and every one of them is required on every request
+whether or not a template is ever rendered. The measurement is on
+[running without Twig](/staticphp-core/guides/without-twig/#eager-means-before-any-of-your-code-runs);
+the `suggest` text in `composer.json` still says eight and is out of date. Leaving the
+library out of an api-only application's dependencies is what removes that cost - lazy
+class loading alone would not.
 
 If the application renders templates, require it explicitly:
 
@@ -89,6 +93,11 @@ application tree by hand.
 In the repository, `master` is the latest released code, `develop` is where development
 happens and where pull requests are based, and tags are releases. `CONTRIBUTING.md` covers
 the docker workflow and what CI enforces; `CHANGELOG.md` is the release history.
+
+2.0 is the release that turned the framework into this package, and it is breaking
+throughout. An application on 1.x has a list to work through before `composer require` is
+even the right command - see
+[upgrading to 2.0](/staticphp-core/guides/upgrading/).
 
 ## Next
 

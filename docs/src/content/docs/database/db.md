@@ -114,6 +114,11 @@ foreach (Db::query('SELECT * FROM posts') as $post) {
 `null`. The row shape follows `fetch_mode_objects`: an associative array by default, a
 `stdClass` when the connection sets it.
 
+Neither shape is a framework type, and nothing here wraps one.
+[`RecordObject`](/staticphp-core/database/record-object/) will wrap a row so it can be read
+as an object, an array and an iterator at once, and encoded to json directly - but the
+application has to construct it from what `fetch()` handed back.
+
 ## Parameter binding
 
 This is the part worth reading closely. Some of what you pass is bound as a parameter and

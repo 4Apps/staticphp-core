@@ -350,7 +350,7 @@ If no controller file was resolved, the failure is split by whether anything was
 at all: an empty `$requested_url` means the *default* controller is missing, which is a
 `RouterException` and a 500; anything else is a `NotFound`.
 
-## Url helpers
+## url helpers
 
 ```php
 <?php
@@ -384,6 +384,14 @@ literal. `$site_uri` decides whether the url goes through `siteUrl()` first.
 
 `segment()` is the error-proof form of `Router::$segments[$index]`, returning `null` for a
 missing *or empty* index.
+
+Two things build on these. [`Menu`](/staticphp-core/presentation/menus/) rewrites the
+`%base_url`, `%module_url`, `%module` and `%controller` placeholders in a menu item's url
+from `Router::$base_url`, `Router::$module`, `Router::$controller` and
+`Controller::moduleUrl()` - which is itself `siteUrl(Router::$module_url)` - so a menu built
+before the router has dispatched comes out with those parts empty.
+[`Url`](/staticphp-core/utilities/url/) is the other direction: three string helpers for
+joining path fragments, with no knowledge of the request at all.
 
 ## String helpers
 
@@ -441,7 +449,9 @@ keeps existing installs working, but does not stop a client poisoning the `base_
 ends up in redirects, emails and cached pages. Set the list.
 
 `isRoutableMethod()` requires public *and* static, and excludes `construct`, `destruct`,
-`__construct`, `__destruct` and `__callstatic` case-insensitively. Reflection has been able
+`__construct`, `__destruct` and `__callStatic` - the comparison is `strtolower()`ed on both
+sides, so the source spells the list in lower case and any casing of the method name is
+caught. Reflection has been able
 to invoke private and protected methods without `setAccessible()` since PHP 8.1, so without
 this check every internal helper on a controller would be an endpoint.
 

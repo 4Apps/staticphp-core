@@ -74,10 +74,9 @@ the PDO drivers, and `gd` is there on phpspreadsheet's account so that the Excel
 can run.
 
 :::note[What on this page was executed]
-The library is installed in this repository as a dev dependency, so the captured block under
-[Cell types](#cell-types) is a real `makeOutput()` run. The download path below - the
-headers and the write to `php://output` - is read off the source rather than observed, since
-it only makes sense inside a request.
+The captured block under [Cell types](#cell-types) is a real `makeOutput()` run. The download
+path below - the headers and the write to `php://output` - is described from the source
+rather than exercised, since it only means anything inside a request.
 :::
 
 ## Settings

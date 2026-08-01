@@ -196,11 +196,11 @@ Two things to know before choosing this backend:
 
 A miss returns `false`, which is indistinguishable from a cached `false`.
 
-:::note[Not exercised here]
-The three sections below are documented from source only. The container used to check this
-page has none of apcu, memcached or redis, so the file backend above is the only one whose
-behaviour was observed rather than read. Statements about what a store does with what it was
-handed are the documented meaning of the call the class makes.
+:::note[Described rather than exercised]
+The file backend above is the one whose behaviour is shown as observed. The three sections
+below are described from the source and from the client libraries' documented behaviour, so
+a statement about what a store does with what it was handed is the documented meaning of the
+call the class makes rather than a result seen here.
 :::
 
 ### APCu

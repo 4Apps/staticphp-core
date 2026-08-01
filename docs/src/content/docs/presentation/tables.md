@@ -7,8 +7,8 @@ sidebar:
 
 A table in StaticPHP Core is four cooperating objects: a `Table` that holds the column
 definitions and the row data, a `Filters`, a `Sort` and a `Pagination` that each own one
-segment of the url, and an output generator that turns the lot into markup. Nothing renders
-itself; the table is a description that an output generator reads.
+fragment of the request, and an output generator that turns the lot into markup. Nothing
+renders itself; the table is a description that an output generator reads.
 
 The classes live in `src/Presentation/Models/Tables/`.
 
@@ -202,8 +202,8 @@ $table->setRows($rows);
 
 ## Assembling a table
 
-`initData()` is where the three url segments arrive. Each one is independent: pass `null`
-to skip building that object entirely.
+`initData()` is where the three request-derived strings arrive. Each one is independent:
+pass `null` to skip building that object entirely.
 
 ```php
 <?php
@@ -223,7 +223,7 @@ public function initData(?string $filterData = null, ?string $sortData = null, ?
 ```
 
 Notice what the three url prefixes are made of. Each one interpolates the *other two*
-segments literally and leaves a `%filter`, `%sort` or `%pagination` placeholder in its own
+fragments literally and leaves a `%filter`, `%sort` or `%pagination` placeholder in its own
 position. That is how a sort link can change the sort while preserving the active filter
 and the current page: the output generator only has to `str_replace()` one placeholder.
 
@@ -237,6 +237,16 @@ pagination->url() -> '/users/name=an/age=desc/%pagination'
 
 An empty string is not `null`, so `initData('', '', 1)` builds all three objects with no
 filter and no sort applied. That is the usual call for a first page load.
+
+:::caution[Those three urls are not routable as written]
+`/users/name=an/%sort` is a *path*, and
+[`Router::isSafeSegment()`](/staticphp-core/core/router/#safety-helpers) rejects any segment
+holding a `=`, so following that link is a 404 before the controller loads. Percent-encoding
+does not help - segments are decoded before the check. The `$urlPrefix` that keeps all three
+alive ends in a query parameter rather than a slash; see
+[from script to controller](#from-script-to-controller) below and
+[filters](/staticphp-core/presentation/filters/#it-cannot-arrive-as-a-url-segment).
+:::
 
 :::caution[Order matters]
 `initData()` builds `Filters` before `Sort`, and `Sort`'s constructor throws if no column
@@ -264,7 +274,7 @@ public function makeOutput()
 
 ### parseQueryString()
 
-Both `Filters` and `Sort` parse their segment with `Table::parseQueryString()`, passing
+Both `Filters` and `Sort` parse their fragment with `Table::parseQueryString()`, passing
 `;` as the delimiter. It splits on the delimiter, splits each pair on `=`, urldecodes the
 first two fragments and drops any pair with no `=` in it. It is a plain method rather than
 PHP's `parse_str()`, so `[]` in a key means nothing and a repeated key keeps its last value.
@@ -274,7 +284,9 @@ A value containing an unencoded `=` is truncated at it: `a=b=c` parses to `a => 
 
 The script below is a single file. It builds an `SQLTable`, produces the SQL a real
 controller would run, feeds a fixed result set back in and renders it. Only step 4 stands
-in for a database.
+in for a database. It keeps the plain `'/users/'` prefix so the generated urls stay short
+and readable; those particular urls are not routable, and
+[from script to controller](#from-script-to-controller) below is where that gets fixed.
 
 ```php
 <?php
@@ -328,7 +340,7 @@ $columns = [
     ),
 ];
 
-// 2. Build the table and hand it the three url segments from the request.
+// 2. Build the table and hand it the three strings the request supplied.
 $table = new SQLTable($columns, '/users/');
 $table->initData('name=an', 'balance=desc', 1);
 
@@ -433,7 +445,7 @@ Reading that back:
 
 - The `nr` column is `ColumnType::ROW_NUMBER`, so its cells are the one-based row
   position and its header is empty. `filterHidden: true` leaves its filter cell blank.
-- Every other header is a sort link whose url is the current path with the sort segment
+- Every other header is a sort link whose url is the current one with the sort fragment
   replaced. The active column carries an extra `fa-sort-alpha-up` icon span.
 - The filter row reflects the parsed filter: `name` is prefilled with `an`, and `active`
   renders as a select because its `filterFieldType` is `FieldType::SELECT_NO_YES`.
@@ -454,32 +466,49 @@ The `id="table_..."` value differs on every run - it is `bin2hex(random_bytes(8)
 
 ### From script to controller
 
-In an application the three arguments to `initData()` come from url segments and the rows
-come from the database. Same object graph, different sources:
+In an application the three arguments to `initData()` come from the request and the rows
+come from the database. Same object graph, different sources.
+
+They cannot come from url segments. A filter string holds `=`, a page number is digits, and
+[`Router::isSafeSegment()`](/staticphp-core/core/router/#safety-helpers) refuses both, so
+`/admin/users/index/name=an/name=asc/1` is a 404 rather than a call. They arrive on the
+query string instead - and in **one** parameter, because `initData()` joins the three
+fragments with `/` when it builds the urls the output generator links to. Ending
+`$urlPrefix` with `?table=` puts that whole join inside the parameter's value, which is the
+only shape that keeps the generated sort and pagination links routable:
 
 ```php
 <?php
 
-namespace Application\Modules\Admin\Controllers;
+namespace Admin\Controllers;
 
 use StaticPHP\Core\Controllers\Controller;
+use StaticPHP\Core\Models\Router;
 use StaticPHP\Utils\Models\Db;
 use StaticPHP\Presentation\Models\Tables\Output\Html;
 use StaticPHP\Presentation\Models\Tables\SQL\SQLTable;
 
 class Users extends Controller
 {
-    public static function index($filterData = '', $sortData = '', $page = 1)
+    public static function index()
     {
-        $table = new SQLTable(self::columns(), '/admin/users/');
-        $table->initData($filterData, $sortData, (int) $page);
+        // "name=an;state=open/name=asc/2" - filter, sort and page, in that order
+        [$filterData, $sortData, $page] = array_pad(
+            explode('/', (string) ($_GET['table'] ?? ''), 3),
+            3,
+            ''
+        );
+        $page = max(1, (int) $page);
+
+        $table = new SQLTable(self::columns(), Router::siteUrl('admin/users/index') . '?table=');
+        $table->initData($filterData, $sortData, $page);
         $table->sqlFilter->prepareQueries();
 
         $where = $table->sqlFilter->querySql();
         $params = $table->sqlFilter->params();
 
         $total = Db::query("SELECT count(*) FROM users u{$where}", $params)->fetchColumn();
-        $table->pagination->calculate((int) $total, (int) $page);
+        $table->pagination->calculate((int) $total, $page);
 
         $sql = "SELECT * FROM users u{$where}"
             . $table->sqlSort->sortQuery()
@@ -493,8 +522,27 @@ class Users extends Controller
 }
 ```
 
-`Db` is covered under [database](/staticphp-core/database/db/), and mapping url segments
-onto method arguments under [routing](/staticphp-core/core/router/).
+The namespace root is the module name, not a path - `Admin\Controllers\Users` is
+`APP_MODULES_PATH/Admin/Controllers/Users.php`, which is what the application autoloader
+resolves and what the router builds. `Db` is covered under
+[database](/staticphp-core/database/db/), and the segment rule behind all of the above under
+[routing](/staticphp-core/core/router/#safety-helpers).
+
+A cut-down copy of that controller - same columns, same `$urlPrefix`, fixed rows instead of
+a query - run through the router with `?table=name%3Dan/active%3Ddesc/2` emits these
+anchors:
+
+```html
+<a href="http://localhost/admin/users/index?table=name=an/name=asc" >Name</a>
+<a href="http://localhost/admin/users/index?table=name=an/active=asc" >Active</a>
+<a class="page-link" href="http://localhost/admin/users/index?table=name=an/active=desc/1">1</a>
+<a class="page-link" href="http://localhost/admin/users/index?table=name=an/active=desc/3">3</a>
+```
+
+Every one of them is a url `isSafeSegment()` accepts, and following any of them re-renders
+the table with the new sort or page. That is the round trip a path-segment `$urlPrefix`
+cannot complete: `/admin/users/index/name=an/active=desc/2` returns 404 with the controller
+never loaded.
 
 ## What throws
 

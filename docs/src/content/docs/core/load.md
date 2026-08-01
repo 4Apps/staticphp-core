@@ -122,6 +122,10 @@ visible to the caller afterwards.
 
 What happens next depends on whether twig is installed and enabled.
 
+[`Menu`](/staticphp-core/presentation/menus/) is the one part of the package that renders
+through `view()` rather than returning markup of its own: it resolves its item list and
+hands the result to a template the application supplies.
+
 ### With twig
 
 Each name in `$files` is passed to `$config['view_engine']->render()` and the results are

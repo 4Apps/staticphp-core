@@ -1,10 +1,10 @@
 [![packagist](http://img.shields.io/badge/packagist-4apps%2Fstaticphp--core-brightgreen.svg)](https://packagist.org/packages/4apps/staticphp-core)
 
-Full documentation: https://gintsmurans.github.io/staticphp-core/
-
 # StaticPHP Core
 
 The StaticPHP framework, as a library.
+
+Full documentation: https://gintsmurans.github.io/staticphp-core/
 
 This is the package an application depends on. The application skeleton - the demo app,
 the asset pipeline, the dev container, the `staticphp` cli - lives in
