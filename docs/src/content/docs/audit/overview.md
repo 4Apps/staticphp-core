@@ -102,6 +102,9 @@ SELECT * FROM audit_log WHERE new_values ->> 'status' = 'cancelled';
 ```
 
 :::caution[`->>` is not portable to MariaDB]
+**A real MySQL server was not available here**, so the claim below that `->>` works on MySQL
+is from its documentation rather than from a run; everything else in this box was executed.
+
 `install.mysql.sql` names itself the schema "for mysql and mariadb" and its comment
 advertises `WHERE new_values ->> '$.status' = 'cancelled'`. That operator is a MySQL
 extension; MariaDB 11.8 rejects it, with or without the spaces, and needs the function form
@@ -121,19 +124,21 @@ mysql: SELECT entity_id FROM audit_log WHERE JSON_UNQUOTE(JSON_EXTRACT(new_value
 server: 11.8.8-MariaDB-ubu2404
 ```
 
-Exercised against PostgreSQL 18 and MariaDB 11.8. **A real MySQL server was not available
-here**, so the claim that `->>` works there is from its documentation rather than from a
-run. `JSON_UNQUOTE(JSON_EXTRACT(...))` is accepted by both and is the safe spelling if you
-do not know which of the two you are on.
+Exercised against PostgreSQL 18 and MariaDB 11.8. `JSON_UNQUOTE(JSON_EXTRACT(...))` is
+accepted by both and is the safe spelling if you do not know which of the two you are on.
 :::
 
 **There is no foreign key on `entity_type` / `entity_id`.** An audit row has to outlive what
 it describes; a foreign key would delete the record of a deletion. The pair is stored as
 text for the same reason one application keys on `bigint` and the next on `uuid`.
 
-**The audit row is written on the caller's connection, inside the caller's transaction.**
-A rolled back change takes its audit row with it, so the trail cannot claim something
-happened that did not.
+**The audit row is written on the store's connection, inside whatever transaction is open
+there.** When a call leaves `$connection` at `null`, that is the same connection and
+transaction the change itself just used, so a rolled back change takes its audit row with it
+and the trail cannot claim something happened that did not. Passing `$connection` explicitly
+moves the change onto a different connection without moving the trail, which is fixed at
+`$config['audit']['connection']` - splitting the two loses that guarantee. See
+[recording changes](/staticphp-core/audit/recording/).
 
 ## Configuration
 
@@ -153,7 +158,7 @@ the part that reads it.
 | `context`    | `null`        | `Audit::record()`; a `callable(): array` for url, ip and agent  |
 | `exclude`    | `[]`          | `Diff`, as `table => [column, ...]`                             |
 
-The same list is the `Audit::DEFAULTS` constant, so the trail works before an application
+The same list is the private `DEFAULTS` constant, so the trail works before an application
 has written a config file for it. Settings are merged key by key over those defaults and
 memoised; `Audit::reset()` forgets the merge, which is what a test or a long-running process
 that changes configuration needs.

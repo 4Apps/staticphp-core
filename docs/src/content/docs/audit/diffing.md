@@ -35,7 +35,9 @@ the `old_values` and `new_values` columns.
 | `null` | an array | an insert | `[null, the whole row]` |
 | an array | `null` | a delete | `[the whole row, null]` |
 | an array | an array | an update | only what differs, or `[null, null]` |
-| `null` | `null` | nothing | `[null, null]` |
+
+`$before` and `$after` both `null` is the degenerate case: there is nothing to compare, and the
+result is `[null, null]` too.
 
 Every case below was produced by calling the code:
 

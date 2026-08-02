@@ -65,10 +65,45 @@ argument lists are not the same, though: `$module` sits where `Db`'s `$name` doe
 connection has moved to the end. Only `$module` is worth passing positionally; everything
 after it is a named argument in practice.
 
-`$connection` left at `null` uses `$config['audit']['connection']` for both the change and
-the audit row. Passing one explicitly moves both, together - there is no way to write the
-change on one connection and the trail on another through these wrappers, which is the point
-of [the audit row living in the caller's transaction](#transactions).
+`$connection` only ever moves the change: it reaches `Db::insert()` / `Db::update()` /
+`Db::delete()` and `self::rows()`, nothing else. The audit row goes through
+[`Audit::store()`](#swapping-the-store), which is built once from
+`$config['audit']['connection']` and memoised, so it never sees the per-call argument.
+Leaving `$connection` at `null` puts the change on that same configured connection, which is
+why the change and its audit row usually land together - but passing one explicitly splits
+them: the change moves, the trail does not follow it. Two sqlite connections, `default`
+configured as `$config['audit']['connection']` and `reporting` passed to `insert()`:
+
+```php
+<?php
+
+Audit::insert('people', ['name' => 'Anna'], connection: 'reporting');
+```
+
+```text
+people on reporting:    1
+audit_log on reporting: 0
+people on default:      0
+audit_log on default:   1
+```
+
+[The audit row living in the caller's transaction](#transactions) is only true when the two
+coincide. Wrapping that call in a transaction on `reporting` and rolling it back removes the
+`people` row but leaves the audit row on `default` committed:
+
+```php
+<?php
+
+Db::beginTransaction('reporting');
+Audit::insert('people', ['name' => 'Anna'], connection: 'reporting');
+Db::rollBack('reporting');
+```
+
+```text
+people on reporting:    0
+audit_log on reporting: 0
+audit_log on default:   1
+```
 
 ## insert()
 
@@ -550,8 +585,11 @@ people rows: 0
 trail rows:  0
 ```
 
-That is the reason the trail has no connection of its own, and the reason `$connection` moves
-the change and its record together. See
+That holds here because `$connection` was left at `null`, so the change and the trail were on
+the same connection to begin with. The trail itself has no connection of its own to move - it
+is always `Audit::store()`'s, fixed at `$config['audit']['connection']`. Pass `$connection`
+explicitly, as above, and it does not move the trail with the change; it splits the two, and
+this guarantee holds no further than the connection the change happened to share with it. See
 [transactions](/staticphp-core/database/db/#transactions).
 
 ## Swapping the store
@@ -584,7 +622,7 @@ This is for tests and for an application that assembles its own store. Everythin
 ```php
 <?php
 
-Audit::diff(?array $before, ?array $after, array $exclude = []): array;
+public static function diff(?array $before, ?array $after, array $exclude = []): array;
 ```
 
 A passthrough to `Diff::between()`, returning the `[old, new]` pair. It is here so that an
