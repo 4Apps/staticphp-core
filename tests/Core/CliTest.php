@@ -43,6 +43,9 @@ class CliTest extends TestCase
 
     public function testTheDocumentedCommandsAreThere(): void
     {
-        $this->assertEquals(['migrate', 'i18n', 'audit'], array_keys(Cli::commands()));
+        $this->assertEquals(
+            ['migrate', 'i18n', 'audit', 'sessions', 'crypto', 'doctor'],
+            array_keys(Cli::commands())
+        );
     }
 }

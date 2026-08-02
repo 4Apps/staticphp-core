@@ -4,7 +4,8 @@
 |--------------------------------------------------------------------------
 | PDO backed up session class
 |
-| For table structure look for table_sessions_*.sql file.
+| For the table structure, see Utils/Files/Sessions/install.<driver>.sql, which
+| `staticphp sessions install` copies into the application's migrations directory.
 |--------------------------------------------------------------------------
 */
 
@@ -66,7 +67,8 @@ class Sessions implements \SessionHandlerInterface
         // the header is client controlled and an attacker replaying a stolen cookie can
         // replay the header with it - so it is a speed bump, not an authentication factor.
         // Truncated to 40 characters because that is the width of the salt column in
-        // table_sessions_*.sql; widening it would need a migration on existing installs.
+        // Utils/Files/Sessions/install.pgsql.sql; widening it would need a migration on
+        // existing installs.
         // ?? '' keeps a request without a User-Agent header from raising a warning.
         $userAgent = $_SERVER['HTTP_USER_AGENT'] ?? '';
         $this->salt = substr(hash('sha256', is_string($userAgent) ? $userAgent : ''), 0, 40);

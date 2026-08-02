@@ -667,6 +667,130 @@ class Db
     }
 
     /**
+     * Savepoint nesting depth per connection, for transaction().
+     *
+     * @var array<string, int>
+     * @access private
+     * @static
+     */
+    private static array $savepoints = [];
+
+    /**
+     * Run $work inside a transaction, committing it if $work returns and rolling it back if
+     * it throws.
+     *
+     * Written out by hand the same thing is four lines and two of them are easy to get
+     * wrong: catching Exception rather than Throwable leaves a TypeError or an assertion
+     * failure to end the request with the transaction open, and calling this while another
+     * transaction is already running used to commit that outer one on the inner one's
+     * behalf. Here a nested call takes a savepoint instead, so only the inner work is
+     * discarded and the caller who opened the transaction still decides its fate.
+     *
+     * The return value of $work is passed through, so the usual shape reads as an
+     * assignment. $work receives the PDO instance for the connection it is running on.
+     *
+     * Beware of ddl on mysql: create, alter and drop commit the open transaction implicitly,
+     * so a rollback afterwards has nothing left to undo. Postgres and sqlite are
+     * transactional over ddl and do not have this problem.
+     *
+     * @example $id = Db::transaction(function () {
+     *              $id = Db::insert('orders', $order, returning: 'id');
+     *              Db::insert('order_lines', ['order_id' => $id] + $line);
+     *
+     *              return $id;
+     *          });
+     * @access public
+     * @static
+     * @param  callable(PDO): mixed $work
+     * @param  string $name (default: 'default')
+     * @return mixed  Whatever $work returned.
+     */
+    public static function transaction(callable $work, string $name = 'default'): mixed
+    {
+        $db_link = self::link($name, true);
+        $savepoint = '';
+
+        if ($db_link->inTransaction() === true) {
+            $depth = (self::$savepoints[$name] ?? 0) + 1;
+            self::$savepoints[$name] = $depth;
+
+            // The name is built here rather than taken from the caller, so it cannot carry
+            // anything that needs quoting into a statement that cannot be prepared.
+            $savepoint = "staticphp_sp{$depth}";
+            $db_link->exec("SAVEPOINT {$savepoint}");
+        } elseif ($db_link->beginTransaction() === false) {
+            throw new \Exception("Could not begin a transaction on database \"{$name}\"");
+        }
+
+        try {
+            $result = $work($db_link);
+        } catch (\Throwable $exception) {
+            self::undo($db_link, $name, $savepoint);
+
+            throw $exception;
+        }
+
+        // $work is free to have committed or rolled back on its own. Asking pdo rather than
+        // assuming keeps that from turning into "there is no active transaction" thrown from
+        // here, which would point at this method instead of at the code that did it.
+        if ($savepoint === '') {
+            self::$savepoints[$name] = 0;
+
+            if (self::inTransaction($name) === true) {
+                $db_link->commit();
+            }
+
+            return $result;
+        }
+
+        self::$savepoints[$name] = max(0, (self::$savepoints[$name] ?? 1) - 1);
+
+        if (self::inTransaction($name) === true) {
+            $db_link->exec("RELEASE SAVEPOINT {$savepoint}");
+        }
+
+        return $result;
+    }
+
+    /**
+     * Undo the work of one transaction() frame while an exception is in flight.
+     *
+     * Failures here are swallowed on purpose. The caller is already unwinding with a real
+     * error and a connection that has dropped mid-transaction will fail the rollback too;
+     * letting that surface would replace the cause with its consequence.
+     *
+     * @access private
+     * @static
+     * @param  PDO    $db_link
+     * @param  string $name
+     * @param  string $savepoint Empty for the outermost frame
+     * @return void
+     */
+    private static function undo(PDO $db_link, string $name, string $savepoint): void
+    {
+        try {
+            if ($savepoint === '') {
+                self::$savepoints[$name] = 0;
+
+                if (self::inTransaction($name) === true) {
+                    $db_link->rollBack();
+                }
+
+                return;
+            }
+
+            self::$savepoints[$name] = max(0, (self::$savepoints[$name] ?? 1) - 1);
+
+            if (self::inTransaction($name) === true) {
+                $db_link->exec("ROLLBACK TO SAVEPOINT {$savepoint}");
+                $db_link->exec("RELEASE SAVEPOINT {$savepoint}");
+            }
+        } catch (\Throwable) {
+            // Reported through the original exception, which is about to be rethrown
+        }
+    }
+
+    /**
      * Get PDO object connection link to the database by $name.
      *
      * @access public
@@ -747,6 +871,6 @@ class Db
      */
     public static function close(string $name = 'default'): void
     {
-        unset(self::$dbLinks[$name]);
+        unset(self::$dbLinks[$name], self::$savepoints[$name]);
     }
 }

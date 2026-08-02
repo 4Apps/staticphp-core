@@ -34,6 +34,9 @@ final class Cli
             'migrate' => \StaticPHP\Utils\Models\Migrations\Cli::class,
             'i18n' => \StaticPHP\Utils\Models\Translation\Cli::class,
             'audit' => \StaticPHP\Utils\Models\Audit\Cli::class,
+            'sessions' => \StaticPHP\Utils\Models\Sessions\Cli::class,
+            'crypto' => \StaticPHP\Utils\Models\Crypto\Cli::class,
+            'doctor' => \StaticPHP\Utils\Models\Doctor\Cli::class,
         ];
     }
 }

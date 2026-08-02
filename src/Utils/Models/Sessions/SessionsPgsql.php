@@ -4,7 +4,8 @@
 |--------------------------------------------------------------------------
 | PDO backed up session class
 |
-| For table structure look for table_sessions_*.sql file.
+| For the table structure, see Utils/Files/Sessions/install.pgsql.sql, which
+| `staticphp sessions install` copies into the application's migrations directory.
 |--------------------------------------------------------------------------
 */
 
