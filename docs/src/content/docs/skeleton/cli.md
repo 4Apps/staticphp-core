@@ -82,7 +82,7 @@ translation keys, or delete history.
 | `i18n`     | `StaticPHP\Core\Cli` (framework)              | [extracting strings](/staticphp-core/i18n/extracting-strings/) |
 | `audit`    | `StaticPHP\Core\Cli` (framework)              | [audit cli](/staticphp-core/audit/audit-cli/) |
 | `sessions` | `StaticPHP\Core\Cli` (framework)              | - |
-| `queue`    | `StaticPHP\Core\Cli` (framework)              | - |
+| `queue`    | `StaticPHP\Core\Cli` (framework)              | [queue cli](/staticphp-core/queue/queue-cli/) |
 | `crypto`   | `StaticPHP\Core\Cli` (framework)              | - |
 | `doctor`   | `StaticPHP\Core\Cli` (framework)              | - |
 

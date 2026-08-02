@@ -105,7 +105,7 @@ handlers are registered. Entries are slash separated and read right to left:
 
 ## The configuration each subsystem expects
 
-Five subsystems come with a default configuration file in `src/Utils/Config/`. They are
+Six subsystems come with a default configuration file in `src/Utils/Config/`. They are
 ordinary config files, not classes: each one assigns the keys its subsystem reads, with
 values that make sense as a starting point. Load one with
 `$config['autoload_configs'][] = 'staticphp/Utils/<name>'`, or copy it into the
@@ -153,6 +153,17 @@ from; and `exclude`, the columns whose values must never reach the trail. The sa
 also a constant inside `Audit`, so the trail works before this file is loaded at all - load
 it when you want to change something. See
 [the audit trail](/staticphp-core/audit/overview/).
+
+### Queue
+
+Populates `$config['queue']`: `driver`, `database` or `redis`; `connection`, which entry of
+`$config['db']['pdo']` jobs are written to on the database driver; `table` and
+`failed_table`; the `redis` section, only read on the redis driver; `queue`, the name a push
+lands on when it does not name one; `tries` and `backoff`, how many attempts a job gets and
+how long it waits between them; `timeout`, how long a worker's claim on a job lasts; `sleep`,
+how long a worker waits before looking again when there is nothing to do; and `handlers`,
+for job names that are not class names or that have since moved. See
+[the queue overview](/staticphp-core/queue/overview/).
 
 ## Keys the framework reads
 

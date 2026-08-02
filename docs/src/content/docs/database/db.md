@@ -363,7 +363,70 @@ Thin pass-throughs to the PDO methods of the same names, on the connection named
 `$name`. They do not open a connection, so a transaction can only be started on one that is
 already open - by an earlier query, or by an explicit `Db::init()`.
 
-There is no nesting and no savepoint support here; that is PDO's behaviour, unchanged.
+There is no nesting and no savepoint support in these three; that is PDO's behaviour,
+unchanged. `Db::transaction()`, below, is where nesting is handled.
+
+## Db::transaction()
+
+```php
+<?php
+
+public static function transaction(callable $work, string $name = 'default'): mixed;
+```
+
+Runs `$work` inside a transaction on the connection named by `$name`, committing it if
+`$work` returns and rolling it back if it throws. `$work` receives the `PDO` instance for
+that connection, and whatever `$work` returns is passed straight back through - the usual
+shape reads as an assignment:
+
+```php
+<?php
+
+$id = Db::transaction(function () {
+    $id = Db::insert('orders', $order, returning: 'id');
+    Db::insert('order_lines', ['order_id' => $id] + $line);
+
+    return $id;
+});
+```
+
+Written out by hand this is four lines, and two of them are easy to get wrong: catching
+`Exception` rather than `Throwable` leaves a `TypeError` or an assertion failure to end the
+request with the transaction still open, and calling `beginTransaction()` while a
+transaction is already running would commit that outer one on the inner call's behalf.
+
+`Db::transaction()` avoids the second problem by nesting. If the connection is already in a
+transaction when it is called, it opens a savepoint instead of a new transaction, so only
+the inner `$work` is discarded on failure - the caller who opened the outer transaction
+still decides its fate:
+
+```php
+<?php
+
+$depth = (self::$savepoints[$name] ?? 0) + 1;
+$savepoint = "staticphp_sp{$depth}";
+$db_link->exec("SAVEPOINT {$savepoint}");
+```
+
+The savepoint name is built from a per-connection depth counter rather than taken from the
+caller, so it cannot carry anything that needs quoting into a statement that cannot be
+prepared. On success, an outermost call commits and a nested call releases its savepoint -
+but only if the connection is still in a transaction, since `$work` is free to have
+committed or rolled back on its own; asking PDO rather than assuming keeps that from
+surfacing as "there is no active transaction" thrown from inside `transaction()` instead of
+from whatever code actually did it. On a throw, an outermost call rolls back the whole
+transaction and a nested call rolls back to its savepoint and releases it, then the original
+exception is rethrown unchanged. Failures during that unwind are swallowed on purpose - the
+caller is already unwinding with a real error, and a connection that has dropped
+mid-transaction will fail the rollback too, so surfacing that would replace the cause with
+its consequence.
+
+Beware of ddl on mysql: `CREATE`, `ALTER` and `DROP` commit the open transaction implicitly,
+so a rollback afterwards has nothing left to undo. Postgres and sqlite are transactional
+over ddl and do not have this problem.
+
+For a worked example of nested transactions in practice, see
+[enqueueing a job inside one](/staticphp-core/queue/enqueueing/).
 
 ## Introspection
 

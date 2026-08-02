@@ -61,6 +61,7 @@ export default defineConfig({
                 { label: 'Database', items: [{ autogenerate: { directory: 'database' } }] },
                 { label: 'Internationalisation', items: [{ autogenerate: { directory: 'i18n' } }] },
                 { label: 'Audit', items: [{ autogenerate: { directory: 'audit' } }] },
+                { label: 'Queue', items: [{ autogenerate: { directory: 'queue' } }] },
                 { label: 'Utilities', items: [{ autogenerate: { directory: 'utilities' } }] },
                 { label: 'Presentation', items: [{ autogenerate: { directory: 'presentation' } }] },
                 { label: 'Guides', items: [{ autogenerate: { directory: 'guides' } }] },
