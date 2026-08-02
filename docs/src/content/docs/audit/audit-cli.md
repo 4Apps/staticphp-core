@@ -7,7 +7,7 @@ sidebar:
 
 `StaticPHP\Utils\Models\Audit\Cli` is the `staticphp audit` command. This package provides
 the class; the `staticphp` executable that dispatches to it ships with the
-[application skeleton](https://github.com/gintsmurans/staticphp), and the map that connects
+[application skeleton](/staticphp-core/skeleton/cli/), and the map that connects
 the two is `StaticPHP\Core\Cli` - see
 [the command registry](/staticphp-core/database/migrations-cli/#the-command-registry).
 

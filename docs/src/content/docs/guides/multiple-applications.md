@@ -14,6 +14,12 @@ costs.
 
 ## One repository, several applications
 
+This page is about the resolution mechanism - why the tree can look like this at all. If
+you are working from the skeleton, the tree itself is built for you by
+[`staticphp app add`](/staticphp-core/skeleton/applications-and-presets/), and the
+[asset pipeline](/staticphp-core/skeleton/asset-pipeline/) discovers each application
+without registration.
+
 The layout this exists for:
 
 ```text

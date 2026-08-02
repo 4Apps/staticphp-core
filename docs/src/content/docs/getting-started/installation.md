@@ -86,7 +86,10 @@ the dev container, the `staticphp` cli - lives in
 
 Starting a new project from that skeleton is the usual route; `composer require` is for
 adding the framework to an application that already exists, or for building the
-application tree by hand.
+application tree by hand. The [skeleton section](/staticphp-core/skeleton/overview/)
+documents it: what `create-project` hands you, the cli, presets, the asset pipeline, the
+docker environment, and how to pick up a later skeleton release in a project you have
+already started.
 
 ## Releases and contributing
 

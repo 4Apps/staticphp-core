@@ -56,6 +56,7 @@ export default defineConfig({
             // autogenerate config must be wrapped in an `items` array instead.
             sidebar: [
                 { label: 'Getting started', items: [{ autogenerate: { directory: 'getting-started' } }] },
+                { label: 'Skeleton', items: [{ autogenerate: { directory: 'skeleton' } }] },
                 { label: 'Core', items: [{ autogenerate: { directory: 'core' } }] },
                 { label: 'Database', items: [{ autogenerate: { directory: 'database' } }] },
                 { label: 'Internationalisation', items: [{ autogenerate: { directory: 'i18n' } }] },
