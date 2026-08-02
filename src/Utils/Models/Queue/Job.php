@@ -8,6 +8,10 @@ namespace StaticPHP\Utils\Models\Queue;
  * `attempts` counts this one, because the reservation increments it. A job on its third
  * attempt out of three is on its last, which is what isLastAttempt() answers - the
  * question a handler asks when it wants to warn somebody before the trail goes cold.
+ *
+ * `handle` is the driver's own bookmark and means nothing outside it. The database driver
+ * leaves it empty and finds the row by id; the redis driver puts the stream entry id there,
+ * because acknowledging an entry needs the id the stream gave it rather than the job's own.
  */
 class Job
 {
@@ -22,6 +26,7 @@ class Job
      * @param string               $payloadJson The row as written, kept so failing a job records what it was given
      * @param int                  $attempts    Including this attempt
      * @param int                  $maxAttempts
+     * @param string               $handle      Whatever the driver needs to find this attempt again
      */
     public function __construct(
         public readonly int $id,
@@ -31,6 +36,7 @@ class Job
         public readonly string $payloadJson,
         public readonly int $attempts,
         public readonly int $maxAttempts,
+        public readonly string $handle = '',
     ) {
     }
 

@@ -27,7 +27,7 @@
         "twig/twig": "Template engine for the view layer. Leave it out of an api-only application - composer's files autoload is eager, so twig and the symfony polyfills it pulls in load eight files on every request whether or not a template is ever rendered.",
         "phpoffice/phpspreadsheet": "Required by Presentation\\Models\\Tables\\Output\\Excel. Nothing else in the package touches it, so a table that only renders html does not need it.",
         "mongodb/mongodb": "Required by Utils\\Models\\Sessions\\SessionsMongoDb.",
-        "ext-redis": "Required by Utils\\Models\\Cache\\CacheRedis and Utils\\Models\\Sessions\\SessionsRedis.",
+        "ext-redis": "Required by Utils\\Models\\Cache\\CacheRedis, Utils\\Models\\Sessions\\SessionsRedis and the redis queue driver. The queue defaults to the database driver, which needs nothing extra.",
         "ext-memcached": "Required by Utils\\Models\\Cache\\CacheMemcached and Utils\\Models\\Sessions\\SessionsMemcached.",
         "ext-apcu": "Required by Utils\\Models\\Cache\\CacheApcu and Utils\\Models\\Sessions\\SessionsApcu.",
         "ext-iconv": "Required by Fv::translit() and Fv::setFriendly(); nothing else uses it.",

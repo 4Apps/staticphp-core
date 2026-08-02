@@ -18,6 +18,10 @@ services:
         env_file:
             - path: .env
               required: false
+        environment:
+            - QUEUE_TEST_REDIS_HOST=queue-redis
+        depends_on:
+            - queue-redis
         volumes:
             - ./:/srv/app:cached
 
@@ -30,6 +34,19 @@ services:
             context: ./
             dockerfile: ./docker/Dockerfile
             target: testing
+        environment:
+            - QUEUE_TEST_REDIS_HOST=queue-redis
+        depends_on:
+            - queue-redis
+
+    # The queue's stream driver is the one thing here that cannot be tested against
+    # something in-process. Its suite skips when there is no server, so this is what makes
+    # those tests run rather than what makes the suite pass. No published port: only the
+    # other services need to reach it.
+    queue-redis:
+        image: redis:7.4-alpine
+        container_name: staticphp_core_queue_redis
+        restart: "no"
 
     # Documentation site. docker/Dockerfile deliberately carries no node - a library has no
     # assets - so the docs toolchain gets the stock node image rather than growing that one.

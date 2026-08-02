@@ -34,6 +34,9 @@ class Cli
     public const USAGE = <<<TXT
     Usage: staticphp queue <command> [options]
 
+    Which backend these talk to is config['queue']['driver'], not an option here: a worker
+    reading one queue while a push writes another is worse than either on its own.
+
     Commands:
       install             Write the queue schema into the migrations directory
       work                Run jobs until told to stop
@@ -248,6 +251,21 @@ class Cli
      */
     private static function dispatch(string $command, array $options): int
     {
+        $driver = Queue::settingString('driver', 'database');
+
+        if ($driver === 'redis') {
+            return self::dispatchRedis($command, $options);
+        }
+
+        if ($driver !== 'database') {
+            fwrite(
+                STDERR,
+                "error: config['queue']['driver'] is \"{$driver}\"; it has to be \"database\" or \"redis\"\n"
+            );
+
+            return 2;
+        }
+
         $connectionName = self::optionString(
             $options,
             'connection',
@@ -291,11 +309,64 @@ class Cli
         // misconfigured table name is reported once here rather than differently per command
         Queue::setDriver($queue);
 
-        $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
-        $commands = new Commands($queue, (is_string($driver) ? $driver : ''), function (string $line = ''): void {
-            echo $line . "\n";
-        });
+        $pdoDriver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
 
+        return self::execute(
+            $command,
+            new Commands($queue, (is_string($pdoDriver) ? $pdoDriver : ''), self::writer()),
+            $options
+        );
+    }
+
+    /**
+     * The same commands, against redis, and without opening a database connection.
+     *
+     * A redis queue does not need one, and requiring it anyway would mean a worker host that
+     * only runs jobs still had to be given database credentials it never uses.
+     *
+     * @access private
+     * @static
+     * @param  string $command
+     * @param  array<string, bool|string|null> $options
+     * @return int
+     */
+    private static function dispatchRedis(string $command, array $options): int
+    {
+        try {
+            $queue = QueueRedis::connect(Queue::settingArray('redis'));
+        } catch (QueueError $error) {
+            fwrite(STDERR, 'error: ' . $error->getMessage() . "\n");
+
+            return 1;
+        }
+
+        Queue::setDriver($queue);
+
+        return self::execute($command, new Commands($queue, '', self::writer()), $options);
+    }
+
+    /**
+     * @access private
+     * @static
+     * @return callable(string): void
+     */
+    private static function writer(): callable
+    {
+        return function (string $line = ''): void {
+            echo $line . "\n";
+        };
+    }
+
+    /**
+     * @access private
+     * @static
+     * @param  string   $command
+     * @param  Commands $commands
+     * @param  array<string, bool|string|null> $options
+     * @return int
+     */
+    private static function execute(string $command, Commands $commands, array $options): int
+    {
         switch ($command) {
             case 'install':
                 $migrations = (array) Config::get('migrations', []);

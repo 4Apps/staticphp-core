@@ -35,9 +35,11 @@ class Queue
      * @access private
      */
     private const DEFAULTS = [
+        'driver' => 'database',
         'connection' => 'default',
         'table' => 'queue_jobs',
         'failed_table' => 'queue_failed_jobs',
+        'redis' => [],
         'queue' => 'default',
         'tries' => 3,
         'backoff' => [10, 60, 300],
@@ -112,18 +114,37 @@ class Queue
      * @access public
      * @static
      * @return QueueInterface
+     * @throws QueueError
      */
     public static function driver(): QueueInterface
     {
         if (self::$driver === null) {
-            self::$driver = new QueueDatabase(
-                self::settingString('connection', 'default'),
-                self::settingString('table', 'queue_jobs'),
-                self::settingString('failed_table', 'queue_failed_jobs')
-            );
+            self::$driver = self::build(self::settingString('driver', 'database'));
         }
 
         return self::$driver;
+    }
+
+    /**
+     * @access public
+     * @static
+     * @param  string $driver
+     * @return QueueInterface
+     * @throws QueueError
+     */
+    public static function build(string $driver): QueueInterface
+    {
+        return match ($driver) {
+            'database' => new QueueDatabase(
+                self::settingString('connection', 'default'),
+                self::settingString('table', 'queue_jobs'),
+                self::settingString('failed_table', 'queue_failed_jobs')
+            ),
+            'redis' => QueueRedis::connect(self::settingArray('redis')),
+            default => throw new QueueError(
+                "config['queue']['driver'] is \"{$driver}\"; it has to be \"database\" or \"redis\""
+            ),
+        };
     }
 
     /**
@@ -226,15 +247,28 @@ class Queue
      */
     public static function handlers(): array
     {
-        $handlers = self::setting('handlers');
-        if (is_array($handlers) === false) {
+        return self::settingArray('handlers');
+    }
+
+    /**
+     * A settings entry that is itself a block of named settings.
+     *
+     * @access public
+     * @static
+     * @param  string $key
+     * @return array<string, mixed>
+     */
+    public static function settingArray(string $key): array
+    {
+        $value = self::setting($key);
+        if (is_array($value) === false) {
             return [];
         }
 
         $out = [];
-        foreach ($handlers as $key => $value) {
-            if (is_string($key) === true) {
-                $out[$key] = $value;
+        foreach ($value as $name => $entry) {
+            if (is_string($name) === true) {
+                $out[$name] = $entry;
             }
         }
 

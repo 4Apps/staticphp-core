@@ -3,13 +3,14 @@
 namespace StaticPHP\Utils\Models\Queue;
 
 /**
- * The five things a queue backend has to do, and nothing else.
+ * The six things a queue backend has to do for a worker, and nothing else.
  *
  * Reporting - what is pending per queue, what failed and why, retrying a failed job - is
  * deliberately not here. Those answers are shaped by the store: a table can be grouped and
- * counted, a redis stream can only be asked about its consumer groups. Putting them behind
- * one interface would mean either a lowest common denominator or a driver pretending to
- * answer something it cannot, so the commands talk to the concrete driver for that.
+ * counted, a redis stream has to be totalled from its length and its consumer group. A
+ * driver that can answer them implements QueueReports as well, and the commands ask for
+ * both; keeping them apart means a backend that runs jobs without being able to list them
+ * is still a usable backend rather than one forced to fake half an interface.
  */
 interface QueueInterface
 {

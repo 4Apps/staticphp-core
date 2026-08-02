@@ -11,6 +11,16 @@
 
 $config['queue'] = [
 
+    // Where jobs are kept: 'database' or 'redis'.
+    //
+    // Start with 'database' and stay there unless something forces the issue. It is the only
+    // one where a push joins the transaction that caused it, so the job exists exactly when
+    // the work that needs it does; on redis a push is a write to a second system and the two
+    // can disagree. 'redis' is for volume the database genuinely cannot take, or for jobs
+    // you can afford to lose - it uses streams, so a worker that dies still hands its job
+    // back, but nothing makes a lost push reappear.
+    'driver' => 'database',
+
     // Which entry of $config['db']['pdo'] jobs are written to. The same connection the work
     // that queues them runs on, because that is what lets a push join the caller's
     // transaction - queue the email inside the transaction that writes the invoice and
@@ -21,6 +31,24 @@ $config['queue'] = [
     // Prefixed on purpose: `jobs` is a word an application wants for its own work orders.
     'table' => 'queue_jobs',
     'failed_table' => 'queue_failed_jobs',
+
+    // Only read when 'driver' is 'redis'. Its own connection rather than the one
+    // $config['cache'] uses, because the cache turns on php serialization and a queue that
+    // shares a database with a cache is one FLUSHDB away from an empty backlog. Give it a
+    // database number of its own.
+    //
+    // 'prefix' namespaces every key the queue owns, so two applications can share a server.
+    // 'group' is the consumer group name and only needs changing if something else is
+    // already reading the same streams.
+    'redis' => [
+        'hostname' => '127.0.0.1',
+        'port' => 6379,
+        'database' => 0,
+        'password' => null,
+        'timeout' => 2,
+        'prefix' => 'queue:',
+        'group' => 'workers',
+    ],
 
     // The queue a push lands on when it does not name one. Queues are just names - there is
     // nothing to declare, and `staticphp queue work --queue=high,default` decides what a
@@ -54,8 +82,10 @@ $config['queue'] = [
     'timeout' => 300,
 
     // Seconds a worker waits before looking again when there is nothing to do. Each look is
-    // one indexed query, so 1 is cheap; raise it if a worker with nothing to do is showing
-    // up in the slow query log, and accept that much extra latency on a quiet queue.
+    // one indexed query, or one script on redis, so 1 is cheap; raise it if a worker with
+    // nothing to do is showing up in the slow query log, and accept that much extra latency
+    // on a quiet queue. It is also the worst case delay before a job starts, on either
+    // driver - neither of them blocks waiting for one.
     'sleep' => 1,
 
     // Job names that are not class names, or that are class names which have since moved.

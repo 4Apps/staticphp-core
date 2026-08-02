@@ -12,7 +12,7 @@ use StaticPHP\Utils\Models\Migrations\Discovery;
  */
 class Commands
 {
-    private QueueDatabase $queue;
+    private QueueInterface&QueueReports $queue;
     private string $driver;
 
     /** @var callable */
@@ -20,11 +20,11 @@ class Commands
 
     /**
      * @access public
-     * @param QueueDatabase $queue
-     * @param string        $driver PDO driver name: pgsql, mysql or sqlite
-     * @param callable      $out    Receives one line at a time, without a trailing newline
+     * @param QueueInterface&QueueReports $queue
+     * @param string   $driver PDO driver name - pgsql, mysql or sqlite - and only used by install
+     * @param callable $out    Receives one line at a time, without a trailing newline
      */
-    public function __construct(QueueDatabase $queue, string $driver, callable $out)
+    public function __construct(QueueInterface&QueueReports $queue, string $driver, callable $out)
     {
         $this->queue = $queue;
         $this->driver = $driver;
@@ -57,6 +57,12 @@ class Commands
      */
     public function install(string $migrationsDir, string $filesDir, int $now): int
     {
+        if (($this->queue instanceof QueueDatabase) === false) {
+            $this->line('Nothing to install: this queue is not on a database.');
+
+            return 0;
+        }
+
         $template = rtrim($filesDir, '/') . "/install.{$this->driver}.sql";
 
         if (is_file($template) === false) {
@@ -199,7 +205,7 @@ class Commands
         try {
             $rows = $this->queue->failedRows($limit);
         } catch (\Throwable $exception) {
-            $this->line("error: cannot read {$this->queue->failedTable()}: {$exception->getMessage()}");
+            $this->line("error: cannot read the failed jobs: {$exception->getMessage()}");
 
             return 1;
         }

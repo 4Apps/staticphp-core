@@ -19,7 +19,7 @@ use StaticPHP\Utils\Models\Db;
  * supports it, which turns "workers wait for each other" into "workers step past each
  * other", but it is an optimisation and not what makes the claim safe.
  */
-class QueueDatabase implements QueueInterface
+class QueueDatabase implements QueueInterface, QueueReports
 {
     /**
      * Table names are concatenated into the query, so nothing but a plain identifier -

@@ -30,7 +30,9 @@ ENV LANG=lv_LV.UTF-8
 
 # php from sury, matching the skeleton so a green suite here means a green suite there.
 # sqlite3 is what the i18n and migration suites run against; pgsql and mysql are there so
-# the driver classes can be exercised.
+# the driver classes can be exercised. redis is here for the queue's stream driver, whose
+# suite needs a real server - there is no in-memory redis the way there is for sqlite, and
+# a hand written fake would only ever test the fake.
 RUN mkdir -p /etc/apt/keyrings \
     && wget -O /etc/apt/keyrings/php.gpg https://packages.sury.org/php/apt.gpg \
     && echo "deb [signed-by=/etc/apt/keyrings/php.gpg] https://packages.sury.org/php/ trixie main" > /etc/apt/sources.list.d/php.list \
@@ -39,6 +41,7 @@ RUN mkdir -p /etc/apt/keyrings \
         php${PHP_VERSION}-curl php${PHP_VERSION}-bcmath php${PHP_VERSION}-xml php${PHP_VERSION}-zip \
         php${PHP_VERSION}-mbstring php${PHP_VERSION}-intl php${PHP_VERSION}-gd \
         php${PHP_VERSION}-pgsql php${PHP_VERSION}-mysql php${PHP_VERSION}-sqlite3 \
+        php${PHP_VERSION}-redis \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/* /var/cache/apt/*
 

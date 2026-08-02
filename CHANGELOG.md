@@ -29,9 +29,24 @@ subsystems are opt-in and inert until something calls them.
     deduplication at push time, retries with backoff, and a failed table with `queue
     failed`, `queue retry` and `queue forget` to work through it. The worker suits both
     deployments, supervised under systemd or `--max-time=55` from cron, because which one is
-    available is a hosting question rather than a design one. `QueueInterface` is the seam
-    for a redis driver later; none is shipped, and the database one is what to reach for
-    first.
+    available is a hosting question rather than a design one. This is the driver to reach
+    for first; there is a redis one below for when it is not enough.
+-   Redis queue driver, on streams. `config['queue']['driver'] = 'redis'` and nothing else
+    moves: `Queue::push()`, `staticphp queue work`, `status`, `failed`, `retry` and `forget`
+    are the same calls and the same output. Streams rather than lists because a list hands a
+    job out and forgets it, so the worker that popped one and then died took it with it. A
+    consumer group keeps every delivered entry until somebody acknowledges it and XAUTOCLAIM
+    hands one back once it has gone idle longer than the visibility timeout, which is the
+    same "a claim is a deadline, not a flag" the database driver gets from `reserved_until`.
+    Delays, priorities, unique keys, backoff and the failed list all behave as they do on the
+    database, over a sorted set per queue for what is scheduled, one stream per priority, and
+    a hash per job - a stream entry cannot be edited and a retry that has to wait leaves the
+    stream anyway, so the stream indexes what is ready and the hash is the job. What it
+    cannot do is the thing the database driver exists for: a push here is a write to a second
+    system and so cannot join the transaction that caused it, and no durability setting on
+    the redis side changes that. Reach for it when the volume genuinely warrants it, or when
+    losing a job would be survivable. Needs ext-redis and redis 6.2 or newer, and is not
+    cluster aware - a job's keys span more than one slot by design.
 -   Audit trail: `Audit::insert()`, `update()`, `delete()` and `record()`, writing one
     standard row shape over postgres, mysql/mariadb and sqlite, with `staticphp audit
     install` and `audit prune`, and `Presentation\Models\Audit\AuditTable` to render it.
@@ -105,6 +120,12 @@ subsystems are opt-in and inert until something calls them.
     `composer dump-autoload --strict-psr`, are part of `scripts/code_tests.bash`. The
     baseline generated when phpstan was introduced has been worked off rather than carried,
     which is what the empty file is there to keep true.
+-   The dev image carries ext-redis and docker-compose has a redis service, so the queue's
+    stream driver is tested against a real server. It is the one part of the package with no
+    in-process equivalent to sqlite, and the parts most worth testing - what XAUTOCLAIM
+    counts as idle, what a consumer group does with two readers - are exactly what a hand
+    written fake would get wrong. Those tests skip when there is no server rather than
+    failing, so nothing here becomes a requirement for running the suite.
 
 ## 2.0 - 2026-08-01
 
