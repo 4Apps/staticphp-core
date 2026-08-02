@@ -122,9 +122,12 @@ public static function clientIp(): ?string;
 public static function requestIsSecure(): bool;
 ```
 
-`trust_proxy_headers` is the gate on all three. `trusted_proxy_hops` shapes what
-`clientIp()` returns once it is open, and `client_ip` is where the bootstrap keeps the
-answer - no method here reads it:
+`trust_proxy_headers` gates `forwardedHeader()` outright - off, it always returns `null`.
+`clientIp()` and `requestIsSecure()` only consult it for the forwarded value; off, they fall
+back to what this process actually sees - the validated `REMOTE_ADDR` and the `HTTPS`/
+`SERVER_PORT` tests respectively - rather than returning nothing. `trusted_proxy_hops`
+shapes what `clientIp()` returns once trust is on, and `client_ip` is where the bootstrap
+keeps the answer - no method here reads it:
 
 | Key                             | Default | What it does                                                       |
 | ------------------------------- | ------- | ------------------------------------------------------------------ |
