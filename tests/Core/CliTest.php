@@ -44,7 +44,7 @@ class CliTest extends TestCase
     public function testTheDocumentedCommandsAreThere(): void
     {
         $this->assertEquals(
-            ['migrate', 'i18n', 'audit', 'sessions', 'crypto', 'doctor'],
+            ['migrate', 'i18n', 'audit', 'sessions', 'queue', 'crypto', 'doctor'],
             array_keys(Cli::commands())
         );
     }

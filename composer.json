@@ -31,6 +31,7 @@
         "ext-memcached": "Required by Utils\\Models\\Cache\\CacheMemcached and Utils\\Models\\Sessions\\SessionsMemcached.",
         "ext-apcu": "Required by Utils\\Models\\Cache\\CacheApcu and Utils\\Models\\Sessions\\SessionsApcu.",
         "ext-iconv": "Required by Fv::translit() and Fv::setFriendly(); nothing else uses it.",
+        "ext-pcntl": "Lets Utils\\Models\\Queue\\Worker finish the job in hand on SIGTERM instead of being killed mid-job, and applies the per-job timeout. Without it the queue still runs, but a restart loses the running job until its reservation expires.",
         "ext-sodium": "Required by Utils\\Models\\Crypto\\Crypto. Bundled and enabled by default in most php builds; an application that never encrypts a column does not need it.",
         "ext-pdo_pgsql": "Postgres connections, Utils\\Models\\Sessions\\SessionsPgsql, and the postgres migration driver.",
         "ext-pdo_mysql": "MySQL/MariaDB connections and the mysql migration driver.",

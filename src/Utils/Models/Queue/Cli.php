@@ -1,17 +1,17 @@
 <?php
 
-namespace StaticPHP\Utils\Models\Audit;
+namespace StaticPHP\Utils\Models\Queue;
 
 use PDO;
 use StaticPHP\Core\Models\Config;
 use StaticPHP\Utils\Models\Db;
 
 /**
- * The `staticphp audit` command.
+ * The `staticphp queue` command.
  *
- * Reached from ./staticphp before Bootstrap.php runs, for the same reason as migrate and
- * i18n: routing config has no notion of a cli-only route, so a controller would also answer
- * over http - here on a tool that writes schema and deletes history.
+ * Reached from ./staticphp before Bootstrap.php runs, for the same reason as the other
+ * framework commands: `work` is a process that runs for hours, and a route that could
+ * reach it would be a route that never returns.
  */
 class Cli
 {
@@ -25,26 +25,40 @@ class Cli
      * @var string
      * @access public
      */
-    public const DESCRIPTION = 'Install the audit trail schema and prune old rows';
+    public const DESCRIPTION = 'Run queued jobs, and inspect or retry the failures';
 
     /**
      * @var string
      * @access public
      */
     public const USAGE = <<<TXT
-    Usage: staticphp audit <command> [options]
+    Usage: staticphp queue <command> [options]
 
     Commands:
-      install             Write the audit schema into the migrations directory
-      prune               Delete trail rows older than a date
+      install             Write the queue schema into the migrations directory
+      work                Run jobs until told to stop
+      status              What is waiting, scheduled or held by a worker
+      failed              List recent failures
+      retry               Put failed jobs back on the queue
+      forget              Delete failed jobs
 
-    Options:
-      --before=DATE       prune: delete rows older than this, YYYY-MM-DD
-      --batch=N           prune: rows per statement (default: 10000)
-      --dry-run           prune: count what would go, delete nothing
-      --dir=PATH          install: migrations directory to write into
-      --table=NAME        Audit table (default: from config)
-      --connection=NAME   Entry of config['db']['pdo'] to use (default: from config)
+    Work options:
+      --queue=A,B         Queues to watch, in precedence order (default: config)
+      --once              Run at most one job, then exit
+      --stop-when-empty   Exit when the queue drains rather than waiting
+      --max-jobs=N        Exit after N jobs
+      --max-time=N        Exit after N seconds. For cron: --max-time=55
+      --memory=N          Exit once the process is using N megabytes
+      --sleep=N           Seconds to wait when there is nothing to do (default: config)
+      --timeout=N         Visibility timeout, in seconds (default: config)
+
+    Other options:
+      --id=N              retry, forget: one job
+      --all               retry, forget: every failed job
+      --before=DATE       forget: failures older than YYYY-MM-DD
+      --limit=N           failed: how many to list (default: 20)
+      --dir=PATH          install: migrations directory
+      --connection=NAME   Entry of config['db']['pdo'] to use (default: config)
       --project=NAME      Application under src/ to load config from (default: Application)
       --help              This text
 
@@ -56,14 +70,14 @@ class Cli
      * @var string[]
      * @access private
      */
-    private const FLAGS = ['dry-run'];
+    private const FLAGS = ['once', 'stop-when-empty', 'all'];
 
     /**
      * Run the command.
      *
      * @access public
      * @static
-     * @param  string[] $arguments Everything after "audit"
+     * @param  string[] $arguments Everything after "queue"
      * @param  string   $basePath  Repository root, the directory holding src/
      * @return int Process exit code
      */
@@ -95,18 +109,25 @@ class Cli
      * @static
      * @param  string[] $arguments
      * @return array{0: string, 1: list<string>, 2: array<string, bool|string|null>}|int
-     *         The triple, or an exit code when there is nothing to run
      */
     private static function parse(array $arguments): array|int
     {
         $command = null;
         $positional = [];
         $options = [
-            'dry-run' => false,
+            'once' => false,
+            'stop-when-empty' => false,
+            'all' => false,
+            'queue' => null,
+            'max-jobs' => null,
+            'max-time' => null,
+            'memory' => null,
+            'sleep' => null,
+            'timeout' => null,
+            'id' => null,
             'before' => null,
-            'batch' => null,
+            'limit' => null,
             'dir' => null,
-            'table' => null,
             'connection' => null,
             'project' => 'Application',
         ];
@@ -164,66 +185,6 @@ class Cli
     }
 
     /**
-     * The configured pdo connections, whatever Config happens to hold.
-     *
-     * @access private
-     * @static
-     * @return array<string, mixed>
-     */
-    private static function pdoConfigs(): array
-    {
-        $db = Config::$items['db'] ?? null;
-        $pdo = (is_array($db) ? ($db['pdo'] ?? null) : null);
-
-        return (is_array($pdo) ? $pdo : []);
-    }
-
-    /**
-     * The audit settings, whatever Config happens to hold.
-     *
-     * @access private
-     * @static
-     * @return array<string, mixed>
-     */
-    private static function auditConfig(): array
-    {
-        $audit = Config::$items['audit'] ?? null;
-
-        return (is_array($audit) ? $audit : []);
-    }
-
-    /**
-     * A command line option as a string.
-     *
-     * @access private
-     * @static
-     * @param  array<string, bool|string|null> $options
-     * @param  string $key
-     * @param  string $default
-     * @return string
-     */
-    private static function optionString(array $options, string $key, string $default = ''): string
-    {
-        $value = $options[$key] ?? null;
-
-        return (is_string($value) && $value !== '' ? $value : $default);
-    }
-
-    /**
-     * A command line flag.
-     *
-     * @access private
-     * @static
-     * @param  array<string, bool|string|null> $options
-     * @param  string $key
-     * @return bool
-     */
-    private static function optionFlag(array $options, string $key): bool
-    {
-        return ($options[$key] ?? false) === true;
-    }
-
-    /**
      * Define the framework paths, register the autoloader and load configuration.
      *
      * @access private
@@ -265,8 +226,8 @@ class Cli
             Config::load(['Db'], 'Utils', 'staticphp');
         }
 
-        if (self::auditConfig() === []) {
-            Config::load(['Audit'], 'Utils', 'staticphp');
+        if (empty(Config::$items['queue'])) {
+            Config::load(['Queue'], 'Utils', 'staticphp');
         }
 
         if (empty(Config::$items['migrations'])) {
@@ -287,13 +248,10 @@ class Cli
      */
     private static function dispatch(string $command, array $options): int
     {
-        $audit = self::auditConfig();
-
-        $configured = $audit['connection'] ?? null;
         $connectionName = self::optionString(
             $options,
             'connection',
-            (is_string($configured) ? $configured : 'default')
+            Queue::settingString('connection', 'default')
         );
 
         $dbConfig = self::pdoConfigs()[$connectionName] ?? null;
@@ -308,11 +266,6 @@ class Cli
             return 2;
         }
 
-        $table = self::table($options, $audit);
-        if ($table === null) {
-            return 2;
-        }
-
         try {
             /** @var array<string, mixed> $dbConfig */
             $pdo = Db::init($connectionName, $dbConfig);
@@ -322,8 +275,24 @@ class Cli
             return 1;
         }
 
+        try {
+            $queue = new QueueDatabase(
+                $connectionName,
+                Queue::settingString('table', 'queue_jobs'),
+                Queue::settingString('failed_table', 'queue_failed_jobs')
+            );
+        } catch (QueueError $error) {
+            fwrite(STDERR, 'error: ' . $error->getMessage() . "\n");
+
+            return 2;
+        }
+
+        // The commands work through the same driver the application pushes to, so a
+        // misconfigured table name is reported once here rather than differently per command
+        Queue::setDriver($queue);
+
         $driver = $pdo->getAttribute(PDO::ATTR_DRIVER_NAME);
-        $commands = new Commands($pdo, (is_string($driver) ? $driver : ''), function (string $line = ''): void {
+        $commands = new Commands($queue, (is_string($driver) ? $driver : ''), function (string $line = ''): void {
             echo $line . "\n";
         });
 
@@ -338,26 +307,33 @@ class Cli
                         'dir',
                         (is_string($migrationsDir) ? $migrationsDir : APP_PATH . '/Migrations')
                     ),
-                    SP_PATH . '/Utils/Files/Audit',
-                    $table,
+                    SP_PATH . '/Utils/Files/Queue',
                     time()
                 );
 
-            case 'prune':
-                $before = self::optionString($options, 'before');
-                if ($before === '') {
-                    fwrite(STDERR, "error: prune needs --before=YYYY-MM-DD\n");
+            case 'work':
+                return self::work($commands, $options);
 
-                    return 2;
-                }
+            case 'status':
+                return $commands->status();
 
-                $batch = self::optionString($options, 'batch', '10000');
+            case 'failed':
+                return $commands->failed(self::optionInt($options, 'limit', 20));
 
-                return $commands->prune(
-                    $table,
-                    $before,
-                    (is_numeric($batch) ? (int) $batch : 0),
-                    self::optionFlag($options, 'dry-run')
+            case 'retry':
+                return $commands->retry(
+                    self::optionId($options),
+                    self::optionFlag($options, 'all'),
+                    Queue::settingInt('tries', 3)
+                );
+
+            case 'forget':
+                return $commands->forget(
+                    self::optionId($options),
+                    self::optionFlag($options, 'all'),
+                    (self::optionString($options, 'before') === ''
+                        ? null
+                        : self::optionString($options, 'before'))
                 );
 
             default:
@@ -369,40 +345,104 @@ class Cli
     }
 
     /**
-     * Which table the command operates on.
-     *
-     * A deployment that splits the trail configures a callable, which answers per event and
-     * so cannot answer here. Those installations name the table on the command line, one
-     * run per table.
+     * Turn the work options into a worker run.
      *
      * @access private
      * @static
+     * @param  Commands $commands
      * @param  array<string, bool|string|null> $options
-     * @param  array<string, mixed>            $audit
-     * @return ?string Null when it cannot be decided, having said why
+     * @return int
      */
-    private static function table(array $options, array $audit): ?string
+    private static function work(Commands $commands, array $options): int
     {
-        $override = self::optionString($options, 'table');
-        if ($override !== '') {
-            return $override;
+        $queues = [];
+        foreach (explode(',', self::optionString($options, 'queue', Queue::settingString('queue', 'default'))) as $one) {
+            $one = trim($one);
+            if ($one !== '') {
+                $queues[] = $one;
+            }
         }
 
-        $configured = $audit['table'] ?? null;
-        if (is_string($configured) === true && $configured !== '') {
-            return $configured;
-        }
+        $once = self::optionFlag($options, 'once');
 
-        if ($configured === null) {
-            return 'audit_log';
-        }
-
-        fwrite(
-            STDERR,
-            "error: config['audit']['table'] is a resolver, so it names a different table per event.\n"
-            . "Name the one to work on with --table=NAME.\n"
+        return $commands->work(
+            ($queues === [] ? ['default'] : $queues),
+            self::optionInt($options, 'timeout', Queue::settingInt('timeout', 300)),
+            self::optionInt($options, 'sleep', Queue::settingInt('sleep', 1)),
+            ($once === true ? 1 : self::optionInt($options, 'max-jobs', 0)),
+            self::optionInt($options, 'max-time', 0),
+            self::optionInt($options, 'memory', 0),
+            ($once === true || self::optionFlag($options, 'stop-when-empty'))
         );
+    }
 
-        return null;
+    /**
+     * The configured pdo connections, whatever Config happens to hold.
+     *
+     * @access private
+     * @static
+     * @return array<string, mixed>
+     */
+    private static function pdoConfigs(): array
+    {
+        $db = Config::$items['db'] ?? null;
+        $pdo = (is_array($db) ? ($db['pdo'] ?? null) : null);
+
+        return (is_array($pdo) ? $pdo : []);
+    }
+
+    /**
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @param  string $default
+     * @return string
+     */
+    private static function optionString(array $options, string $key, string $default = ''): string
+    {
+        $value = $options[$key] ?? null;
+
+        return (is_string($value) && $value !== '' ? $value : $default);
+    }
+
+    /**
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @param  int    $default
+     * @return int
+     */
+    private static function optionInt(array $options, string $key, int $default): int
+    {
+        $value = $options[$key] ?? null;
+
+        return (is_string($value) && is_numeric($value) ? (int) $value : $default);
+    }
+
+    /**
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @return ?int
+     */
+    private static function optionId(array $options): ?int
+    {
+        $value = $options['id'] ?? null;
+
+        return (is_string($value) && is_numeric($value) ? (int) $value : null);
+    }
+
+    /**
+     * @access private
+     * @static
+     * @param  array<string, bool|string|null> $options
+     * @param  string $key
+     * @return bool
+     */
+    private static function optionFlag(array $options, string $key): bool
+    {
+        return ($options[$key] ?? false) === true;
     }
 }

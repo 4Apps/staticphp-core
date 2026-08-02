@@ -14,6 +14,24 @@ subsystems are opt-in and inert until something calls them.
 
 ### Added
 
+-   Job queue: `Queue::push()` and `staticphp queue work`, over two tables on the
+    application's own database. A push is an INSERT, so it joins the transaction that caused
+    it - queue the confirmation inside the transaction that writes the payment and either
+    both happen or neither does. That is the argument for keeping jobs in the same database
+    as the work rather than somewhere faster, and no other backend can offer it. Reserving
+    is a candidate select and then a guarded update, with `FOR UPDATE SKIP LOCKED` where the
+    server has it; the guard is what makes the claim safe and the lock only stops workers
+    queueing behind each other. A claim is a deadline rather than a flag, so a worker killed
+    mid-job leaves the row claimable again instead of holding it until somebody notices.
+    Payloads are JSON rather than `serialize()`: they survive a deploy that changes the
+    class, they can be read in a SELECT while somebody is asking why a job did not run, and
+    they cannot become an object-injection gadget. Delayed jobs, priorities, per-key
+    deduplication at push time, retries with backoff, and a failed table with `queue
+    failed`, `queue retry` and `queue forget` to work through it. The worker suits both
+    deployments, supervised under systemd or `--max-time=55` from cron, because which one is
+    available is a hosting question rather than a design one. `QueueInterface` is the seam
+    for a redis driver later; none is shipped, and the database one is what to reach for
+    first.
 -   Audit trail: `Audit::insert()`, `update()`, `delete()` and `record()`, writing one
     standard row shape over postgres, mysql/mariadb and sqlite, with `staticphp audit
     install` and `audit prune`, and `Presentation\Models\Audit\AuditTable` to render it.
@@ -77,6 +95,9 @@ subsystems are opt-in and inert until something calls them.
 
 -   `ext-sodium` declared as `suggest`. It is bundled and enabled in most php builds, and an
     application that never encrypts a column does not need it.
+-   `ext-pcntl` declared as `suggest`. Without it the queue still runs, but a worker cannot
+    finish the job in hand before exiting, so every deploy loses whatever was running until
+    its reservation expires.
 
 ### Tooling
 

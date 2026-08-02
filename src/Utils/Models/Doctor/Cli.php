@@ -14,6 +14,18 @@ use StaticPHP\Core\Models\Config;
 class Cli
 {
     /**
+     * One line for the command list in `staticphp --help`.
+     *
+     * Separate from USAGE because that opens with a synopsis and a table, and nothing
+     * sensible can be lifted out of it - the entry point reads this constant when it is
+     * there and leaves the column blank when it is not.
+     *
+     * @var string
+     * @access public
+     */
+    public const DESCRIPTION = 'Check php, extensions, databases, migrations and the cache';
+
+    /**
      * @var string
      * @access public
      */

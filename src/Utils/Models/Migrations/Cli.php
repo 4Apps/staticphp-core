@@ -21,6 +21,18 @@ use StaticPHP\Utils\Models\Migrations\Drivers\Driver;
 class Cli
 {
     /**
+     * One line for the command list in `staticphp --help`.
+     *
+     * Separate from USAGE because that opens with a synopsis and a table, and nothing
+     * sensible can be lifted out of it - the entry point reads this constant when it is
+     * there and leaves the column blank when it is not.
+     *
+     * @var string
+     * @access public
+     */
+    public const DESCRIPTION = 'Apply, inspect and repair database migrations';
+
+    /**
      * @var string
      * @access public
      */
