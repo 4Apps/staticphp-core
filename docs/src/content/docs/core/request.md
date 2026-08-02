@@ -170,7 +170,7 @@ trust on, no XFF at all                        => '10.0.0.5'
 trust on, XFF entry with a port                => '192.0.2.1'
 trust on, bracketed ipv6 with a port           => '2001:db8::1'
 trust on, XFF is not an address                => '10.0.0.5'
-no REMOTE_ADDR at all (cli)                    => NULL
+no REMOTE_ADDR and no XFF (cli)                => NULL
 ```
 
 The bootstrap calls this once, straight after `Config::load(['Config', 'Routing'])` and

@@ -245,7 +245,7 @@ explicit `|raw`; everything else is escaped by twig as usual, which is what keep
 supplied value substituted into a translation from becoming stored xss.
 
 Twig is optional for the package as a whole, and so it is here: `twigRegister()` sets
-`view_data` either way and returns early when `$config['view_engine']` is empty.
+`view_data` either way and returns early when `Config::viewEngine()` is empty.
 
 ## Testing and the cli
 

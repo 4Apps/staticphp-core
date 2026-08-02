@@ -248,9 +248,9 @@ a menu from a script, a test or a CLI command means setting `Router::$module_url
 `$controller_url` first, even for a menu whose urls are all literal.
 :::
 
-`Load::view()` renders through Twig when `$config['view_engine']` is set and falls back to
-plain PHP includes otherwise, so the `.html` extension is a naming convention rather than a
-constraint. See [Load](/staticphp-core/core/load/).
+`Load::view()` renders through Twig unless `Config::viewEngine()` returns `null` and falls
+back to plain PHP includes otherwise, so the `.html` extension is a naming convention rather
+than a constraint. See [Load](/staticphp-core/core/load/).
 
 ## Groups and submenus
 
