@@ -134,6 +134,54 @@ alternative breaks, but because the notice is noise and because you almost alway
 variable afterwards to set rows and an output generator on it.
 :::
 
+### Utils
+
+Almost every column property in this subsystem is `T|\Closure`, and `Tables\Utils` is where
+that gets resolved. It is four public statics with no state, and nothing in the framework
+calls them from outside `Tables/` - but an `OutputInterface` implementation of your own is
+on the outside, and this is the class it needs:
+
+```php
+<?php
+
+public static function ensureArray(mixed $value): array;
+public static function valueOrClosure(mixed $value, ?\Closure $closure = null, array $args = []): mixed;
+public static function expandClosure(mixed $closure, array $args = []): mixed;
+public static function runClosures(array $arrayOfData, array $args = []): array;
+```
+
+`expandClosure()` is the one to reach for: it calls `$closure` with `$args` when the value
+is callable and returns it untouched when it is not, which is what makes a column property
+accept either a literal or a closure without the caller testing. `runClosures()` maps it
+over an array and coerces each result to a string, because its callers implode the result
+straight into markup - attribute lists, class lists - so a value with no string form was
+never usable there. A non-scalar becomes `''` rather than raising. `valueOrClosure()`
+inverts the argument order: the value goes in first and the closure, if there is one, is
+called with the value prepended to `$args`. `ensureArray()` wraps a non-array in one - it
+does not filter, so `null` comes back as `[null]`.
+
+```text
+ensureArray('one')                                         => array ( 0 => 'one', )
+ensureArray(['a' => 1])                                    => array ( 'a' => 1, )
+ensureArray(null)                                          => array ( 0 => NULL, )
+valueOrClosure('raw')                                      => 'raw'
+valueOrClosure('raw', fn ($v, $s) => $s . $v, ['<'])       => '<raw'
+expandClosure('plain', ['ignored'])                        => 'plain'
+expandClosure(fn ($row) => $row['id'], [['id' => 7]])      => 7
+expandClosure('strtoupper', ['ab'])                        => 'AB'
+runClosures(['class' => 'a', 'id' => fn ($r) => $r], ['x']) => array ( 'class' => 'a', 'id' => 'x', )
+runClosures([fn () => ['not', 'scalar']])                  => array ( 0 => '', )
+runClosures([true, 1.5, null])                             => array ( 0 => '1', 1 => '1.5', 2 => '', )
+```
+
+`expandClosure()` tests with `is_callable()` rather than `instanceof \Closure`, so a
+function name in a string is called too - `'strtoupper'` above. That is worth knowing before
+storing a plain string in a property this passes through.
+
+The internal callers are `Output\Html` (twenty-two), `SQL\SQLFilters` (five) and `Table`
+(two); [HTML output](/staticphp-core/presentation/output-html/) shows the shape they use it
+in.
+
 ## The Table class
 
 `Table` implements `TableInterface`. Its constructor takes the columns and a url prefix,

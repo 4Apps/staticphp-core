@@ -50,11 +50,11 @@ All three shipped entries are documented: `migrate`, on this page,
 [`i18n`](/staticphp-core/i18n/extracting-strings/) and
 [`audit`](/staticphp-core/audit/audit-cli/).
 
-Commands are reached before `Helpers/Bootstrap.php` runs and never touch the router. That is
-deliberate: routing configuration has no notion of a cli-only route, so a migrations
-controller would also answer `POST /migrations/apply` over http - on a tool whose whole job
-is changing the schema. The same argument covers deleting translation keys and deleting
-history.
+Commands are reached before `src/Core/Helpers/Bootstrap.php` runs and never touch the
+router. That is deliberate: routing configuration has no notion of a cli-only route, so a
+migrations controller would also answer `POST /migrations/apply` over http - on a tool
+whose whole job is changing the schema. The same argument covers deleting translation keys
+and deleting history.
 
 ## Usage
 

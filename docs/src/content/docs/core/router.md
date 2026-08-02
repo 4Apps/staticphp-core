@@ -480,12 +480,14 @@ public static function clientIp(): ?string;
 public static function requestIsSecure(): bool;
 ```
 
-These are the only places the framework looks past the connection this process sees, and
-all three do nothing unless `$config['trust_proxy_headers']` is on. `requestIsSecure()`
-decides the scheme in `splitSegments()`, the session cookie's `Secure` flag and the url on
-the error page; `clientIp()` fills `$config['client_ip']` during bootstrap when the
-application left it `null`. They are covered in full under
-[proxy headers](/staticphp-core/core/request/#proxy-headers).
+These are the only places the framework looks past the connection this process sees.
+`forwardedHeader()` returns nothing unless `$config['trust_proxy_headers']` is on; the
+other two fall back to the connection this process sees, so `clientIp()` still answers with
+the validated `REMOTE_ADDR` and `requestIsSecure()` still runs its `HTTPS` and
+`SERVER_PORT` tests. `requestIsSecure()` decides the scheme in `splitSegments()`, the
+session cookie's `Secure` flag and the url on the error page; the bootstrap calls
+`clientIp()` to fill `$config['client_ip']` when the application left it `null`. They are
+covered in full under [proxy headers](/staticphp-core/core/request/#proxy-headers).
 
 ## error()
 

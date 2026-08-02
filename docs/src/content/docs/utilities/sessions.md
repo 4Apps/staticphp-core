@@ -87,9 +87,10 @@ else falls back to `Lax` rather than reaching php, which would reject it with a 
 :::caution[Behind a tls-terminating proxy the `Secure` flag needs `trust_proxy_headers`]
 `Router::requestIsSecure()` reads `X-Forwarded-Proto` only when
 `$config['trust_proxy_headers']` is on, and it defaults to off. Its remaining tests are
-`$_SERVER['HTTPS']` set to anything other than `off`, then `SERVER_PORT === '443'` - and
-behind tls termination the connection this process sees is plain http on the internal port,
-so neither fires. The session cookie then goes out without `Secure` on exactly the
+`$_SERVER['HTTPS']` set to anything other than the empty string or `off`, then
+`SERVER_PORT === '443'` - and behind tls termination the connection this process sees is
+plain http on the internal port, so neither fires. The session cookie then goes out
+without `Secure` on exactly the
 deployment where it matters most. Turn `trust_proxy_headers` on, and see
 [proxy headers](/staticphp-core/core/request/#proxy-headers) for what else it governs.
 :::

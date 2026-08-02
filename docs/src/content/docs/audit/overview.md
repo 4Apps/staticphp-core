@@ -185,7 +185,7 @@ Core has no notion of authentication, so naming the actor is the application's j
 `Router::clientIp()` and `$_SERVER['HTTP_USER_AGENT']`. Going through `clientIp()` rather
 than `$_SERVER['REMOTE_ADDR']` means a proxied deployment records the client rather than the
 proxy, and cannot be told otherwise by a forged `X-Forwarded-For`; see
-[reading the request behind a proxy](/staticphp-core/core/router/#reading-the-request-behind-a-proxy).
+[proxy headers](/staticphp-core/core/request/#proxy-headers).
 
 ## Starting it
 

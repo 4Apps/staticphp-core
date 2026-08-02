@@ -192,6 +192,10 @@ $isEditable = (Utils::expandClosure($column->isEditable, $editableArgs)
 );
 ```
 
+`Utils::expandClosure()` calls the property with `$editableArgs` when it is callable and
+returns it as it stands when it is not, which is how one expression handles both a `bool`
+and a `\Closure`. See [Utils](/staticphp-core/presentation/tables/#utils).
+
 So a table with editing switched off can still publish its option lists in the markup:
 
 ```text

@@ -54,6 +54,27 @@ top level only. Two calls naming the same field replace that field's whole rule 
 a `missing` error and is neither filtered nor validated. A field in the input with no rules
 is left alone. It returns `empty($this->errors)`.
 
+The two halves it calls per field are public in their own right:
+
+```php
+<?php
+
+public function filterField(string $name): void;
+public function validateField(string $name): void;
+```
+
+`filterField()` runs that field's `filter` list and writes the result back to
+`$fv->post[$name]`; `validateField()` runs its `valid` list and calls `setError()` for each
+rule that returns `false`. Both return nothing and both no-op when the field has no list of
+that kind. Call them directly to filter a field before deciding whether to validate it at
+all, or to re-validate one field after changing it.
+
+Two things they do not do, because `validate()` does them: neither records a `missing`
+error, and neither checks that the key is in the input at all - called for a field that is
+not there, they read `$fv->post[$name]` anyway and php warns about the undefined key. Each
+also stops at the first empty entry in its list rather than skipping it, so a padded rule
+array silently drops everything after the gap.
+
 ### The rule array
 
 | Key       | Meaning                                                          |
@@ -165,6 +186,59 @@ the input at all. Calling `$fv->errors([...])` merges replacements into this tab
 whole instance. Note that `errors` is both a public property and a method on this class:
 `$fv->errors` reads the accumulated per-field messages, `$fv->errors(...)` overrides the
 default message table.
+
+### Writing an error yourself
+
+`setError()` is the write side of the same pair, and it is public:
+
+```php
+<?php
+
+public function setError(mixed $type, string $name, mixed $value = ''): void;
+```
+
+`validateField()` calls it for every rule that returns `false`, and an application calls it
+for the checks a rule cannot express - a uniqueness lookup, a cross-field comparison, a
+rejection the api came back with. The message is resolved exactly as it is for a builtin:
+`$rules[$name]['errors'][$type]`, then the class defaults, then `''`. `$value` fills
+`!value` and is escaped here, so a rejected value straight out of the request is safe to
+pass. A `$type` that is not a string is read as `default`.
+
+The catch is the last fallback. There is no default message for a type you invented, so
+`setError('taken', ...)` with nothing declared for `taken` records an empty string - the
+field counts as having an error and prints as nothing:
+
+```text
+validate()                         => true
+hasError('email') after setError   => true
+getError('email')                  => array ( 0 => '', )
+getError('email') with a message   => array ( 0 => '"taken@example.com" is already registered to someone else', )
+errors_all                         => array ( 0 => '"taken@example.com" is already registered to someone else', )
+!value is escaped                  => array ( 0 => 'name / &lt;b&gt;x&lt;/b&gt;', )
+non-string type                    => array ( 0 => '', )
+```
+
+So declare the message alongside the rules, either per field or on the instance:
+
+```php
+<?php
+
+$fv->addRules([
+    'email' => [
+        'title' => 'E-mail',
+        'valid' => ['required', 'email'],
+        'errors' => ['taken' => '"!value" is already registered to someone else'],
+    ],
+]);
+
+if ($fv->validate() === true && $users->emailExists($fv->post['email'])) {
+    $fv->setError('taken', 'email', $fv->post['email']);
+}
+```
+
+`validate()` has already returned by then, so re-read `$fv->errors` or `hasError()` rather
+than its return value - the message lands in `$fv->errors['email']` and `$fv->errors_all`
+together, by reference, like any other.
 
 ## Every validation rule
 

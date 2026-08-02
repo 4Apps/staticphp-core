@@ -122,7 +122,9 @@ public static function clientIp(): ?string;
 public static function requestIsSecure(): bool;
 ```
 
-All three are gated on one setting:
+`trust_proxy_headers` is the gate on all three. `trusted_proxy_hops` shapes what
+`clientIp()` returns once it is open, and `client_ip` is where the bootstrap keeps the
+answer - no method here reads it:
 
 | Key                             | Default | What it does                                                       |
 | ------------------------------- | ------- | ------------------------------------------------------------------ |
@@ -131,9 +133,11 @@ All three are gated on one setting:
 | `$config['client_ip']`           | `null`  | `null` means "work it out"; anything else is kept as set           |
 
 Turn `trust_proxy_headers` on only when a proxy that rewrites those headers is the sole
-route in. They are client-supplied otherwise, and what they feed - `base_url`, the session
-cookie's `Secure` flag, the address in the logs - ends up in redirects, emails and cached
-pages.
+route in. They are client-supplied otherwise, and what they feed - `base_url` and the
+session cookie's `Secure` flag - ends up in redirects, emails and cached pages. The
+resolved address itself has one consumer in the framework: the
+[audit trail](/staticphp-core/audit/overview/) records it as the address the change came
+from.
 
 ### forwardedHeader()
 
@@ -145,7 +149,9 @@ headers that describe the request itself - a proxy sets `X-Forwarded-Proto` outr
 
 ### clientIp()
 
-Starts from `REMOTE_ADDR` and returns it unchanged when `trust_proxy_headers` is off.
+Starts from `REMOTE_ADDR` put through the same `validateIp()` every other candidate goes
+through, and returns that when `trust_proxy_headers` is off - so a value that is malformed,
+or that carries a port, comes back normalised or `null` rather than as it arrived.
 Otherwise it splits `X-Forwarded-For` on `,`, drops empty entries, and indexes
 `max(0, count - trusted_proxy_hops)` - counting from the right, one entry per trusted hop.
 `trusted_proxy_hops` below `1` is clamped to `1`. An entry that does not parse as an

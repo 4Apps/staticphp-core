@@ -254,5 +254,6 @@ and a view. Everything after this is reference, and the Core section is where it
 
 Beyond Core: [the database layer](/staticphp-core/database/db/),
 [internationalisation](/staticphp-core/i18n/overview/),
+[the audit trail](/staticphp-core/audit/overview/),
 [the utilities](/staticphp-core/utilities/cache/) and
 [the table subsystem](/staticphp-core/presentation/tables/).

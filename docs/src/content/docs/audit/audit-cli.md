@@ -11,9 +11,10 @@ the class; the `staticphp` executable that dispatches to it ships with the
 the two is `StaticPHP\Core\Cli` - see
 [the command registry](/staticphp-core/database/migrations-cli/#the-command-registry).
 
-Like `migrate` and `i18n` it is reached before `Helpers/Bootstrap.php` runs and never touches
-the router. Routing configuration has no notion of a cli-only route, so a controller would
-also answer over http - here on a tool that writes schema and deletes history.
+Like `migrate` and `i18n` it is reached before `src/Core/Helpers/Bootstrap.php` runs and
+never touches the router. Routing configuration has no notion of a cli-only route, so a
+controller would also answer over http - here on a tool that writes schema and deletes
+history.
 
 The verbs are `install` and `prune`. There are no others.
 

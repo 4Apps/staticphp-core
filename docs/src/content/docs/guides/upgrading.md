@@ -265,6 +265,9 @@ overwrite the renderer's own variables. See
 - Application namespaces, module layout and routing.
 - `Load::view()`, controllers, `Router::error()`, the config array.
 - The `staticphp` cli and its `migrate` / `i18n` commands.
+  - The executable and the way it dispatches are unchanged; the set of commands it reaches
+    has grown. `staticphp audit`, which installs the audit schema and prunes the trail, is
+    new in 2.0 - see [the audit trail](/staticphp-core/audit/overview/).
 
 ## Things worth knowing
 

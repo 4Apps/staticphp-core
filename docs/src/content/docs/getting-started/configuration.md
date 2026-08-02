@@ -105,7 +105,7 @@ handlers are registered. Entries are slash separated and read right to left:
 
 ## The configuration each subsystem expects
 
-Four subsystems come with a default configuration file in `src/Utils/Config/`. They are
+Five subsystems come with a default configuration file in `src/Utils/Config/`. They are
 ordinary config files, not classes: each one assigns the keys its subsystem reads, with
 values that make sense as a starting point. Load one with
 `$config['autoload_configs'][] = 'staticphp/Utils/<name>'`, or copy it into the
@@ -142,6 +142,17 @@ the first controller segment. See [internationalisation](/staticphp-core/i18n/ov
 Populates `$config['migrations']` with three keys: `dir`, the directory the `.sql` files
 live in, kept outside `Public/` deliberately; `table`, the tracking table; and
 `connection`, naming which entry of `$config['db']['pdo']` to migrate.
+
+### Audit
+
+Populates `$config['audit']`: `connection` and `table`, saying which entry of
+`$config['db']['pdo']` the trail is written to and where the rows land; `strict` and
+`max_rows`, the two safety switches; `id_key`, the column read from the affected row;
+`actor` and `context`, the callables an application supplies to name who did it and where
+from; and `exclude`, the columns whose values must never reach the trail. The same list is
+also a constant inside `Audit`, so the trail works before this file is loaded at all - load
+it when you want to change something. See
+[the audit trail](/staticphp-core/audit/overview/).
 
 ## Keys the framework reads
 
