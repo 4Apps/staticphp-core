@@ -7,6 +7,84 @@ carries meaning. Tags additionally carry a patch number derived from the commit 
 `v2.0.326` is a release of the 2.0 line - so there are more tags than there are headings
 here. See CONTRIBUTING.md.
 
+## unreleased
+
+Additive throughout: nothing here changes the meaning of an existing call. The new
+subsystems are opt-in and inert until something calls them.
+
+### Added
+
+-   Audit trail: `Audit::insert()`, `update()`, `delete()` and `record()`, writing one
+    standard row shape over postgres, mysql/mariadb and sqlite, with `staticphp audit
+    install` and `audit prune`, and `Presentation\Models\Audit\AuditTable` to render it.
+    Capture is in php and every call is explicit - no observers, no `Db` hooks and no
+    database triggers - because a trail that writes itself is one nobody can reason about
+    at the call site. `update()` and `delete()` read the affected rows before writing, so
+    the old values are recorded without 300 hand written before-fetches. The table name may
+    be a resolver, so a deployment that already splits its trail across tables keeps doing
+    so against one logical standard.
+-   Field encryption: `Crypto::encrypt()`, `decrypt()` and `blindIndex()` over libsodium
+    secretbox, with `staticphp crypto key` and `crypto rotate`. Explicit, like the audit -
+    nothing is wired into `Db`, so a value cannot be encrypted twice or written in the
+    clear because a hook did not fire. Stored values carry a version and key id
+    (`sp1:k1:...`), which is what lets a retired key keep decrypting old rows, lets a
+    column hold plaintext and ciphertext while a backfill runs, and lets `rotate` tell what
+    still needs rewriting. Keys are read from environment variables named in config, never
+    from config itself. `blindIndex()` restores equality lookups and uniqueness on an
+    encrypted column through a second, separately keyed column; ranges and `LIKE` do not
+    come back.
+-   Rate limiting: `Throttle::hit()`, `check()` and `clear()` on top of the existing cache
+    backends, returning an `Attempt` that also carries the `X-RateLimit-*` and `Retry-After`
+    headers. Fixed window, and the boundary and read-modify-write limits are documented on
+    the class rather than left to be discovered.
+-   `staticphp doctor`: php version, extensions, each connection's pdo driver and whether it
+    actually answers, migration state, cache directory permissions, debug left on for
+    everybody, and whether the configured audit table is readable. `--offline` skips
+    anything that opens a connection and `--strict` fails on warnings for CI. It reads only.
+-   `staticphp sessions install`, putting the session schema on the same footing as i18n and
+    audit instead of a loose `.sql` file to copy by hand.
+-   `Db::transaction(callable)`: commits when the callable returns, rolls back when it
+    throws. It catches `Throwable` rather than `Exception`, so a `TypeError` or a failed
+    assertion no longer ends the request with the transaction open, and a nested call takes
+    a savepoint rather than committing the transaction its caller opened.
+-   `Db::select()`, which resolves a `$where` exactly the way `update()` and `delete()` do.
+    `buildWhere()` stays private.
+-   `StaticPHP\Core\Cli::commands()`, the framework's own command map. The skeleton merges
+    it rather than listing commands itself, so adding one here no longer needs a matching
+    skeleton release. Application commands win a name collision.
+-   `SortNulls::NONE`, for mysql and mariadb, where `NULLS FIRST` / `NULLS LAST` is a syntax
+    error rather than a hint that gets ignored.
+-   `Menu::firstVisibleMenu()`, and a batch of additions to `Utils\Helpers`: `isBlank()`,
+    `isBlankOrNull()`, `valueOrNull()`, `cNumberFormat()`, `localeDateFormat()`,
+    `weekOfMonth()`, `yearRangeDateTime()`, `sqlTimestampToDatetime()`,
+    `isArrayKeyBlank()`, `isArrayKeyBlankOrNull()`, `padEmptyArrayForDropdown()`,
+    `uploadCodeToMessage()` and `simpleArray()`. `trimChars()`, `extractArrayByKeys()` and
+    `groupArray()` gained optional parameters and existing calls are unaffected.
+
+### Changed
+
+-   The session schema is `Utils/Files/Sessions/install.pgsql.sql`, replacing
+    `Utils/Files/table_sessions_postgres.sql`. Its `timestamp` column is now `timestamptz`:
+    `gc()` compares against `CURRENT_TIMESTAMP`, and on a server whose timezone is not utc a
+    naive column makes that comparison wrong twice a year for the length of the dst shift.
+    Existing installations are unaffected until they choose to migrate.
+-   `Utils/Files/table_sessions_mysql.sql` is gone. Core ships no mysql session handler, so
+    nothing could use it, and the file was not valid mysql in any case - it quoted
+    identifiers with double quotes and stored the timestamp as `int(11)`. `sessions install`
+    now says which handlers to use instead when the driver is not postgres.
+
+### Packaging
+
+-   `ext-sodium` declared as `suggest`. It is bundled and enabled in most php builds, and an
+    application that never encrypts a column does not need it.
+
+### Tooling
+
+-   phpstan at level 9 with an empty baseline, and `composer validate` and
+    `composer dump-autoload --strict-psr`, are part of `scripts/code_tests.bash`. The
+    baseline generated when phpstan was introduced has been worked off rather than carried,
+    which is what the empty file is there to keep true.
+
 ## 2.0 - 2026-08-01
 
 The first release of the framework as a composer package. Everything below is breaking;
