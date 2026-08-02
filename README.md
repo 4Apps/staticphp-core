@@ -4,6 +4,8 @@
 
 The StaticPHP framework, as a library.
 
+Full documentation: https://gintsmurans.github.io/staticphp-core/
+
 This is the package an application depends on. The application skeleton - the demo app,
 the asset pipeline, the dev container, the `staticphp` cli - lives in
 [gintsmurans/staticphp](https://github.com/gintsmurans/staticphp) and is what

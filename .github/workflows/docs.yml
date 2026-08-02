@@ -1,0 +1,109 @@
+name: Docs
+
+on:
+  push:
+    branches: [master]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  # ci.yml carries paths-ignore: ['docs/**'] on both of its triggers, so without this a
+  # docs-only pull request fires no workflow at all and the links validator never runs
+  # before merge. This trigger builds and validates; it deploys nothing.
+  pull_request:
+    branches: [master, develop]
+    paths:
+      - 'docs/**'
+      - '.github/workflows/docs.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+# A cancelled deployment can leave the Pages environment holding a lock, so deployments
+# queue rather than pre-empt each other. This is the one workflow here that does not set
+# cancel-in-progress: true. A pull request deploys nothing, so it takes neither the lock
+# nor the queue - it gets its own group and pre-empts itself the way ci.yml does.
+concurrency:
+  group: ${{ github.event_name == 'pull_request' && format('docs-pr-{0}', github.ref) || 'pages' }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  # Build only. A pull request needs to know the site still compiles and every internal
+  # link still resolves; it has nothing to publish, so it neither uploads an artifact nor
+  # touches the Pages environment - which is also what lets it pass on a fork's token.
+  validate:
+    name: Build (pull request)
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    # Overrides the workflow-level grant of pages: write / id-token: write - this job
+    # builds and validates only, it deploys nothing and does not need either.
+    permissions:
+      contents: read
+    defaults:
+      run:
+        working-directory: docs
+
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # starlight-links-validator runs as part of the build, so a broken internal link
+      # fails here rather than reaching master.
+      - name: Build the site
+        run: npm run build
+
+  build:
+    name: Build
+    if: github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: docs
+
+    steps:
+      - uses: actions/checkout@v5
+
+      # Fails fast with "Pages is not enabled" rather than one step later inside
+      # upload-pages-artifact, where the same cause reads as an opaque artifact error.
+      - uses: actions/configure-pages@v5
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: docs/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      # starlight-links-validator runs as part of the build, so a broken internal link
+      # fails here rather than shipping as a 404.
+      - name: Build the site
+        run: npm run build
+
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          # Relative to the workspace, not to the job's working-directory
+          path: docs/dist
+
+  deploy:
+    name: Deploy
+    needs: build
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+
+    steps:
+      - id: deployment
+        uses: actions/deploy-pages@v4

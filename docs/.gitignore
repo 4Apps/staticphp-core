@@ -1,0 +1,5 @@
+# Astro build output and caches. The repository-level .gitignore also covers these; this
+# file is what makes the docs project self-contained if it is ever opened on its own.
+dist/
+.astro/
+node_modules/

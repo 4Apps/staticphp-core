@@ -30,3 +30,24 @@ services:
             context: ./
             dockerfile: ./docker/Dockerfile
             target: testing
+
+    # Documentation site. docker/Dockerfile deliberately carries no node - a library has no
+    # assets - so the docs toolchain gets the stock node image rather than growing that one.
+    # Served at http://localhost:4321/staticphp-core/, base path included.
+    docs:
+        image: node:22-slim
+        container_name: staticphp_core_docs
+        restart: "no"
+        # node:22-slim runs as root, and docs/ is a bind mount, so npm install would leave a
+        # root-owned node_modules on the host. Same fix as develop's LOCAL_USER_ID, applied
+        # at run time because this image is not built here. HOME follows, or npm writes its
+        # cache to /root.
+        user: "${LOCAL_USER_ID:-1000}:${LOCAL_GROUP_ID:-1000}"
+        environment:
+            - HOME=/tmp
+        working_dir: /srv/docs
+        volumes:
+            - ./docs:/srv/docs:cached
+        ports:
+            - "4321:4321"
+        command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
