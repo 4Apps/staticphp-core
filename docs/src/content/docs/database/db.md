@@ -216,9 +216,11 @@ Db::select('posts', ['author_id' => [3, 4]], 'id, title');
 // SELECT id, title FROM posts WHERE `author_id` IN (?, ?);
 ```
 
-It exists so that the audit trail can read the rows an update is about to change while
-resolving the condition exactly as the update will - a second implementation of the
-condition builder would audit different rows than it wrote. `$where` therefore takes the same
+It exists so that [the audit trail](/staticphp-core/audit/overview/) can read the rows an
+update is about to change while resolving the condition exactly as the update will - a second
+implementation of the condition builder would audit different rows than it wrote.
+`Audit::update()` and `Audit::delete()` are the only callers in the package; see
+[recording changes](/staticphp-core/audit/recording/). `$where` therefore takes the same
 shapes as [the conditions](/staticphp-core/database/db/#conditions) below, the raw string
 form included. `$table` and `$columns` are concatenated as given, so neither may come from
 request data.

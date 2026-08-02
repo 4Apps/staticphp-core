@@ -12,6 +12,10 @@ renders itself; the table is a description that an output generator reads.
 
 The classes live in `src/Presentation/Models/Tables/`.
 
+The package ships one table built on top of them,
+[`AuditTable`](/staticphp-core/audit/audit-table/), which is worth reading as a worked example
+of the column set and `initData()` call this page describes.
+
 ## The interfaces
 
 Three interfaces describe the contract, all in

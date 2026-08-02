@@ -46,9 +46,9 @@ public static function run(array $arguments, string $basePath): int;
 the directory holding `src/`. The return value is the process exit code, and every shipped
 command returns 1 immediately if `PHP_SAPI` is not `cli`.
 
-Two of the shipped entries are documented here: `migrate`, on this page, and
-[`i18n`](/staticphp-core/i18n/extracting-strings/). The map carries a third, `audit`, which
-this documentation does not cover yet.
+All three shipped entries are documented: `migrate`, on this page,
+[`i18n`](/staticphp-core/i18n/extracting-strings/) and
+[`audit`](/staticphp-core/audit/audit-cli/).
 
 Commands are reached before `Helpers/Bootstrap.php` runs and never touch the router. That is
 deliberate: routing configuration has no notion of a cli-only route, so a migrations
