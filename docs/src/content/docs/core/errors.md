@@ -84,10 +84,13 @@ The public properties are `$description`, `$httpStatusCode` and `$httpStatusMess
 ```php
 <?php
 
-public function outputMessage($outputType = ErrorMessage::OUTPUT_TYPE_HTML, $includeHtmlTemplate = false);
+public function outputMessage(
+    string $outputType = ErrorMessage::OUTPUT_TYPE_HTML,
+    bool $includeHtmlTemplate = false
+): void;
 ```
 
-Prints. It does not return the string, and its return value is `null`.
+Prints. It is declared `: void`, so there is no string to capture.
 
 It sends the status code with `http_response_code()` - guarded by `headers_sent()`, and
 skipped when the code is 200 - then prints in one of four formats:
@@ -115,7 +118,7 @@ what `Router::init()` passes.
 <?php
 
 public static function outputTypeFromRequestType(RequestContentType $requestType): string;
-public static function httpStatusCodeToMessage(int $httpStatusCode);
+public static function httpStatusCodeToMessage(int $httpStatusCode): string;
 ```
 
 `outputTypeFromRequestType()` maps the negotiated request content type onto one of the four
@@ -161,7 +164,7 @@ header.
 ## The registered handlers
 
 `src/Core/Helpers/ErrorHandlers.php` is loaded by the bootstrap with
-`Load::helper(['ErrorHandlers'], 'Core', 'staticphp')`, which defines eight global
+`Load::helper(['ErrorHandlers'], 'Core', 'staticphp')`, which defines ten global
 functions. Two of them are then registered:
 
 ```php
@@ -178,28 +181,35 @@ Everything the bootstrap does before this point runs under PHP's own handling.
 ```php
 <?php
 
-function sp_error_handler(int $errno, string $errstr, ?string $errfile, ?int $errline, ?array $errcontext = null): void;
+function sp_error_handler(
+    int $errno,
+    string $errstr,
+    ?string $errfile = null,
+    ?int $errline = null,
+    ?array $errcontext = null
+): bool;
 ```
 
 Converts every PHP error into a thrown `SpErrorException`, so a notice about an undefined
-array key stops the request the same way an exception does. It returns early when
-`(error_reporting() & $errno) === 0`, which is how `@` suppression is honoured - since PHP
-8 the suppression operator sets a non-zero mask rather than 0, so the old comparison
-against 0 no longer detects it.
+array key stops the request the same way an exception does. It returns `false` when
+`(error_reporting() & $errno) === 0`, which hands the error back to php rather than
+swallowing it and is how `@` suppression is honoured - since PHP 8 the suppression operator
+sets a non-zero mask rather than 0, so the old comparison against 0 no longer detects it.
+That `false` is the only path that returns at all; everything else throws.
 
 ### sp_exception_handler()
 
 ```php
 <?php
 
-function sp_exception_handler(Throwable $exception);
+function sp_exception_handler(Throwable $exception): void;
 ```
 
 The handler of last resort - it only sees what nothing else caught, which in practice means
 exceptions thrown outside `Router::init()`, since `init()` catches `Throwable` itself.
 
 1. A `RouterException` is special-cased into
-   `Router::error('500', 'Internal Server Error', ...)`, carrying the exception message
+   `Router::error(500, 'Internal Server Error', ...)`, carrying the exception message
    only in debug mode. `Router::error()` exits, so nothing below runs for that case.
 2. `http_response_code(500)`, if headers have not been sent.
 3. If `display_level` admits `error`, `sp_render_exception($exception)` is printed.
@@ -207,18 +217,21 @@ exceptions thrown outside `Router::init()`, since `init()` catches `Throwable` i
 5. If `report_level` admits `error`, `sp_send_error_email($exception)`.
 6. `exit(10)`.
 
-Each threshold goes through `sp_logging_level($key)`, which reads
-`Config::$items['logging'][$key]` and falls back to `Logger::ERROR` when it is missing or
-not a string - dereferencing the array blind meant a missing key raised its own error from
-inside the handler, replacing the failure being reported. The comparison itself is
-`Logger::contains()`; see [Logger](/staticphp-core/core/logger/) for why a lower threshold
-is the more inclusive one.
+Each threshold goes through `sp_logging_level($key)`, which reads it out of
+`$config['logging']` through `sp_logging_setting()` and falls back to `Logger::ERROR` when
+it is missing or not a string - dereferencing the array blind meant a missing key raised its
+own error from inside the handler, replacing the failure being reported. The comparison
+itself is `Logger::above('error', sp_logging_level($key))`; see
+[Logger](/staticphp-core/core/logger/) for why a lower threshold is the more inclusive
+one.
 
 ### The rest
 
 | Function                        | Does                                                                        |
 | ------------------------------- | --------------------------------------------------------------------------- |
-| `sp_logging_level($key)`        | A `logging` threshold, defaulting to `Logger::ERROR`.                        |
+| `sp_logging_level($key)`        | A `logging` threshold as a string, defaulting to `Logger::ERROR`.            |
+| `sp_logging_setting($key)`      | One raw entry of `$config['logging']`, or `null`.                            |
+| `sp_server($name, $default = '')` | A `$_SERVER` entry as text; a non-string entry counts as absent.           |
 | `sp_render_exception($e)`       | Picks the output format and builds it.                                       |
 | `sp_log_error($e)`              | `error_log()` of the plain-text formatting.                                  |
 | `sp_send_error_email($e)`       | Email and webhook reporting, with de-duplication.                            |
@@ -300,6 +313,12 @@ Which one you get is decided by one thing - `Config::get('debug', false) === tru
 in the two places that can reach a template: `ErrorMessage::htmlPage()`, for anything
 `Router::init()` caught, and `sp_render_exception()`, for anything that got past it.
 Nothing else selects between them.
+
+That `debug` is the boolean the bootstrap computed, not whatever the config file assigned.
+Since 2.0 the framework makes no trust decision of its own about who may see a debug page:
+`$config['debug']` forces it on and `$config['debug_check']` - the application's own
+`callable(): bool` - decides for everyone else. See
+[`resolveDebug()`](/staticphp-core/core/config/#resolvedebug).
 
 ### debug.php
 

@@ -51,14 +51,22 @@ warning applies to the
 ```php
 <?php
 
-function html_css();
-function html_js();
-function html_dropdown($items, $selected = null, $addons = null, $add_empty = false, $as_value = null, $as_text = null, $grouped = false);
-function html_escape($value);
-function html_escape_input($value);
-function html_escape_textarea($value);
-function html_set_selected(&$current, $needle);
-function html_set_checked(&$current, $needle);
+function html_css(): void;
+function html_js(): void;
+function html_dropdown(
+    iterable $items,
+    mixed $selected = null,
+    ?array $addons = null,
+    array|false $add_empty = false,
+    ?string $as_value = null,
+    ?string $as_text = null,
+    bool $grouped = false
+): string;
+function html_escape(mixed $value): string;
+function html_escape_input(mixed $value): string;
+function html_escape_textarea(mixed $value): string;
+function html_set_selected(mixed &$current, mixed $needle): ?string;
+function html_set_checked(mixed &$current, mixed $needle): ?string;
 ```
 
 ## The asset queue
@@ -186,9 +194,11 @@ Four things worth noticing in that output:
 ```php
 <?php
 
-function html_escape($value)
+function html_escape(mixed $value): string
 {
-    if (is_array($value) || is_object($value)) {
+    if ($value instanceof Stringable) {
+        $value = (string) $value;
+    } elseif (is_scalar($value) === false) {
         $value = '';
     }
 
@@ -199,6 +209,12 @@ function html_escape($value)
 `ENT_QUOTES` covers both quote characters, so one function is correct for html text and for
 either kind of quoted attribute. `ENT_SUBSTITUTE` replaces invalid UTF-8 rather than
 returning an empty string.
+
+The normalisation in front of it is a whitelist, not a blacklist: a scalar is cast, a
+`Stringable` gets its `__toString()` and is then escaped like any other string, and
+everything else - an array, a plain object, `null` - becomes `''`. So a value object that
+knows how to render itself renders, while an array that reached a template by mistake
+produces nothing rather than the word `Array`.
 
 `html_escape_input()` and `html_escape_textarea()` are one-line aliases that call it. They
 used to escape less, and the source keeps the note explaining why that was wrong:
@@ -214,9 +230,15 @@ Keep using whichever name reads better at the call site; they behave identically
 to interpolate. Both take the current value **by reference** - so it has to be a variable,
 not an expression - and both accept an array, matching either a key or a value in it.
 
+Run with `$scalar = 'ee'`, `$array = ['ee', 'lv']`, `$keyed = ['ee' => 'Estonia']` and
+`$stringable` an anonymous class whose `__toString()` returns `a"b`:
+
 ```text
 html_escape('<a href="x">&</a>')        -> '&lt;a href=&quot;x&quot;&gt;&amp;&lt;/a&gt;'
 html_escape(['a'])                      -> ''
+html_escape(null)                       -> ''
+html_escape($stringable)                -> 'a&quot;b'
+html_escape(new stdClass)               -> ''
 html_escape_input('a"b')                -> 'a&quot;b'
 html_escape_textarea('a"b> < />')       -> 'a&quot;b&gt; &lt; /&gt;'
 html_set_selected($scalar, 'ee')        -> ' selected="selected"'

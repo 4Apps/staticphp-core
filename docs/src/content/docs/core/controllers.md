@@ -101,14 +101,14 @@ class Controller
     public static ?string $controller_url = null;
     public static ?string $method_url = null;
 
-    public static function construct(?string $class = null, ?string $method = null);
-    public static function destruct();
+    public static function construct(?string $class = null, ?string $method = null): void;
+    public static function destruct(): void;
 
     public static function moduleUrl(): string;
     public static function controllerUrl(): string;
     public static function methodUrl(): string;
 
-    public static function render(array $views, $view_data = []): void;
+    public static function render(array $views, array $view_data = []): void;
     public static function write(string|array $contents): void;
 }
 ```
@@ -149,7 +149,7 @@ up on the concrete class and invokes exactly one of them.
 ```php
 <?php
 
-public static function render(array $views, $view_data = []): void;
+public static function render(array $views, array $view_data = []): void;
 ```
 
 `render()` prefixes every name with the current module and its `Views` directory -

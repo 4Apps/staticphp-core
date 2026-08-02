@@ -62,8 +62,10 @@ confirmation.
 
 `StaticPHP\Utils\Models\Translation\Cli` is the `staticphp i18n` command. This package
 provides the class; the `staticphp` executable that dispatches to it ships with the
-[application skeleton](https://github.com/gintsmurans/staticphp), which requires the file
-directly and calls:
+[application skeleton](https://github.com/gintsmurans/staticphp) and finds the class
+through
+[`StaticPHP\Core\Cli::commands()`](/staticphp-core/database/migrations-cli/#the-command-registry),
+then calls:
 
 ```php
 <?php

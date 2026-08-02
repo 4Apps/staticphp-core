@@ -34,7 +34,7 @@ public function __construct($id, ...$settings)
 {
     $this->id = $id;
     foreach ($settings as $key => $value) {
-        if (property_exists($this, $key) == false) {
+        if (is_string($key) === false || property_exists($this, $key) === false) {
             throw new \Exception("\"{$key}\" does not exists on Column");
         }
 
@@ -63,8 +63,9 @@ $column = new Column(
 );
 ```
 
-The `property_exists()` check turns a typo into an immediate exception rather than a
-setting that silently does nothing:
+The name check turns a typo into an immediate exception rather than a setting that silently
+does nothing. The `is_string()` half of it catches the other way of getting this wrong -
+spreading a positional array into the variadic, which produces integer keys:
 
 ```text
 Exception: "tittle" does not exists on Column
@@ -130,7 +131,7 @@ covered on [sorting](/staticphp-core/presentation/sorting/).
 | `$filterHidden` | `bool` | `false` |
 | `$filterEnabled` | `bool` | `true` |
 | `$filterTitle` | `?string` | `null` |
-| `$filterDefaultValue` | `?string` | `null` |
+| `$filterDefaultValue` | `null\|string\|array` | `null` |
 | `$filterDateValue` | `?string` | `null` |
 | `$filterFieldType` | `FieldType\|\Closure` | `FieldType::TEXT` |
 | `$filterInputAttributes` | `array` | `[]` |
@@ -155,6 +156,25 @@ Two of these do not do what their names suggest:
 - `$filterSelectMultiple` is declared here and read nowhere in `src/`. The multiple-select
   behaviour comes from `$filterFieldType: FieldType::SELECT_MULTIPLE`, which is what adds
   `multiple="multiple" size="3"`.
+
+`$filterDefaultValue` takes an array as well as a string. `Filters::parse()` branches on
+`is_array()`: a string fills both halves of the filter entry, an array **is** the entry and
+has to carry its own `title` and `value` keys. That is how a default whose displayed label
+differs from the bound value is declared, and it is also how a multiple-select default
+supplies a list:
+
+```php
+<?php
+
+new Column(
+    'state',
+    title: 'State',
+    dataKey: 'state',
+    sortBy: 'u.state',
+    filterBy: 'u.state',
+    filterDefaultValue: ['title' => 'Open', 'value' => '1'],
+);
+```
 
 `$filterInputAttributes` and `$filterInputClasses` are arrays whose elements may be strings
 or closures taking `($column, $value)`. Their results are imploded with a space.
@@ -211,7 +231,7 @@ colour suffix such as `success` or `danger`.
 | `$editFieldType` | `FieldType` | `FieldType::TEXT` |
 | `$editSelectOptions` | `?array` | `null` |
 | `$editSelectOptionsGroupped` | `bool` | `false` |
-| `$switchValue` | untyped | `1` |
+| `$switchValue` | `mixed` | `1` |
 
 A cell is editable only when the column's `$isEditable` **and** the table's `$isEditable`
 are both truthy. `$editKey` defaults to `$dataKey` when it is left null - the renderer
@@ -352,6 +372,7 @@ DECIMAL4  '1234.5678'                      -> '1234.5678'
 BOOLEAN   1                                -> 'Yes'
 DATE      DateTime(2026-08-01 13:45:00)    -> '2026-08-01'
 DATETIME  DateTime(2026-08-01 13:45:00)    -> '2026-08-01 13:45:00'
+null      '1234.5678'                      -> '1234.5678'
 closure   'ab'                             -> 'AB'
 ```
 
@@ -359,7 +380,7 @@ closure   'ab'                             -> 'AB'
 | --- | --- | --- |
 | `TEXT` | `text` | String interpolation, no change |
 | `INT` | `int` | Locale number format, 0 decimals |
-| `DECIMAL` | `decimal` | Locale number format, 2 decimals, then `+ 0` |
+| `DECIMAL` | `decimal` | Locale number format, 2 decimals |
 | `DECIMAL1` | `decimal1` | Locale number format, 1 decimal |
 | `DECIMAL2` | `decimal2` | Locale number format, 2 decimals |
 | `DECIMAL3` | `decimal3` | Locale number format, 3 decimals |
@@ -369,31 +390,24 @@ closure   'ab'                             -> 'AB'
 | `DATETIME` | `datetime` | `ExtendedDateTime::formatDateTime()`, or `Y-m-d H:i:s` |
 
 `$dataFormatter` is typed `FormatterType`, so those ten are the only values a column can
-carry. `formatData($data, $formatter)` itself is looser: a **`$formatter` of `null`** returns
-`$data` unchanged, and a callable `$formatter` is invoked as `$formatter($data)`. Neither is
+carry. The method itself is declared `formatData(mixed $data, mixed $formatter): string` and
+is looser: a **`$formatter` of `null`** returns the value as text, and a callable
+`$formatter` is invoked as `$formatter($data)` with its result taken as text too. Neither is
 reachable through a column, only by calling the method directly.
+
+"As text" means `Html::text()`, so the null branch is not a pass-through. A string comes
+back unchanged and a `Stringable` object is cast, but anything with no text form - an array,
+a plain object - comes back as `''`. Every branch returns a string.
+
+`DECIMAL` and `DECIMAL2` are now the same formatter called with the same argument. `DECIMAL`
+used to post-process its own output by adding `0` to the formatted string, which truncated
+the value under any locale carrying a thousands separator; it no longer does, and both cases
+read `$this->localeNumberFormat((float) $number, 2)` - `$decimals` defaulting to 2 for
+`DECIMAL`.
 
 The two date cases only reformat `DateTime` instances. A date that arrives from the
 database as a string passes through untouched. `ExtendedDateTime` is covered under
 [dates](/staticphp-core/utilities/dates/).
-
-:::danger[FormatterType::DECIMAL breaks when the locale groups thousands]
-`DECIMAL` is the only case that post-processes the formatted string:
-`return $this->localeNumberFormat((float)$data) + 0;`. Adding `0` to a string that contains
-a thousands separator makes PHP parse only the leading digits. Captured with `LC_NUMERIC`
-set to `lv_LV.UTF-8`:
-
-```text
-setlocale(LC_NUMERIC, 'lv_LV.UTF-8') -> 'lv_LV.UTF-8'
-localeconv()['thousands_sep']        -> ' '
-localeNumberFormat(1234.5678, 2)     -> '1 234,57'
-                                        Warning: A non-numeric value encountered
-formatData('1234.5678', DECIMAL)     -> '1'
-formatData('1234.5678', DECIMAL2)    -> '1 234,57'
-```
-
-`DECIMAL2` produces the same number of decimals with none of this. Prefer it.
-:::
 
 ### Which locale
 
@@ -403,7 +417,7 @@ formatData('1234.5678', DECIMAL2)    -> '1 234,57'
 ```php
 <?php
 
-public function localeNumberFormat($number, $decimals = 2)
+public function localeNumberFormat(int|float|null $number, int $decimals = 2): string
 {
     if (\StaticPHP\Utils\Models\i18n::isInitialised() === true) {
         return \StaticPHP\Utils\Models\i18n::number($number ?? 0, $decimals);

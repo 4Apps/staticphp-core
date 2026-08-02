@@ -110,8 +110,18 @@ same object without reordering either.
 ```php
 <?php
 
-public function prepareQueries(?\Closure $formatter = null)
+public function prepareQueries(?\Closure $formatter = null): void
 ```
+
+It starts by resolving the table's `Filters`, and throws when there is none:
+
+```text
+LogicException: SQLFilters needs a table whose filtering was initialised
+```
+
+That is the case where `initData()` was given `null` for the filter string but an
+`SQLFilters` was constructed by hand anyway; `SQLTable::initData()` only builds one when the
+filter exists.
 
 For every entry in `$table->filter->parsedData()` whose key matches a column id:
 
@@ -165,10 +175,10 @@ The static workhorse. It reads an operator off the front of the value and return
 
 public static function valueToQuery(
     string $fieldName,
-    $value,
+    mixed $value,
     string $compare = '=',
     ?\Closure $valueFormatter = null,
-    $nullQuery = false
+    bool $nullQuery = false
 ): array
 ```
 
@@ -266,7 +276,7 @@ integers below depend on the runtime's ini. They were captured under **`Europe/R
 ```php
 <?php
 
-public static function strtotime(string $value, bool $sqlDate = false)
+public static function strtotime(string $value, bool $sqlDate = false): string|int|false
 {
     return ($sqlDate === true ? $value : strtotime($value));
 }
@@ -318,11 +328,14 @@ One method:
 ```php
 <?php
 
-public function limitQuery()
+public function limitQuery(): string
 {
+    $pagination = $this->tableInstance->pagination
+        ?? throw new \LogicException('SQLPagination needs a table whose paging was initialised');
+
     return <<<EOL
-OFFSET {$this->tableInstance->pagination->limitFrom}
-LIMIT {$this->tableInstance->pagination->limitPerPage}
+OFFSET {$pagination->limitFrom}
+LIMIT {$pagination->limitPerPage}
 EOL;
 }
 ```
@@ -340,16 +353,18 @@ Four things the SQL layer emits are not portable:
 | --- | --- |
 | `ILIKE` | `valueToQuery()` for every text comparison |
 | `::TEXT` cast | The same fragments |
-| `NULLS FIRST` / `NULLS LAST` | `SQLSort::sortQuery()`, always |
+| `NULLS FIRST` / `NULLS LAST` | `SQLSort::sortQuery()`, unless the column sets `SortNulls::NONE` |
 | `OFFSET` before `LIMIT` | `SQLPagination::limitQuery()` |
 
 `ILIKE` and `::TEXT` are PostgreSQL. `NULLS FIRST` / `NULLS LAST` is standard SQL that some
-engines do not implement. `OFFSET ... LIMIT ...` in that order is accepted by PostgreSQL;
-MySQL wants `LIMIT` first.
+engines do not implement; it is the one of the four with a way out, since
+[`Column::$sortNulls`](/staticphp-core/presentation/sorting/#sortnulls) set to
+`SortNulls::NONE` emits nothing. `OFFSET ... LIMIT ...` in that order is accepted by
+PostgreSQL; MySQL wants `LIMIT` first.
 
 There is no dialect switch and no configuration hook. On another engine, keep `Table`,
 `Filters`, `Sort` and `Pagination` and write your own equivalents of these three classes -
-they are 22, 36 and 506 lines, and only `SQLFilters` is substantial. `SQLFilters` is also
+they are 25, 50 and 535 lines, and only `SQLFilters` is substantial. `SQLFilters` is also
 the only one whose useful parts (`valueToQuery()`, `runFilter()`) are static and can be
 called without an instance.
 

@@ -75,7 +75,7 @@ when the rewrite consumed every segment. If you need the url as it arrived, read
 ```php
 <?php
 
-public static function init();
+public static function init(): void;
 ```
 
 Called last by the bootstrap. It runs four things:
@@ -93,7 +93,10 @@ the whole error policy of the framework:
 <?php
 
 } catch (ErrorMessage $e) {
-    $e->outputMessage(ErrorMessage::outputTypeFromRequestType(self::$request_content_type), true);
+    $e->outputMessage(
+        ErrorMessage::outputTypeFromRequestType(self::$request_content_type ?? RequestContentType::HTML),
+        true
+    );
 } catch (Throwable $e) {
     // wrapped in a 500 ErrorMessage, rendered, then logged and emailed
 }
@@ -118,8 +121,8 @@ json body its name refers to - it is deciding what format this request is in:
 ```php
 <?php
 
-$contentType = (isset($_SERVER["CONTENT_TYPE"]) ? trim($_SERVER["CONTENT_TYPE"]) : '');
-$acceptType = (isset($_SERVER["HTTP_ACCEPT"]) ? trim($_SERVER["HTTP_ACCEPT"]) : '');
+$contentType = trim(self::server('CONTENT_TYPE'));
+$acceptType = trim(self::server('HTTP_ACCEPT'));
 
 self::$request_content_type = RequestContentType::fromString(
     empty($contentType) ? $acceptType : $contentType
@@ -203,16 +206,22 @@ public static function splitSegments(bool $force = false): void;
 Returns immediately if `$domain_url` is already set and `$force` is false, so calling it
 twice is harmless. In order:
 
-1. Reads `$config['request_uri']`, `$config['script_name']` and `$config['base_url']`.
+1. Reads `$config['request_uri']`, `$config['script_name']` and `$config['base_url']`,
+   all three through `Config::getString()`, so a non-string value counts as absent.
 2. If `base_url` was empty and `$_SERVER['HTTP_HOST']` is set, builds `$domain_url` from
-   the scheme, the host - through `validateHost()` - and the port when it is neither 80 on
-   http nor 443 on https. `$base_url` becomes that plus the script's directory.
+   the scheme - `requestIsSecure()` - the host - through `validateHost()` - and the port
+   when it is neither 80 on http nor 443 on https. `$base_url` becomes that plus the
+   script's directory. Where the port comes from behind a proxy is
+   [proxy headers](/staticphp-core/core/request/#the-port-in-base_url).
 3. Strips `script_name` out of the uri, splits off the query string, trims slashes.
 4. Applies the rewrite rules.
 5. Explodes the result on `/` and `rawurldecode()`s each segment.
 6. Shifts off any leading segment listed in `$config['url_prefixes']`, recording it in
    `$prefixes`.
-7. `define('BASE_URL', self::$base_url)`.
+7. `define('BASE_URL', self::$base_url)`, guarded by `defined('BASE_URL') === false`.
+   `$force` makes this method re-runnable and a second `define()` would be a warning, so
+   the first run through wins - `Router::$base_url` follows a later run, the constant does
+   not.
 
 ### The rewrite rules
 
@@ -461,12 +470,29 @@ never resolves to a controller or to a method argument.
 `pathIsWithin()` compares `realpath()` of both sides, so it survives symlinks and `..`. It
 gates every include built from request data, and `Load::view()` uses it too.
 
+## Reading the request behind a proxy
+
+```php
+<?php
+
+public static function forwardedHeader(string $name): ?string;
+public static function clientIp(): ?string;
+public static function requestIsSecure(): bool;
+```
+
+These are the only places the framework looks past the connection this process sees, and
+all three do nothing unless `$config['trust_proxy_headers']` is on. `requestIsSecure()`
+decides the scheme in `splitSegments()`, the session cookie's `Secure` flag and the url on
+the error page; `clientIp()` fills `$config['client_ip']` during bootstrap when the
+application left it `null`. They are covered in full under
+[proxy headers](/staticphp-core/core/request/#proxy-headers).
+
 ## error()
 
 ```php
 <?php
 
-public static function error($http_error_code, $error_string = '', $description = '');
+public static function error($http_error_code, $error_string = '', $description = ''): void;
 ```
 
 Builds an `ErrorMessage` with the given code, falling back to
@@ -475,7 +501,7 @@ the description `publicDescription: true` - the caller passed it in order to hav
 renders it in the format matching `$request_content_type`, and calls `exit(10)`. A code of
 `0` is turned into 500.
 
-Because it reads `Router::$request_content_type`, and
-`ErrorMessage::outputTypeFromRequestType()` does not accept `null`, it is only usable once
-`init()` has begun: the property is set in `populatePostFromJson()`, the first thing
-`init()` does.
+It reads `Router::$request_content_type`, which is set in `populatePostFromJson()` - the
+first thing `init()` does - and falls back to `RequestContentType::HTML` when that has not
+run yet. So it is safe to call before the router has started, and an error raised that early
+comes out as html. The two catch blocks in `init()` use the same fallback.

@@ -72,6 +72,7 @@ single pairing:
 | Condition                                            | Message                                                                                    |
 | ---------------------------------------------------- | ------------------------------------------------------------------------------------------ |
 | `available` missing, not an array, or empty          | `config['i18n']['available'] is empty`                                                     |
+| an entry of `available` that is not an array         | `Every entry of config['i18n']['available'] has to be an array`                            |
 | an entry with no `code`, or with empty `languages`   | `Every entry of config['i18n']['available'] needs a "code" and a non-empty "languages"`     |
 | two entries producing the same url prefix            | `Duplicate i18n url prefix "..."`                                                          |
 

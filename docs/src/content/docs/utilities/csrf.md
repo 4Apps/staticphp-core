@@ -141,8 +141,8 @@ meant to write.
 it returns; the token inside it was already escaped by `field()`. The other two return plain
 strings and twig escapes them normally.
 
-`registerTwig()` returns without doing anything when `Config::get('view_engine')` is empty,
-which is the case in an application that left twig out. Registering the functions makes the
+`registerTwig()` reads `Config::viewEngine()` and returns without doing anything when that is
+empty, which is the case in an application that left twig out. Registering the functions makes the
 token available to templates and nothing more; incoming requests are still unchecked until
 you add the hook.
 

@@ -128,7 +128,7 @@ hands the result to a template the application supplies.
 
 ### With twig
 
-Each name in `$files` is passed to `$config['view_engine']->render()` and the results are
+Each name in `$files` is passed to `Config::viewEngine()->render()` and the results are
 concatenated, so the names are twig template names resolved by the loader against
 `APP_MODULES_PATH`, `APP_PATH` and `SP_PATH/Core/Views` in that order.
 
@@ -141,7 +141,7 @@ Eleven globals are added to the environment, once per request, guarded by a stat
 | `date_time` | `Config::$items['date_time']` |
 | `config`    | `safeConfigForViews()`      |
 | `session`   | `$_SESSION ?? []`           |
-| `cookie`    | `$_COOKIE ?? []`            |
+| `cookie`    | `$_COOKIE`            |
 | `base_url`  | `Router::$base_url`         |
 | `namespace` | `Router::$namespace`        |
 | `class`     | `Router::$class`            |
@@ -153,7 +153,7 @@ They are captured on the first `view()` call of the request, so a later change t
 
 ### Without twig
 
-When `Config::$items['view_engine']` is empty - twig not installed, or
+When `Config::viewEngine()` returns `null` - twig not installed, or
 `$config['disable_twig'] = true` - views are plain php. This is a first-class path, not a
 fallback for error cases: an api-only application that never installs twig renders
 everything this way.

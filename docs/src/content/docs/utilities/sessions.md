@@ -22,7 +22,7 @@ namespace StaticPHP\Utils\Models\Sessions;
 class Sessions implements \SessionHandlerInterface
 {
     public function __construct(
-        $sessionName = 'S',
+        string $sessionName = 'S',
         ?Sessions $backupHandler = null,
         int $lifetime = 86400,
         string $sameSite = 'Lax'
@@ -31,7 +31,7 @@ class Sessions implements \SessionHandlerInterface
     public function register(): void;
     public function start(): void;
     public function regenerate(bool $deleteOldSession = true): bool;
-    public function id(string $id);
+    public function id(string $id): string;
 
     // SessionHandlerInterface
     public function open(string $path, string $name): bool;
@@ -79,9 +79,20 @@ regenerate() with no active session          => false
 `session.use_only_cookies` and `session.use_strict_mode` are forced on, garbage collection
 runs on one request in a hundred, and `session.gc_maxlifetime` takes the `$lifetime`
 argument. The cookie gets `path=/`, an empty domain, `httponly`, the `$sameSite` value, and
-`secure` only when `$_SERVER['HTTPS']` lowercases to `on` - so `On` and `ON` count, plain
-http development keeps working, and a site behind a TLS-terminating proxy that does not set
-`HTTPS` will not get a secure cookie.
+`secure` from `Router::requestIsSecure()`, so plain http development keeps working.
+
+`$sameSite` is checked against `Lax`, `lax`, `None`, `none`, `Strict` and `strict`; anything
+else falls back to `Lax` rather than reaching php, which would reject it with a warning.
+
+:::caution[Behind a tls-terminating proxy the `Secure` flag needs `trust_proxy_headers`]
+`Router::requestIsSecure()` reads `X-Forwarded-Proto` only when
+`$config['trust_proxy_headers']` is on, and it defaults to off. Its remaining tests are
+`$_SERVER['HTTPS']` set to anything other than `off`, then `SERVER_PORT === '443'` - and
+behind tls termination the connection this process sees is plain http on the internal port,
+so neither fires. The session cookie then goes out without `Secure` on exactly the
+deployment where it matters most. Turn `trust_proxy_headers` on, and see
+[proxy headers](/staticphp-core/core/request/#proxy-headers) for what else it governs.
+:::
 
 `$this->expire` is `session_cache_expire() * 60`, which on a stock php is 10800 seconds. It
 is unrelated to `$lifetime`, and it is what the APCu, Memcached and Redis backends pass as
@@ -156,25 +167,25 @@ Constructor signatures, which differ from each other more than you would expect:
 ```php
 <?php
 
-new SessionsApcu($sessionName = 'SAPC', ?Sessions $backupHandler = null);
+new SessionsApcu(string $sessionName = 'SAPC', ?Sessions $backupHandler = null);
 
 new SessionsMemcached(
     array $servers,
     ?string $persistentId = null,
-    $sessionName = 'SMC',
+    string $sessionName = 'SMC',
     ?Sessions $backupHandler = null
 );
 
 new SessionsMongoDb(
-    $connectionString,
+    string $connectionString,
     string $databaseName = 'sessions',
-    $sessionName = 'SMDB',
+    string $sessionName = 'SMDB',
     ?Sessions $backupHandler = null
 );
 
-new SessionsPgsql(array $dbConfig, $sessionName = 'SMC', ?Sessions $backupHandler = null);
+new SessionsPgsql(array $dbConfig, string $sessionName = 'SMC', ?Sessions $backupHandler = null);
 
-new SessionsRedis($dbConfig, $sessionName = 'SMDB', ?Sessions $backupHandler = null);
+new SessionsRedis(array $dbConfig, string $sessionName = 'SMDB', ?Sessions $backupHandler = null);
 ```
 
 :::caution[`$lifetime` and `$sameSite` are unreachable through a subclass]
@@ -219,8 +230,9 @@ deleting everything whose `timestamp` field is older than `time() - $maxLifetime
 
 ### Redis
 
-Connects in the constructor from a config array with `hostname`, `port` and an optional
-`database` - defaulting to `1`, not the `2` the cache backend defaults to - and sets
+Connects in the constructor from a config array with `hostname`, `port` and `database`, all
+three optional - they fall back to `127.0.0.1`, `6379` and `1`, and that last is not the `2`
+the cache backend defaults to - and sets
 `Redis::OPT_SERIALIZER` to `SERIALIZER_PHP`. `write()` passes `$this->expire` as the third
 argument to `Redis::set()`, so records expire on their own. No `gc()` override.
 

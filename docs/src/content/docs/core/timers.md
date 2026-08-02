@@ -16,10 +16,10 @@ namespace StaticPHP\Core\Models;
 
 class Timers
 {
-    public static function startTimer();
-    public static function stopTimer($name, $returnSeconds = false);
+    public static function startTimer(): void;
+    public static function stopTimer($name, bool $returnSeconds = false): float;
     public static function markTime($name);
-    public static function logTimers();
+    public static function logTimers(): void;
 }
 ```
 

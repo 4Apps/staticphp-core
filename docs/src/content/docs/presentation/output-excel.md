@@ -28,6 +28,8 @@ place as a hard dependency - once in `require-dev`, once in `suggest`:
 ```json
 "require-dev": {
     "phpoffice/phpspreadsheet": "^3.0 || ^4.0",
+    "phpstan/phpstan": "^2.2",
+    "phpstan/phpstan-phpunit": "^2.0",
     "phpunit/phpunit": "^13.0",
     "squizlabs/php_codesniffer": "^4.0",
     "twig/twig": "^3.0"
@@ -112,8 +114,9 @@ $table->showOutput();
 
 ## makeOutput()
 
-Returns a `Spreadsheet` rather than a string - the signature is `makeOutput(): Spreadsheet`,
-which is why `OutputInterface::makeOutput()` has no return type.
+Returns a `Spreadsheet` rather than a string - the signature is `makeOutput(): Spreadsheet`.
+`OutputInterface::makeOutput()` is declared `: mixed`, which both generators narrow: `Html`
+to `string`, `Excel` to `Spreadsheet`.
 
 It writes to sheet index 0. Row 1 is the header, taken from each column's `$title`; data
 starts at row 2. A column is skipped when its `$exportKey` is exactly `false` or its
@@ -130,7 +133,11 @@ if ($column->exportKey === null) {
     $exportKey = $column->dataKey;
 }
 
-$cellValue = is_callable($exportKey) ? $exportKey($column, $rowIndex, $rowItem) : $rowItem[$exportKey];
+$cellValue = (
+    is_callable($exportKey)
+    ? $exportKey($column, $rowIndex, $rowItem)
+    : ($rowItem[(string) $exportKey] ?? null)
+);
 ```
 
 Note what this path does **not** do:
@@ -138,9 +145,10 @@ Note what this path does **not** do:
 - It ignores `$dataFormatter` entirely. The HTML generator's number and date formatting does
   not apply; raw row values reach the sheet. Format in the closure, or in `$exportKey`.
 - It ignores `$showColumn`. A column hidden in the HTML table is still exported.
-- `$rowItem[$exportKey]` is a direct array access with no `isset()` guard, so a key that is
-  not in the row raises an undefined-key warning and writes an empty cell. Both `$exportKey`
-  and `$dataKey` default to `null`, so a column with neither set indexes the row with `null`.
+- It does not tell a missing key from a null one. The lookup is `?? null`, so a key that is
+  not in the row is silently `null` and lands as `0` in a numeric column and `''` in every
+  other. Both `$exportKey` and `$dataKey` default to `null`, so a column with neither set
+  looks the row up under the key `''` and exports empty cells rather than announcing itself.
 
 Closure `$exportKey`s get three arguments - `($column, $rowIndex, $rowItem)` - one fewer than
 the four the HTML generator passes to `$dataKey`.
@@ -224,8 +232,8 @@ interpolated into the `Content-Disposition` header unescaped - keep it to values
 generate, never a request parameter, or a newline in it splits the response.
 
 There is no `ob_end_clean()` before the write, so anything already echoed - a stray blank
-line after a `?>`, a warning from the undefined-key access above - lands in the file and
-corrupts the archive.
+line after a `?>`, a warning or a `var_dump()` left in a `$exportKey` closure - lands in the
+file and corrupts the archive.
 
 ## A download route
 

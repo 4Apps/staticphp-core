@@ -188,7 +188,9 @@ different files declaring the same class, and loading both in one request is a f
 ## The cli picks an application the same way
 
 `staticphp migrate` and `staticphp i18n` take a `--project=NAME` option, defaulting to
-`Application`. Both resolve it as `<repository root>/src/<NAME>/Public`, check that the
+`Application`. Both are entries in
+[`StaticPHP\Core\Cli::commands()`](/staticphp-core/database/migrations-cli/#the-command-registry).
+Both resolve the name as `<repository root>/src/<NAME>/Public`, check that the
 directory exists, and define `PUBLIC_PATH` as that before requiring `Bootstrap::AUTOLOAD` -
 the same first move a front controller makes, so the rest of the derivation follows:
 

@@ -22,18 +22,26 @@ class Config
     public static function &get(string $name, mixed $default = null): mixed;
     public static function set(string $name, mixed $value): void;
 
+    public static function getString(string $name, string $default = ''): string;
+    public static function getInt(string $name, int $default = 0): int;
+    public static function getBool(string $name, bool $default = false): bool;
+    public static function getArray(string $name): array;
+
     public static function &getViewData(string $name, mixed $default = null): mixed;
     public static function setViewData(string|array $name, mixed $value = null): void;
 
     public static function merge(string $name, mixed $value, bool $owerwrite = true): mixed;
     public static function load(array $files, ?string $module = null, ?string $project = null): void;
+
+    public static function resolveDebug(): bool;
+    public static function viewEngine(): ?\Twig\Environment;
 }
 ```
 
 `$items` is public, and the framework itself reads and writes it directly as often as it
-goes through the accessors - `Config::$items['debug']` and `Config::get('debug')` appear
-side by side in the bootstrap. There is no encapsulation to preserve here; use whichever
-reads better.
+goes through the accessors - the bootstrap writes `Config::$items['debug']` directly and
+reads `Config::get('debug')` a few lines later. There is no encapsulation to preserve here;
+use whichever reads better.
 
 ## get() and set()
 
@@ -69,6 +77,98 @@ but it is also what lets `Load::config()` bind a config file's `$config` to the 
 There is no dot-path support. `$config['db']['pdo']['default']` is a plain nested array,
 reached as `Config::get('db')['pdo']['default']`. The dots in the example above are just
 characters in a flat key.
+
+## The typed accessors
+
+```php
+<?php
+
+public static function getString(string $name, string $default = ''): string;
+public static function getInt(string $name, int $default = 0): int;
+public static function getBool(string $name, bool $default = false): bool;
+public static function getArray(string $name): array;
+```
+
+`Config::$items` is an untyped bag by design - applications put whatever they like in it -
+and these are where a setting stops being a `mixed`. **A value of the wrong type is treated
+as absent rather than coerced**, so a `$config['debug']` of `'yes'` is `false` through
+`getBool()`, not `true`. Silently turning an array into `"Array"` has never been what the
+caller wanted.
+
+`getInt()` is the one exception: a numeric string is accepted and cast, because ports and
+counts arrive from the environment as strings. `getArray()` takes no default and returns
+`[]`.
+
+The framework reads its own settings through these. `getString('base_url')`,
+`getBool('trust_proxy_headers')` and `getInt('trusted_proxy_hops', 1)` are all in
+`Router`; use them for your own keys or use `get()` and check yourself.
+
+## resolveDebug()
+
+```php
+<?php
+
+public static function resolveDebug(): bool;
+```
+
+The bootstrap calls this once and writes the answer to `Config::$items['debug']`. Debug is
+not just the timing panel - it is `display_errors`, full exception traces, twig's debug
+mode and the query log - so who may see it is a question only the application can answer,
+and the framework asks rather than deciding.
+
+1. `$config['debug']` truthy - checked with `!empty()` - returns `true` immediately.
+2. Otherwise `$config['debug_check']` is consulted. Anything that is not `is_callable()` is
+   ignored and the answer is `false`.
+3. The callable is invoked and its result compared with `=== true`. A check that
+   accidentally returns a string or a row count does not open the gate.
+4. Anything it throws is caught, passed to `error_log()` as
+   `debug_check failed, debug stays off: <message>`, and treated as `false`. A gate that
+   fails is a gate that says no: letting the exception through would take down the request,
+   and treating it as a yes would turn a bug in the application's own check into a query
+   log on a production page.
+
+```php
+<?php
+
+$config['debug_check'] = function (): bool {
+    $secret = $_ENV['DEBUG_SECRET'] ?? getenv('DEBUG_SECRET') ?: '';
+    $token = $_COOKIE['sp_debug'] ?? '';
+    if ($token === '' || $secret === '') {
+        return false;
+    }
+
+    return hash_equals(hash_hmac('sha256', 'debug', $secret), $token);
+};
+```
+
+It runs during bootstrap, immediately after `Config::load(['Config', 'Routing'])` and before
+the extra config files, the error handlers, the view engine and the router - so **sessions,
+the database and routing do not exist yet**. Query logging has to be armed before the first
+query runs, which is why it sits there. It can read `$_SERVER`, `$_COOKIE` and
+configuration, and nothing else; a check reaching for `$_SESSION` will not find it. A signed
+cookie is the natural fit: real authentication, no session needed, works from any network.
+
+:::caution[`$config['debug_ips']` is gone and is no longer read]
+It compared `$config['client_ip']` against a list, and `client_ip` comes from the request -
+so behind a proxy that appends to `X-Forwarded-For` a client could put a listed address in
+the header and turn debug on for itself. An application still carrying the key gets nothing
+from it, silently. Migrating it is
+[step 5 of upgrading](/staticphp-core/guides/upgrading/#5-debug_ips-is-gone-the-application-decides-who-sees-debug-output).
+:::
+
+## viewEngine()
+
+```php
+<?php
+
+public static function viewEngine(): ?\Twig\Environment;
+```
+
+Returns `Config::$items['view_engine']` when it is a `\Twig\Environment`, and `null`
+otherwise - including when twig is not installed at all. Not a generalisation of "some
+engine": every consumer registers twig filters and functions against it, and an application
+that leaves twig out has none. See
+[running without Twig](/staticphp-core/guides/without-twig/).
 
 ## View data
 

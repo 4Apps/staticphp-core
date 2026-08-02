@@ -18,11 +18,11 @@ abstract class BitwiseFlag
 {
     protected int $flags;
 
-    protected function isFlagSet(int $flag);
-    protected function setFlag(int $flag, bool $value);
+    protected function isFlagSet(int $flag): bool;
+    protected function setFlag(int $flag, bool $value): void;
 
-    public static function hasFlag(int $flag, int $inFlags);
-    public static function registerTwig();
+    public static function hasFlag(int $flag, int $inFlags): bool;
+    public static function registerTwig(): void;
 }
 ```
 
@@ -89,7 +89,7 @@ The one public operation, for testing a raw integer without wrapping it:
 ```php
 <?php
 
-BitwiseFlag::hasFlag(int $flag, int $inFlags);
+BitwiseFlag::hasFlag(int $flag, int $inFlags): bool;
 ```
 
 Argument order is flag first, haystack second, which is the reverse of what `&` reads like -
@@ -122,8 +122,8 @@ BitwiseFlag::registerTwig();
 Registers one function, `BitwiseHasFlag(flag, inFlags)`, mapping straight to `hasFlag()`.
 Nothing calls this for you - unlike [the CSRF helpers](/staticphp-core/utilities/csrf/#templates),
 which the bootstrap registers. It returns without doing anything when
-`Config::get('view_engine')` is empty, because twig is a suggestion rather than a requirement
-of this package.
+`Config::viewEngine()` is `null`, because twig is a suggestion rather than a requirement of
+this package.
 
 ```twig
 {% if BitwiseHasFlag(2, user.permissions) %}

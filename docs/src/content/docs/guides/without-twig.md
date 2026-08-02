@@ -81,7 +81,7 @@ before it does anything.
 
 Nothing breaks if such an application does want html.
 [`Load::view()`](/staticphp-core/core/load/#without-twig) renders plain php templates when
-`Config::$items['view_engine']` is empty. This is a first-class path rather than an error
+`Config::viewEngine()` returns `null`. This is a first-class path rather than an error
 path - for an api-only install it is the only view layer there is - and it does what a view
 layer is expected to do:
 

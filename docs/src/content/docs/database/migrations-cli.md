@@ -7,8 +7,34 @@ sidebar:
 
 `StaticPHP\Utils\Models\Migrations\Cli` is the `staticphp migrate` command. This package
 provides the class; the `staticphp` executable that dispatches to it ships with the
-[application skeleton](https://github.com/gintsmurans/staticphp), which requires the file
-directly and calls:
+[application skeleton](https://github.com/gintsmurans/staticphp).
+
+## The command registry
+
+The executable does not name the classes itself. `StaticPHP\Core\Cli` holds the map, so
+that adding a framework command does not need a matching skeleton release:
+
+```php
+<?php
+
+namespace StaticPHP\Core;
+
+final class Cli
+{
+    public static function commands(): array;
+}
+```
+
+It returns command name to class name. The skeleton merges its own map over the top, which
+is how an application replaces a shipped command with its own:
+
+```php
+<?php
+
+$cliCommands = $localCommands + StaticPHP\Core\Cli::commands();
+```
+
+Every class in it answers the same call:
 
 ```php
 <?php
@@ -16,14 +42,19 @@ directly and calls:
 public static function run(array $arguments, string $basePath): int;
 ```
 
-`$arguments` is everything after `migrate`, and `$basePath` is the repository root - the
-directory holding `src/`. It returns a process exit code, and returns 1 immediately if
-`PHP_SAPI` is not `cli`.
+`$arguments` is everything after the command name, and `$basePath` is the repository root -
+the directory holding `src/`. The return value is the process exit code, and every shipped
+command returns 1 immediately if `PHP_SAPI` is not `cli`.
 
-It is reached before `Bootstrap.php` runs and never touches the router. That is deliberate:
-routing configuration has no notion of a cli-only route, so a migrations controller would
-also answer `POST /migrations/apply` over http - on a tool whose whole job is changing the
-schema.
+Two of the shipped entries are documented here: `migrate`, on this page, and
+[`i18n`](/staticphp-core/i18n/extracting-strings/). The map carries a third, `audit`, which
+this documentation does not cover yet.
+
+Commands are reached before `Helpers/Bootstrap.php` runs and never touch the router. That is
+deliberate: routing configuration has no notion of a cli-only route, so a migrations
+controller would also answer `POST /migrations/apply` over http - on a tool whose whole job
+is changing the schema. The same argument covers deleting translation keys and deleting
+history.
 
 ## Usage
 

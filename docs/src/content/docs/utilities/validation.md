@@ -91,15 +91,15 @@ them. The class docblock's own example, `'filter' => ['trim']`, is a fatal error
 
 ```text
 
-Fatal error: Uncaught ArgumentCountError: trim() expects at most 2 arguments, 3 given in /srv/app/src/Utils/Models/Fv.php:231
+Fatal error: Uncaught ArgumentCountError: trim() expects at most 2 arguments, 3 given in /srv/app/src/Utils/Models/Fv.php:270
 Stack trace:
 #0 [internal function]: trim()
-#1 /srv/app/src/Utils/Models/Fv.php(231): call_user_func_array()
-#2 /srv/app/src/Utils/Models/Fv.php(130): StaticPHP\Utils\Models\Fv->callFunc()
-#3 /srv/app/src/Utils/Models/Fv.php(95): StaticPHP\Utils\Models\Fv->filterField()
-#4 /srv/sp/trim.php(5): StaticPHP\Utils\Models\Fv->validate()
+#1 /srv/app/src/Utils/Models/Fv.php(270): call_user_func_array()
+#2 /srv/app/src/Utils/Models/Fv.php(167): StaticPHP\Utils\Models\Fv->callFunc()
+#3 /srv/app/src/Utils/Models/Fv.php(132): StaticPHP\Utils\Models\Fv->filterField()
+#4 /srv/scratch/fvtrim.php(7): StaticPHP\Utils\Models\Fv->validate()
 #5 {main}
-  thrown in /srv/app/src/Utils/Models/Fv.php on line 231
+  thrown in /srv/app/src/Utils/Models/Fv.php on line 270
 ```
 
 Wrap the builtin in a closure instead: `'filter' => [fn ($v) => trim($v)]`.
@@ -359,7 +359,7 @@ Two static request checks:
 <?php
 
 Fv::isGet(): bool;
-Fv::isPost($isset = null): bool;
+Fv::isPost(array|string|null $isset = null): bool;
 ```
 
 Both compare `$_SERVER['REQUEST_METHOD']` case-insensitively. `isPost()` optionally also
@@ -384,7 +384,7 @@ setValue('colour')             => 'red'
 | ----------------------------- | ------------------------------------------------------------- |
 | `setInputValue($name)`        | ` value="..."`, html-escaped                                  |
 | `setSelected($name, $test)`   | ` selected="selected"` when the value equals `$test`, or is an array containing it |
-| `setChecked($name)`           | ` checked="checked"` - its empty-string branch is unreachable, see below |
+| `setChecked($name)`           | ` checked="checked"`, unconditionally once the guard below is past      |
 | `setValue($name)`             | the raw value, unescaped                                      |
 
 `$name` is a string, or an array of keys that walks into nested input:

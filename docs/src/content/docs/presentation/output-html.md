@@ -25,10 +25,10 @@ and nothing else.
 
 :::note[The markup targets Bootstrap 5]
 Every class name it emits - `table-responsive`, `block block-rounded`, `form-control`,
-`form-select`, `form-check form-switch`, `pagination page-item page-link`, `badge bg-*` -
-is Bootstrap. The sort indicator is a Font Awesome `fa-sort-alpha-up` / `fa-sort-alpha-down`
-span. Nothing is configurable short of overriding the class properties or restyling those
-selectors; the package ships no css.
+`form-select`, `form-check form-switch`, `pagination page-item page-link`, `btn-close`,
+`visually-hidden`, `badge bg-*` - is Bootstrap 5. The sort indicator is a Font Awesome
+`fa-sort-alpha-up` / `fa-sort-alpha-down` span. Nothing is configurable short of overriding
+the class properties or restyling those selectors; the package ships no css.
 :::
 
 ## Settings
@@ -92,13 +92,13 @@ to render a table that was built without a `Pagination`, since `paginationLinks(
 when there is none.
 
 ```text
-        <table id="table_27a6dc755af3c1b3" class="table table-striped" data-url="/users/update" >
+        <table id="table_b3563e689c7425dd" class="table table-striped" data-url="/users/update" >
             <thead>
                 
                 <tr><th   class="" ><div class="d-flex align-items-center"><div class="hidden-print d-print-none"><a href="/users//name=desc" >Name</a></div><div class="visible-print d-none d-print-inline">Name</div>&nbsp;&nbsp;<span class="fa fas fa-sort-alpha-down sort-icon"></span></div></th><th   class="" ><div class="d-flex align-items-center"><div class="hidden-print d-print-none"><a href="/users//active=asc" >Active</a></div><div class="visible-print d-none d-print-inline">Active</div></div></th></tr>
-                <tr id="table_filters_27a6dc755af3c1b3">
-<td   class="" ><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_name"    ></td>
-<td   class="" ><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_active"    ></td>
+                <tr id="table_filters_b3563e689c7425dd">
+<td   class="" ><div class="filter-input-wrap"><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_name"    ><button type="button" class="btn-close filter-clear-btn" tabindex="-1" aria-label="Clear filter"></button></div></td>
+<td   class="" ><div class="filter-input-wrap"><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_active"    ><button type="button" class="btn-close filter-clear-btn" tabindex="-1" aria-label="Clear filter"></button></div></td>
 </tr>
 
                 
@@ -181,7 +181,16 @@ identity check. Two consequences:
 - A `$isEditable` **closure** is not `=== false` whatever it returns, so it never skips. The
   closure is not called here.
 - `Table::$isEditable`, the table-wide switch, is not consulted at all. The per-cell path
-  does consult it, as `Utils::expandClosure($column->isEditable) && Utils::expandClosure($this->tableInstance->isEditable)`.
+  does consult it, and it hands both closures the row:
+
+```php
+<?php
+
+$editableArgs = [$column, $rowIndex, $rowItem, $columnCount];
+$isEditable = (Utils::expandClosure($column->isEditable, $editableArgs)
+    && Utils::expandClosure($this->tableInstance->isEditable, $editableArgs)
+);
+```
 
 So a table with editing switched off can still publish its option lists in the markup:
 
@@ -189,11 +198,12 @@ So a table with editing switched off can still publish its option lists in the m
 Table::$isEditable = false, and neither column is editable.
 
 the <table> tag makeOutput() produced:
-<table class="table" data-field_b_options="{&quot;1&quot;:&quot;Draft&quot;,&quot;2&quot;:&quot;Sent&quot;}" >
+<table id="table_f3ae1caa872e23f0" class="table" data-field_b_options="{&quot;1&quot;:&quot;Draft&quot;,&quot;2&quot;:&quot;Sent&quot;}" >
 
 cells rendered for row 0:
-  <td  class="data-col field_a"  >1</td>
-  <td  class="data-col field_b"  >2</td>
+<tr title="" class="data-row" ><td  class="data-col field_a"  >1</td>
+<td  class="data-col field_b"  >2</td>
+</tr>
 ```
 
 Column `a` set `isEditable: false` literally and is skipped. Column `b` set
@@ -206,18 +216,29 @@ own switch is off and neither cell renders a control. Do not put anything in
 
 ## Escaping
 
-`Html::escape()` is a static wrapper on `htmlspecialchars()` with the flags that matter:
+`Html::escape()` is a static wrapper on `htmlspecialchars()` with the flags that matter. It
+is two lines, because the job of turning an arbitrary value into text belongs to
+`Html::text()`:
 
 ```php
 <?php
 
 public static function escape($value): string
 {
-    if ($value === null || is_bool($value) || is_array($value) || is_object($value)) {
-        $value = (is_array($value) || is_object($value) ? '' : (string) $value);
+    return htmlspecialchars(self::text($value), ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+}
+
+public static function text(mixed $value): string
+{
+    if (is_string($value)) {
+        return $value;
     }
 
-    return htmlspecialchars((string) $value, ENT_QUOTES | ENT_SUBSTITUTE, 'UTF-8');
+    if ($value instanceof \Stringable) {
+        return (string) $value;
+    }
+
+    return (is_scalar($value) ? (string) $value : '');
 }
 ```
 
@@ -226,8 +247,9 @@ single-quoted attribute as well as in text. `ENT_SUBSTITUTE` replaces invalid UT
 than returning an empty string, which is the failure mode that turns a mis-encoded byte into
 a silently blank cell. Outside a table,
 [`html_escape()`](/staticphp-core/presentation/html-helpers/#escaping) is the free function
-with the same flags. Arrays and objects become the empty string; `null` becomes `''` and
-`true` becomes `'1'`:
+with the same flags. An object gets a text form if it has one: `Stringable` is cast and then
+escaped like any other string, and only a value with no text form at all - an array, a plain
+object - becomes the empty string. `null` becomes `''` and `true` becomes `'1'`:
 
 ```text
 '<b>&"x"</b>'      -> '&lt;b&gt;&amp;&quot;x&quot;&lt;/b&gt;'
@@ -236,6 +258,8 @@ null               -> ''
 true               -> '1'
 ['a']              -> ''
 42                 -> '42'
+Stringable         -> '&lt;b&gt;obj&lt;/b&gt;'
+stdClass           -> ''
 ```
 
 Cell values are escaped at exactly one place, at the end of the per-cell work in
@@ -315,8 +339,36 @@ respect `Column::$showColumn`.
 - An empty string when `$filterHidden` is true - the cell is still emitted, the control is
   not.
 
-`filterInputValue($field, $compare = null, $checkbox = false)` supplies the current value.
-With no `$compare` it returns ` value="{title}"` for an input, plus
+### The clear button
+
+Every branch the user can type into or pick from - the text, number and date inputs and all
+five select branches - sets a `$clearable` flag, and an enabled clearable control is wrapped
+before it is returned:
+
+```php
+<?php
+
+if ($clearable === true && $forColumn->filterEnabled !== false) {
+    $html = '<div class="filter-input-wrap' . ($hasActiveFilter ? ' has-value' : '') . '">'
+        . $html
+        . '<button type="button" class="btn-close filter-clear-btn"'
+        . ' tabindex="-1" aria-label="Clear filter"></button>'
+        . '</div>';
+}
+```
+
+Two branches are not wrapped: `SELECT_ALL_CHECKBOX`, which is a header control rather than a
+filter, and a column with `$filterEnabled: false`, whose control is `disabled` and has
+nothing to clear. `$filterHidden: true` returns before any of it.
+
+`has-value` is `isset($parsedData[$forColumn->id])` - the column carries a filter entry, from
+the filter string or from a `$filterDefaultValue`. It is a styling hook, not state: the
+button is present either way, and clearing is the application's script's job. `btn-close` is
+a Bootstrap 5 class name; `filter-input-wrap`, `has-value` and `filter-clear-btn` are this
+package's own and have no styling anywhere in it.
+
+`filterInputValue(string $field, ?string $compare = null, bool $checkbox = false): string`
+supplies the current value. With no `$compare` it returns ` value="{title}"` for an input, plus
 ` data-value="{value}"` when `title` and `value` differ. With a `$compare` it returns
 ` selected="selected"` or ` checked="checked"` when that option is the active one, matching
 against `value` and handling the array case that a multiple select produces.
@@ -368,14 +420,14 @@ new Column(
 `filterInputField()` on that column, with `country=ee` in the filter, returns one line:
 
 ```html
-<select class="form-control form-control-sm input-xs filter   form-select form-select-sm" id="filter_country"   ><option value="">Any country</option><optgroup label="Baltics"><option value="lv">Latvia</option><option value="ee" selected="selected">Estonia</option></optgroup><optgroup label="Nordics"><option value="fi">Finland</option></optgroup></select>
+<div class="filter-input-wrap has-value"><select class="form-control form-control-sm input-xs filter   form-select form-select-sm" id="filter_country"   ><option value="">Any country</option><optgroup label="Baltics"><option value="lv">Latvia</option><option value="ee" selected="selected">Estonia</option></optgroup><optgroup label="Nordics"><option value="fi">Finland</option></optgroup></select><button type="button" class="btn-close filter-clear-btn" tabindex="-1" aria-label="Clear filter"></button></div>
 ```
 
 The empty `$filterTitle` option is emitted before the first `<optgroup>`, and the active
 option carries `selected="selected"` exactly as in the flat case.
 
-`inputValue($value, $compare = null, $checkbox = false)` is the same idea without the filter
-lookup, used by the editable-cell branches.
+`inputValue(string $value, ?string $compare = null, bool $checkbox = false): string` is the
+same idea without the filter lookup, used by the editable-cell branches.
 
 ## Data rows
 
@@ -389,8 +441,8 @@ placeholder row:
 
 That string is not translated and there is no hook to replace it.
 
-`htmlDataRow($rowIndex, $rowItem, $title = '', $rowClasses = [])` does the per-cell work.
-For each visible column, in order:
+`htmlDataRow(int $rowIndex, array $rowItem, string $title = '', array $rowClasses = []): string`
+does the per-cell work. For each visible column, in order:
 
 1. Read the value: `$dataKey` as a closure gets
    `($column, $rowIndex, $rowItem, $columnCount)`, otherwise it is a key into the row array.
@@ -420,8 +472,18 @@ indexes `-1`, `-2` and `-3` and the class pairs `table-avg-row`, `table-sum-row`
 
 Two switches have to be on. `Table::$isEditable` is the table-wide one and
 `Column::$isEditable` the per-column one; a cell is editable only if both expand to truthy.
-Either may be a closure taking no arguments, which is how "editable if the current user has
-the permission" is expressed.
+Either may be a closure, and both are called with `($column, $rowIndex, $rowItem,
+$columnCount)` - the row is in the arguments, because editability is usually a property of
+the record rather than of the column. A closure ignoring its arguments is how "editable if
+the current user has the permission" is expressed; one reading `$rowItem` is how "editable
+while the invoice is still a draft" is.
+
+Non-editable rows render bare text next to editable rows that render controls, which makes
+column widths jump between rows. [`Table::$showReadonlyInputs`](/staticphp-core/presentation/tables/#public-properties)
+turns that off: every row renders the control, and the non-editable ones get
+`disabled="disabled"` on a `<select>` or a checkbox and `readonly="readonly"` on a
+`<textarea>` or an input. None of them carry `update_field`, so the client-side save handler
+never binds to a row it must not write.
 
 ### EditableTableType
 
@@ -447,12 +509,12 @@ keeps its formatted text and instead gains
 - a `<span class="table_edit_display field_{columnId}">` wrapper around the value.
 
 ```text
-        <table id="table_f1a3eca848e960bd" class="table"  >
+        <table id="table_3fc87043b772590b" class="table"  >
             <thead>
                 
                 <tr><th   class="" ><div class="d-flex align-items-center"><div class="hidden-print d-print-none"><a href="/users//name=desc" >Name</a></div><div class="visible-print d-none d-print-inline">Name</div>&nbsp;&nbsp;<span class="fa fas fa-sort-alpha-down sort-icon"></span></div></th></tr>
-                <tr id="table_filters_f1a3eca848e960bd">
-<td   class="" ><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_name"    ></td>
+                <tr id="table_filters_3fc87043b772590b">
+<td   class="" ><div class="filter-input-wrap"><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_name"    ><button type="button" class="btn-close filter-clear-btn" tabindex="-1" aria-label="Clear filter"></button></div></td>
 </tr>
 
                 
@@ -485,19 +547,54 @@ with an application asset that has to be written to match.
 
 ## Pagination links
 
-`paginationLinks()` returns `''` when `$pageCount <= 1`, and otherwise a Bootstrap
-`<ul class="pagination">` with five kinds of item: first, previous, the page window from
-`$pagesFrom` to `$pagesTo`, next, and last. The current page's `<li>` gets `active`; first
-and previous get `disabled` on page one, next and last on the final page.
+`paginationLinks()` returns `''` when `$pageCount <= 1`, and otherwise a
+`<nav aria-label="Page navigation">` wrapping a
+`<ul class="pagination justify-content-end">` with five kinds of item: first, previous, the
+page window from `$pagesFrom` to `$pagesTo`, next, and last. The current page's `<li>` gets
+`active` and `aria-current="page"`; first and previous get `disabled` on page one, next and
+last on the final page.
+
+The four steppers are built by one protected method rather than inline, which is what keeps
+their accessible names consistent:
+
+```php
+<?php
+
+protected function paginationLink(string $url, string $symbol, string $label, bool $disabled): string
+```
+
+`$symbol` is the `&laquo;` / `&lsaquo;` / `&rsaquo;` / `&raquo;` entity and goes into a
+`<span aria-hidden="true">`; `$label` is `First`, `Previous`, `Next` or `Last` and goes into
+both an `aria-label` on the anchor and a `<span class="visually-hidden">` beside the symbol.
+A screen reader reads the word, not the chevron.
 
 `paginationUrl($url, $page)` is the substitution, `str_replace('%pagination', $page, $url)`.
 
+Page one of a 613-row table, 50 per page, with `$pagesToShow` reduced to 3:
+
+```text
+<nav aria-label="Page navigation">
+<ul class="pagination justify-content-end">
+<li class="page-item disabled"><a class="page-link" href="/users/name=an/name=asc/1" tabindex="-1" aria-label="First"><span aria-hidden="true">&laquo;</span><span class="visually-hidden">First</span></a></li>
+<li class="page-item disabled"><a class="page-link" href="/users/name=an/name=asc/0" tabindex="-1" aria-label="Previous"><span aria-hidden="true">&lsaquo;</span><span class="visually-hidden">Previous</span></a></li>
+<li class="page-item active" aria-current="page"><a class="page-link" href="/users/name=an/name=asc/1">1</a></li>
+<li class="page-item"><a class="page-link" href="/users/name=an/name=asc/2">2</a></li>
+<li class="page-item"><a class="page-link" href="/users/name=an/name=asc/3">3</a></li>
+<li class="page-item"><a class="page-link" href="/users/name=an/name=asc/2" aria-label="Next"><span aria-hidden="true">&rsaquo;</span><span class="visually-hidden">Next</span></a></li>
+<li class="page-item"><a class="page-link" href="/users/name=an/name=asc/13" aria-label="Last"><span aria-hidden="true">&raquo;</span><span class="visually-hidden">Last</span></a></li>
+</ul>
+</nav>
+```
+
 :::caution[Disabled links still point somewhere]
-The `disabled` class is cosmetic. On page one the "previous" anchor is still rendered with
-`href` set to `paginationUrl($url, $pagination->prevPage)`, and `prevPage` is `0` there - so
-the `%pagination` placeholder is replaced with `0`. Bootstrap's `.page-link` styling on a
-`.disabled` item suppresses pointer events; without that css the link is clickable and leads
-to a page that does not exist.
+The `disabled` class is cosmetic and the anchor keeps its `href`. On page one the "previous"
+anchor is rendered with `href` set to `paginationUrl($url, $pagination->prevPage)`, and
+`prevPage` is `0` there - so the `%pagination` placeholder is replaced with `0`, as the
+capture above shows. It gets `tabindex="-1"`, which takes it out of the tab order, and the
+source is explicit that this is the intent: "a disabled page-item is styled, not inert".
+Bootstrap's `.page-link` styling on a `.disabled` item suppresses pointer events, so with
+that css the link cannot be reached by mouse or keyboard. Without it, the link is clickable
+and leads to a page that does not exist.
 :::
 
 See [pagination](/staticphp-core/presentation/pagination/) for how the window is computed.

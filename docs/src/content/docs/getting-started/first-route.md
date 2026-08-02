@@ -74,7 +74,7 @@ gives you a `construct()` hook that publishes the current urls to the view data,
 ```php
 <?php
 
-public static function render(array $views, $view_data = []): void;
+public static function render(array $views, array $view_data = []): void;
 public static function write(string|array $contents): void;
 
 public static function moduleUrl(): string;
@@ -139,7 +139,7 @@ Requesting `/` now serves:
 ```
 
 :::caution[The file extension does not decide the renderer]
-`Load::view()` looks at `$config['view_engine']`, not at the file name. With twig installed
+`Load::view()` looks at `Config::viewEngine()`, not at the file name. With twig installed
 and `disable_twig` unset, `home.php` is handed to twig, which treats `<?= ... ?>` as literal
 text and prints it. Write the file as a twig template in that case - `{{ title }}` rather
 than `<?= $title ?>` - or set `$config['disable_twig'] = true`. The plain php path above is
@@ -241,7 +241,7 @@ $config['error_pages'] = [
 That is a working application: a front controller, a configuration, a route, a controller
 and a view. Everything after this is reference, and the Core section is where it starts:
 
--   [The boot sequence](/staticphp-core/core/bootstrap/) - the ten steps `Bootstrap::FILE`
+-   [The boot sequence](/staticphp-core/core/bootstrap/) - the eleven steps `Bootstrap::FILE`
     runs, and the ordering constraint behind each.
 -   [The router](/staticphp-core/core/router/) - prefixes, url helpers, content type
     negotiation and the `before_controller` hook.

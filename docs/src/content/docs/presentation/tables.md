@@ -18,17 +18,34 @@ Three interfaces describe the contract, all in
 `src/Presentation/Models/Tables/Interfaces/`.
 
 `TableInterface` is what a table has to provide. Every other part of the subsystem is
-typed against it rather than against the concrete `Table`:
+typed against it rather than against the concrete `Table`. It declares state as well as
+behaviour, through property hooks - the output generators and the SQL helpers read those
+properties directly, so they are part of the contract rather than an implementation detail
+of `Table`:
 
 ```php
 <?php
 
 interface TableInterface
 {
+    public ?Sort $sort { get; set; }
+    public ?Filters $filter { get; set; }
+    public ?Pagination $pagination { get; set; }
+
+    public array $columns { get; set; }
+
+    public RowPosition $avgRowPosition { get; set; }
+    public RowPosition $sumRowPosition { get; set; }
+    public RowPosition $customRowPosition { get; set; }
+
+    public bool|\Closure $isEditable { get; set; }
+    public bool $showReadonlyInputs { get; set; }
+    public null|string|\Closure $idKey { get; set; }
+
     public function __construct(array $columns, string $urlPrefix = '');
 
     public function tableId(): string;
-    public function parseQueryString(string $str, string $delimiter = '&');
+    public function parseQueryString(string $str, string $delimiter = '&'): array;
 
     public function initData(?string $filterData = null, ?string $sortData = null, ?int $page = null): void;
 
@@ -38,10 +55,15 @@ interface TableInterface
     public function getRows(): array;
     public function setRows(array &$rows): void;
 
-    public function makeOutput();
+    public function makeOutput(): mixed;
     public function showOutput(): void;
 }
 ```
+
+The hooks are `{ get; set; }` with no bodies, so a `Table` satisfies them with plain public
+properties. What they buy is that a class implementing the interface without them does not
+compile, which is what stops an output generator reaching for `$table->sort` on something
+that never declared one.
 
 `TableInstanceInterface` is the smaller one. It says only that the implementor is
 constructed from a table, by reference:
@@ -62,7 +84,7 @@ interface TableInstanceInterface
 
 interface OutputInterface extends TableInstanceInterface
 {
-    public function makeOutput();
+    public function makeOutput(): mixed;
     public function showOutput(): void;
 }
 ```
@@ -137,9 +159,9 @@ instantiation, so it is not stable between requests.
 | `$filter` | `?Filters` | `null` | Set by `initData()` |
 | `$pagination` | `?Pagination` | `null` | Set by `initData()` |
 | `$outputGenerator` | `?OutputInterface` | `null` | The renderer `makeOutput()` delegates to |
-| `$columns` | `?array` | `null` | Keyed by column id |
-| `$rows` | `?array` | `null` | The result set |
-| `$children` | `?array` | `null` | Stored, never read |
+| `$columns` | `array` | `[]` | Keyed by column id |
+| `$rows` | `array` | `[]` | The result set |
+| `$children` | `array` | `[]` | Stored, never read |
 | `$initRow` | `null\|\Closure` | `null` | Rewrites each row in `setRows()` |
 | `$avgRow` | `?array` | `null` | A meta row rendered as one extra `<tr>` |
 | `$avgRowPosition` | `RowPosition` | `BODY_TOP` | Where that row goes |
@@ -150,7 +172,13 @@ instantiation, so it is not stable between requests.
 | `$beforeDataRow` | `?array` | `null` | Markup emitted before every data row |
 | `$afterDataRow` | `?array` | `null` | Markup emitted after every data row |
 | `$isEditable` | `bool\|\Closure` | `false` | Table-wide edit switch |
+| `$showReadonlyInputs` | `bool` | `false` | Render non-editable rows as disabled inputs |
 | `$idKey` | `null\|string\|\Closure` | `null` | Fallback row identifier |
+
+`$showReadonlyInputs` matters when `$isEditable` is a closure that answers differently per
+row. Left off, the editable rows render controls and the rest render bare text, so column
+widths jump between rows; turned on, every row renders the same control and the non-editable
+ones are `disabled`. `Html::htmlDataRow()` is the only reader.
 
 `$children`, `getChildren()` and `setChildren()` exist on `Table` but are not part of
 `TableInterface` and nothing in `src/` reads them. Treat them as an unfinished feature.
@@ -264,13 +292,19 @@ delegate to it, otherwise they do nothing and return `null`. The renderers are
 ```php
 <?php
 
-public function makeOutput()
+public function makeOutput(): mixed
 {
     if (!empty($this->outputGenerator)) {
         return $this->outputGenerator->makeOutput();
     }
+
+    return null;
 }
 ```
+
+The `mixed` return type is what lets the two shipped generators disagree about what they
+produce: `Html::makeOutput()` is declared `: string` and `Excel::makeOutput()` returns a
+`Spreadsheet`. Both narrow `mixed`, which is legal.
 
 ### parseQueryString()
 
@@ -391,15 +425,15 @@ Steps 5 to 7 print the markup:
 ```html
 <div class="block block-rounded">
     <div class="block-content block-content-full">
-        <div class="table-responsive">        <table id="table_a995c74cfaacbfee" class="table"  >
+        <div class="table-responsive">        <table id="table_e6d2ff10a319d423" class="table"  >
             <thead>
                 
                 <tr><th   class="" ></th><th   class="" ><div class="d-flex align-items-center"><div class="hidden-print d-print-none"><a href="/users/name=an/name=asc" >Name</a></div><div class="visible-print d-none d-print-inline">Name</div></div></th><th   class="" ><div class="d-flex align-items-center"><div class="hidden-print d-print-none"><a href="/users/name=an/active=asc" >Active</a></div><div class="visible-print d-none d-print-inline">Active</div></div></th><th   class="" ><div class="d-flex align-items-center"><div class="hidden-print d-print-none"><a href="/users/name=an/balance=asc" >Balance</a></div><div class="visible-print d-none d-print-inline">Balance</div>&nbsp;&nbsp;<span class="fa fas fa-sort-alpha-up sort-icon"></span></div></th></tr>
-                <tr id="table_filters_a995c74cfaacbfee">
+                <tr id="table_filters_e6d2ff10a319d423">
 <td   class="" ></td>
-<td   class="" ><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_name"    placeholder="Search"   value="an"></td>
-<td   class="" ><select class="form-control form-control-sm input-xs filter   form-select form-select-sm" id="filter_active"   ><option value=""></option><option value="0">No</option><option value="1">Yes</option></select></td>
-<td   class="" ><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_balance"    ></td>
+<td   class="" ><div class="filter-input-wrap has-value"><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_name"    placeholder="Search"   value="an"><button type="button" class="btn-close filter-clear-btn" tabindex="-1" aria-label="Clear filter"></button></div></td>
+<td   class="" ><div class="filter-input-wrap"><select class="form-control form-control-sm input-xs filter   form-select form-select-sm" id="filter_active"   ><option value=""></option><option value="0">No</option><option value="1">Yes</option></select><button type="button" class="btn-close filter-clear-btn" tabindex="-1" aria-label="Clear filter"></button></div></td>
+<td   class="" ><div class="filter-input-wrap"><input type="text" class="form-control form-control-sm input-xs filter  " id="filter_balance"    ><button type="button" class="btn-close filter-clear-btn" tabindex="-1" aria-label="Clear filter"></button></div></td>
 </tr>
 
                 
@@ -449,6 +483,11 @@ Reading that back:
   replaced. The active column carries an extra `fa-sort-alpha-up` icon span.
 - The filter row reflects the parsed filter: `name` is prefilled with `an`, and `active`
   renders as a select because its `filterFieldType` is `FieldType::SELECT_NO_YES`.
+- Every control the user can type into or pick from sits in a
+  `<div class="filter-input-wrap">` with a `btn-close filter-clear-btn` button after it. The
+  `name` wrapper also carries `has-value`, because that is the only column the filter string
+  supplied. The hidden `nr` cell gets neither. See
+  [the filter row](/staticphp-core/presentation/output-html/#the-filter-row).
 - The sum row is rendered first inside `<tbody>` because `sumRowPosition` is
   `RowPosition::BODY_TOP`. It gets `table-sum-row table-meta-row` classes and
   `title="SUM"`.
@@ -552,21 +591,30 @@ Every line below was produced by calling the code:
 unknown Column setting: Exception: "tittle" does not exists on Column
 non-Column in the array: Exception: Not all columns are instances of Column
 no default sort column: Exception: No default column was found
-filterData() with no filter string: TypeError: StaticPHP\Presentation\Models\Tables\Filters::filterData(): Return value must be of type string, null returned
-sortBy() with no sortBy set: TypeError: StaticPHP\Presentation\Models\Tables\Sort::sortBy(): Return value must be of type string, null returned
 render with no sort: Exception: Sort is not initialized
 render with no filter: Exception: Filter is not initialized
 paginationLinks() with no pagination: Exception: Pagination is not initialized
+prepareQueries() with no filter: LogicException: SQLFilters needs a table whose filtering was initialised
+sortQuery() with no sort: LogicException: SQLSort needs a table whose sorting was initialised
+limitQuery() with no pagination: LogicException: SQLPagination needs a table whose paging was initialised
 expandable + editable: Exception: Expandable text is not supported for editable columns
 ```
 
-The two `TypeError`s are the interesting ones, because neither is a guard the framework put
-there deliberately:
+The three `LogicException`s are the deliberate ones. Each names the object `initData()` did
+not build, which is the whole of the diagnosis: an `SQL*` helper constructed by hand against
+a table whose corresponding argument was `null`. `SQLTable::initData()` cannot produce them,
+because it builds each helper only when the matching argument is not `null`.
 
-- `Filters::filterData()` is declared `: string` but returns the nullable
-  `$this->filterData`. Constructing `Filters` without a filter string leaves it `null`.
-  `initData()` never does that - it only builds a `Filters` when `$filterData !== null` -
-  so you reach this only by constructing `Filters` yourself.
-- `Sort::sortBy()` is declared `: string` and returns `$this->currentColumn->sortBy`, which
-  defaults to `null`. Any column that can become the sort column needs a `sortBy` value.
-  See [sorting](/staticphp-core/presentation/sorting/).
+Two things that used to throw here no longer do, and both now have a defined answer instead:
+
+```text
+filterData() with no filter string -> ''
+sortBy() with no sortBy set        -> the column id
+```
+
+- `Filters::filterData()` returns `$this->filterData ?? ''`, so a `Filters` constructed
+  without a filter string reports the empty string rather than failing its own `: string`
+  return type.
+- `Sort::sortBy()` falls back to the column id. That is a usable `ORDER BY` term only when
+  the query selects the column under exactly that name; set `$sortBy` explicitly on anything
+  you sort on. See [sorting](/staticphp-core/presentation/sorting/).

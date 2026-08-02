@@ -32,8 +32,11 @@ $config['base_url'] = 'http://localhost/';
 $config['disable_twig'] = false;
 $config['environment'] = 'prod';
 $config['debug'] = false;
-$config['debug_ips'] = [];
+$config['debug_check'] = null;
 $config['allowed_hosts'] = [];
+$config['trust_proxy_headers'] = false;
+$config['trusted_proxy_hops'] = 1;
+$config['client_ip'] = null;
 $config['view_env_keys'] = [];
 $config['url_prefixes'] = [];
 $config['module_paths'] = [];
@@ -44,21 +47,28 @@ $config['error_pages'] = ['status' => null, 'debug' => null];
 $config['request_uri'] = & $_SERVER['REQUEST_URI'];
 $config['query_string'] = & $_SERVER['QUERY_STRING'];
 $config['script_name'] = & $_SERVER['SCRIPT_NAME'];
-$config['client_ip'] = & $_SERVER['REMOTE_ADDR'];
 ```
 
-The last four are bound by reference on purpose: the cli entry points rewrite `$_SERVER`
+The last three are bound by reference on purpose: the cli entry points rewrite `$_SERVER`
 to describe the url they were asked to serve, and the configuration has to follow.
+
+`client_ip` used to be bound the same way. Leave it `null` instead - the bootstrap fills it
+from `Router::clientIp()`, which is the only thing that knows about proxies. Setting it
+explicitly still works and still wins, but on a proxied deployment a binding to
+`REMOTE_ADDR` pins every request to the proxy. See
+[proxy headers](/staticphp-core/core/request/#proxy-headers).
 
 `Routing.php` is covered in [your first route](/staticphp-core/getting-started/first-route/).
 
 ## Reading and writing
 
 Everything on `Config` is static, and `Config::$items` is public. `get()`, `set()`,
-`getViewData()`, `setViewData()`, `merge()` and `load()` are the whole surface; the
-behaviour that catches people out - `get()` deciding with `isset()` and returning by
-reference, `merge()` branching on the stored value's type, the `$owerwrite` spelling, and
-the absence of any dot-path support - is on [the Config API](/staticphp-core/core/config/).
+`getViewData()`, `setViewData()`, `merge()` and `load()` are the core of it, alongside
+`resolveDebug()`, `viewEngine()` and the four typed accessors `getString()`, `getInt()`,
+`getBool()` and `getArray()`. The behaviour that catches people out - `get()` deciding with
+`isset()` and returning by reference, `merge()` branching on the stored value's type, the
+`$owerwrite` spelling, and the absence of any dot-path support - is on
+[the Config API](/staticphp-core/core/config/).
 
 ## Loading more config files
 
@@ -143,7 +153,9 @@ Beyond the subsystem sections above, these are the keys the package itself looks
 | `routing`                                     | `Router`, for the rewrite rules and the default route       |
 | `url_prefixes`                                | `Router::splitSegments()`, stripped off before routing      |
 | `allowed_hosts`                               | `Router::validateHost()`; empty means syntax check only     |
-| `debug`, `debug_ips`, `client_ip`             | the bootstrap, to decide whether debug is on                |
+| `debug`, `debug_check`                        | the bootstrap, to decide whether debug is on                |
+| `client_ip`                                   | the bootstrap fills it when `null`; read by the application |
+| `trust_proxy_headers`, `trusted_proxy_hops`   | `Router`, before it reads any `X-Forwarded-*` header        |
 | `autoload_configs`, `autoload_helpers`        | the bootstrap                                               |
 | `before_controller`                           | `Router::loadController()`, called before the controller    |
 | `module_paths`                                | `Load`, to resolve a project name to a directory            |
@@ -154,8 +166,17 @@ Beyond the subsystem sections above, these are the keys the package itself looks
 | `logging.display_level`, `logging.log_level`, `logging.report_level` | the error handlers, to decide what is shown, logged and emailed |
 | `environment`                                 | the debug error page, shown in the runtime summary          |
 
-The bootstrap writes `now`, `date_time`, `debug`, and - when twig is in use - `view_engine`
-and `view_loader` back into the same array.
+The bootstrap writes `client_ip`, `now`, `date_time`, `debug`, and - when twig is in use -
+`view_engine` and `view_loader` back into the same array.
+
+:::caution[`$config['debug_ips']` is no longer read]
+It is gone rather than deprecated, and an application still setting it gets nothing from it,
+silently. `$config['debug_check']` - any `callable(): bool` - replaces it. Why, and what to
+write instead, is
+[step 5 of upgrading](/staticphp-core/guides/upgrading/#5-debug_ips-is-gone-the-application-decides-who-sees-debug-output);
+the resolution rules are under
+[`resolveDebug()`](/staticphp-core/core/config/#resolvedebug).
+:::
 
 `query_string` in the sample above is bound for the application's convenience; the router
 derives `Router::$query_string` from the request uri itself rather than reading it.

@@ -43,17 +43,17 @@ anything that accepts one, including
 ```php
 <?php
 
-public function previousMonth();
-public function nextMonth();
-public function startOfTheMonth();
-public function endOfTheMonth();
-public function startOfTheWeek();
-public function endOfTheWeek();
-public function startOfTheDay();
-public function endOfTheDay();
+public function previousMonth(): void;
+public function nextMonth(): void;
+public function startOfTheMonth(): void;
+public function endOfTheMonth(): void;
+public function startOfTheWeek(): void;
+public function endOfTheWeek(): void;
+public function startOfTheDay(): void;
+public function endOfTheDay(): void;
 
-public static function startOfTheMonthFromTimestamp(int $unixTime);
-public static function endOfTheMonthFromTimestamp(int $unixTime);
+public static function startOfTheMonthFromTimestamp(int $unixTime): int;
+public static function endOfTheMonthFromTimestamp(int $unixTime): int;
 ```
 
 Each is a single `modify()` with a relative-format string. Run from one instant:

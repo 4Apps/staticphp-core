@@ -26,25 +26,37 @@ interface CacheInterface
     public function setValue(string $key, mixed $value, ?int $ttl = null): bool;
     public function getValue(string $key): mixed;
     public function removeKey(string $key): bool;
+    public function doesItemExist(string $key): bool;
+    public function getTTL(string $key): int;
 }
 ```
 
-Five members, and that is the whole contract. `Cache` implements it with `prefix()` doing
+Seven members, and that is the whole contract. `Cache` implements it with `prefix()` doing
 real work - it prepends `$config['prefix']` when that key is non-empty, and returns the key
-unchanged otherwise - while `setValue()`, `getValue()` and `removeKey()` throw
-`Exception('Not implemented')` so that a backend which forgets one fails loudly.
+unchanged otherwise - while the other five throw `Exception('Not implemented')` so that a
+backend which forgets one fails loudly.
 
-`Cache` also declares two methods that are **not** on the interface:
+`CacheRedis` is the only backend that overrides `doesItemExist()` and `getTTL()`, so
+everything routed through them is redis-only in practice: the other three inherit the base
+class's throw.
+
+### Reading configuration
+
+A backend's configuration arrives as a slice of `Config::$items['cache']`, which is an
+untyped bag. Two protected helpers on `Cache` are where a setting stops being a `mixed`:
 
 ```php
 <?php
 
-public function doesItemExist(string $key): bool;
-public function getTTL(string $key): int;
+protected function setting(string $name, string $default = ''): string;
+protected function settingInt(string $name, int $default = 0): int;
 ```
 
-Both throw `Not implemented` on the base class, and `CacheRedis` is the only backend that
-overrides them. Everything routed through them is therefore redis-only in practice.
+`setting()` returns `$default` unless the entry is scalar and its string form is non-empty;
+`settingInt()` returns `$default` unless the entry is numeric. The backends read their
+configuration through these, so a missing or unusable key becomes the default named below
+rather than a warning. The one exception is memcached's `servers`, which is an array and is
+read from the configuration directly.
 
 ## Nothing selects a backend for you
 
@@ -95,9 +107,10 @@ With a `$name`, every call goes to that backend alone. Registering the same name
 throws, and so does naming a backend that was never registered.
 
 Do not read a fan-out return value as "it worked everywhere". `set()` discards what each
-backend returned and hands back a hardcoded `true`; `remove()` keeps only the **last**
-backend's status and returns that. A single-backend call - one with a `$name` - does return
-that backend's own result.
+backend returned and hands back a hardcoded `true`. `remove()` is the honest one: it
+or-accumulates, so it is true when the key was present in at least one backend and false
+when no backend held it. A single-backend call - one with a `$name` - does return that
+backend's own result.
 
 Captured against one registered `CacheFiles` backend:
 
@@ -119,11 +132,14 @@ Cache::getTimeToLive('k')          => Exception: Not implemented
 `exists()` and `getTimeToLive()` fail there because the file backend does not implement
 `doesItemExist()` or `getTTL()`, not because the key is missing.
 
-:::caution[The registry misbehaves when it is empty]
-With no backend registered, `Cache::get()` and `Cache::getTimeToLive()` call a method on
-`false` - `reset([])` returns `false` - and `Cache::remove()` returns `$status`, a variable
-its loop never assigned, which is a `TypeError` against the `: bool` return type. Only
-`set()` and `exists()` degrade quietly. Register a backend before using the static methods.
+:::caution[`set()` always reports success]
+The fan-out form of `set()` returns `true` whatever the backends did, so a write that a
+backend refused is invisible to the caller. Name a backend, or call `setValue()` on the
+instance, when the answer matters.
+
+The rest of the registry is truthful about an empty one: `get()` and `getTimeToLive()` throw
+`Exception('No cache backend is registered')` when `reset()` finds nothing, `remove()`
+returns false, and `exists()` returns false.
 :::
 
 ## The four backends
@@ -212,21 +228,28 @@ in the php process pool, so it does not survive a restart and is not shared betw
 ### Memcached
 
 Reads `prefix`, `servers`, `persistent_id` and `timeout`. `servers` is the array of
-`[host, port]` pairs `Memcached::addServers()` expects. `timeout` is in **seconds** and is
-multiplied by 1000 before being used three ways: the `memcached.default_connect_timeout` ini
-setting, `Memcached::OPT_RECV_TIMEOUT` and `Memcached::OPT_SEND_TIMEOUT`.
+`[host, port]` pairs `Memcached::addServers()` expects; a `servers` that is not an array is
+replaced by an empty one. `timeout` is in **seconds** and is multiplied by 1000 before being
+used three ways: the `memcached.default_connect_timeout` ini setting,
+`Memcached::OPT_RECV_TIMEOUT` and `Memcached::OPT_SEND_TIMEOUT`. All three sit behind an
+`if ($timeout > 0)` guard, so leaving `timeout` out - or setting it to `0` - leaves each of
+them at its own default instead of setting it to zero.
+
 `Memcached::OPT_LIBKETAMA_COMPATIBLE` is always set, so keys hash consistently across the
 server list. Servers are only added when the existing server list is empty, which is what
 makes `persistent_id` worth setting - a persistent connection keeps its server list between
-requests.
+requests. The two socket timeouts are set inside that same branch, so a persistent
+connection that already has its servers skips them too.
 
 ### Redis
 
 Reads `prefix`, `hostname`, `port`, `timeout` and `database`. The constructor connects
-eagerly, sets `Redis::OPT_SERIALIZER` to `Redis::SERIALIZER_PHP` - so the extension
-serializes and unserializes values on the way through, and structured values round-trip -
-and selects `database`, defaulting to `2` when the key is absent. `timeout` is read
-unconditionally and passed as the connect timeout; `0` means no limit.
+eagerly - to `127.0.0.1:6379` when `hostname` and `port` are absent - sets
+`Redis::OPT_SERIALIZER` to `Redis::SERIALIZER_PHP`, so the extension serializes and
+unserializes values on the way through and structured values round-trip, and then selects
+`database`, which defaults to `0`, the same database redis itself starts on. `timeout` is
+read unconditionally and passed as the connect timeout; it defaults to `0`, which means no
+limit.
 
 `setValue()` issues a `SET` and then a separate `EXPIRE` when `$ttl` is not null, so a value
 briefly exists without an expiry. `removeKey()` returns the `DEL` reply count coerced to

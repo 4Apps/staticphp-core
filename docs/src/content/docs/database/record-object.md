@@ -25,12 +25,13 @@ behaviours below are sharp edges rather than design.
 ```php
 <?php
 
-public function __construct($record, $skip_format = false);
+public function __construct(array $record, bool $skip_format = false);
 ```
 
-`$record` is expected to be an associative array - a row fetched with the default
-`fetch_mode_objects => false`. Nothing enforces it, but a `stdClass` breaks at the first
-array operation, so wrap the array form.
+`$record` is an associative array - a row fetched with the default
+`fetch_mode_objects => false`. The `array` type hint enforces that, so a connection
+configured for `stdClass` rows fails here with a `TypeError` rather than somewhere further
+in; cast the row, or wrap the array form.
 
 Unless `$skip_format` is true the constructor runs `format()` immediately, then copies the
 resulting record into an "original" copy that is never touched again except by `save()` and
@@ -49,10 +50,16 @@ $post = new RecordObject(Db::fetch('SELECT * FROM posts WHERE id = ?', [$id]));
 
 Internally there are three arrays: `record`, `formatted_record` and `original_record`.
 
+```php
+<?php
+
+public function format(): void;
+```
+
 `format()` is the only thing that fills `formatted_record`. It walks `record` looking for
 keys containing `additional_fields_`, moves each one across under the key with that
 substring removed, unsets it from `record`, and `json_decode($value, true)`s the value when
-it is not empty.
+it is a non-empty string.
 
 ```php
 <?php
@@ -79,8 +86,11 @@ Details that matter:
 - The test is `strpos($key, 'additional_fields_') !== false`, not a prefix check, and the
   removal is `str_replace()`. A column named `x_additional_fields_y` therefore becomes
   `x_y`.
-- A value that is not valid json decodes to `null`. An empty string is skipped by the
-  `!empty()` guard and stays an empty string.
+- A value that is not valid json decodes to `null`. The guard is
+  `is_string($encoded) && $encoded !== ''`, so an empty string is left as an empty string and
+  a value that is not a string at all - a `null` column, an already-decoded array - is moved
+  across untouched rather than being cast and decoded. A string `'0'` is decoded, to the
+  integer `0`.
 - If `record` already holds a key that a formatted field would occupy, the formatted value
   becomes unreachable: reads, `jsonSerialize()` and iteration all prefer `record`.
 - `format()` is safe to call twice; the second pass finds nothing left to move.
@@ -93,16 +103,18 @@ With `$skip_format` true, none of that happens and `additional_fields_meta` stay
 ```php
 <?php
 
-public function __get(string $name);
-public function get(string $name, ?int $from = null);
+public function __get(string $name): mixed;
+public function get(string $name, ?int $from = null): mixed;
 public function offsetGet(mixed $offset): mixed;
-public function record();
-public function originalRecord();
+public function offsetExists(mixed $offset): bool;
+public function record(): array;
+public function originalRecord(): array;
 ```
 
 `__get()` and `offsetGet()` look in `record` first, then `formatted_record`. `__get()` falls
 through to `$this[$name]`, so both end in the same place - and that place **throws** an
-`\Exception` reading `"name" not found.` rather than returning null.
+`\Exception` reading `"name" not found.` rather than returning null. `offsetExists()` is the
+non-throwing test, and it is what `isset($record['x'])` calls; it looks in both arrays.
 
 The lookups use `isset()`. A column whose value is `null` is therefore indistinguishable
 from a missing one:
@@ -145,7 +157,7 @@ values and to iterate without the `isset()` semantics.
 ```php
 <?php
 
-public function __set(string $name, mixed $value);
+public function __set(string $name, mixed $value): void;
 public function offsetSet(mixed $offset, mixed $value): void;
 public function offsetUnset(mixed $offset): void;
 ```
@@ -173,8 +185,8 @@ $record['brand_new'] = 'x';   // works
 ```php
 <?php
 
-public function save();
-public function reload();
+public function save(): void;
+public function reload(): void;
 ```
 
 Neither touches a database.
@@ -190,7 +202,8 @@ row back with `Db::update()` itself. Nothing in the class compares the two array
 ## Iteration and json
 
 `Iterator` is implemented over `record` alone, using php's internal array pointer
-(`reset()`, `current()`, `key()`, `next()`). Formatted fields are not iterated:
+(`reset()`, `current()`, `key()`, `next()`). `key()` casts what it finds to `string`, so an
+integer column key arrives in the loop as a string. Formatted fields are not iterated:
 
 ```php
 <?php

@@ -1,6 +1,6 @@
 ---
 title: Bootstrap
-description: The ten steps the framework bootstrap runs, and why each sits where it does.
+description: The eleven steps the framework bootstrap runs, and why each sits where it does.
 sidebar:
     order: 1
 ---
@@ -40,38 +40,49 @@ steps depend on the one before it having already run.
 4. **`Config::load(['Config', 'Routing'])`.** Reads `APP_PATH/Config/Config.php` and
     `APP_PATH/Config/Routing.php` into `Config::$items`.
 
-5. **Debug is decided, and `now` and `date_time` are written.**
+5. **The client address is resolved**, but only when the application left it alone:
+
+    ```php
+    <?php
+
+    if (Config::get('client_ip', null) === null) {
+        Config::$items['client_ip'] = Router::clientIp();
+    }
+    ```
+
+    It sits here because the configuration governing it - `trust_proxy_headers`,
+    `trusted_proxy_hops` - has only just been read, and because everything below may want
+    an address to log against. `null` means "work it out", the way `base_url` does;
+    anything the application assigned is kept, including the 1.x
+    `= & $_SERVER['REMOTE_ADDR']` binding. See
+    [proxy headers](/staticphp-core/core/request/#proxy-headers).
+
+6. **Debug is decided, and `now` and `date_time` are written.**
 
     ```php
     <?php
 
     Config::$items['now'] = time();
     Config::$items['date_time'] = new ExtendedDateTime();
-    Config::$items['debug'] = (
-        Config::get('debug')
-        || in_array(Config::get('client_ip', '127.0.0.1'), (array) Config::get('debug_ips', []))
-    );
+    Config::$items['debug'] = Config::resolveDebug();
     ```
 
+    `resolveDebug()` returns `true` for a truthy `$config['debug']`, and otherwise calls
+    `$config['debug_check']` - the application's own `callable(): bool` - and requires a
+    strict `true`. It fails closed. The rules in full are on
+    [the Config API](/staticphp-core/core/config/#resolvedebug).
+
     `error_reporting` is then set to `E_ALL` when debug is on and `E_ALL & ~E_DEPRECATED`
-    when it is off, and `display_errors` to `(int) Config::get('debug')` - which by this
-    point is the value computed just above, not the one the config file assigned. Every
-    later step reads `Config::$items['debug']`, so nothing that cares about debug mode can
-    run before this.
+    when it is off, and `display_errors` to `(int) Config::$items['debug']` - the value
+    computed just above, not the one the config file assigned. Every later step reads
+    `Config::$items['debug']`, so nothing that cares about debug mode can run before this,
+    and `debug_check` in particular runs before sessions, the database and routing exist.
 
-6. **`$config['autoload_configs']` is loaded.** Each entry is split on `/` and read right
+7. **`$config['autoload_configs']` is loaded.** Each entry is split on `/` and read right
     to left: one part is a file in `APP_PATH/Config`, two parts are `module/file`, three
-    are `project/module/file`.
+    are `project/module/file`. Entries that are not strings are skipped.
 
-    The guard is `if ($autoload_configs !== false)`, but `Config::get()` returns `null` for
-    a key that was never set - so an application that omits `autoload_configs` entirely
-    reaches `foreach (null as ...)` and PHP raises `foreach() argument must be of type
-    array|object, null given`. Define the key as `[]` rather than leaving it out. The same
-    applies to `autoload_helpers` in step 9, and there it is worse: by then the error
-    handler is installed, so the warning becomes a thrown `SpErrorException` and the
-    request ends in a 500 rather than a printed warning.
-
-7. **The error handlers are registered.** `Load::helper(['ErrorHandlers'], 'Core',
+8. **The error handlers are registered.** `Load::helper(['ErrorHandlers'], 'Core',
     'staticphp')` requires `src/Core/Helpers/ErrorHandlers.php`, then:
 
     ```php
@@ -85,15 +96,15 @@ steps depend on the one before it having already run.
     application's `Config.php` will not render through the framework's error pages. See
     [errors](/staticphp-core/core/errors/).
 
-8. **The twig environment is built**, unless `$config['disable_twig'] === true` or
+9. **The twig environment is built**, unless `$config['disable_twig'] === true` or
     `\Twig\Environment` does not exist. The check is `class_exists()` rather than a probe
     for a file under `VENDOR_PATH`, so it survives twig moving its own internals around.
     Details below.
 
-9. **`$config['autoload_helpers']` is loaded**, using the same one/two/three part naming as
-    step 6, through `Load::helper()`.
+10. **`$config['autoload_helpers']` is loaded**, using the same one/two/three part naming
+    as step 7, through `Load::helper()`.
 
-10. **`Router::init()`.** Parses the url, finds a controller and calls it. Everything the
+11. **`Router::init()`.** Parses the url, finds a controller and calls it. Everything the
     request does happens inside this call. See [the router](/staticphp-core/core/router/).
 
 There is no step after `Router::init()`. Control returns to the front controller, which by
@@ -103,9 +114,10 @@ convention has nothing left to do.
 
 | Key           | Value                                                                  |
 | ------------- | ---------------------------------------------------------------------- |
+| `client_ip`   | `Router::clientIp()`, only when the application left the key `null`    |
 | `now`         | `time()` at boot                                                       |
 | `date_time`   | a `StaticPHP\Utils\Models\ExtendedDateTime` instance                   |
-| `debug`       | the computed boolean from step 5                                       |
+| `debug`       | the computed boolean from step 6                                       |
 | `view_loader` | `\Twig\Loader\FilesystemLoader`, only when twig is in use              |
 | `view_engine` | `\Twig\Environment`, only when twig is in use                          |
 

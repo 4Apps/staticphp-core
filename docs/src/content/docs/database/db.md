@@ -6,9 +6,9 @@ sidebar:
 ---
 
 `StaticPHP\Utils\Models\Db` is a static wrapper around PDO. It holds one PDO instance per
-connection name, opens connections on first use, and adds four query helpers on top. It is
-not an ORM and there is no query builder object: every method takes a table or a query
-string and returns a `PDOStatement` or plain rows.
+connection name, opens connections on first use, and adds a small set of query helpers on
+top. It is not an ORM and there is no query builder object: every method takes a table or a
+query string and returns a `PDOStatement` or plain rows.
 
 Everything is static. There is no instance to inject and no state beyond the open
 connections, the configuration each was opened with, and the last statement executed.
@@ -76,9 +76,9 @@ reference**. For an unknown name that creates a null entry and then fails the `P
 type with a `TypeError`; the null entry stays behind and shows up in the list of open
 connections in later error messages. Use it only for a connection you know is open.
 
-`close()` sets the entry to null and unsets it. The name can be opened again afterwards,
-provided it exists in the configuration - an inline `$config` is not remembered across a
-close.
+`close()` unsets the entry, dropping the last reference to the PDO object. The name can be
+opened again afterwards, provided it exists in the configuration - an inline `$config` is not
+remembered across a close.
 
 ## Running queries
 
@@ -88,11 +88,14 @@ close.
 public static function query(string $query, array $data = [], string $name = 'default'): PDOStatement;
 public static function fetch(string $query, array $data = [], string $name = 'default'): mixed;
 public static function fetchAll(string $query, array $data = [], string $name = 'default'): array;
+public static function select(string $table, mixed $where, string $columns = '*', string $name = 'default'): array;
 ```
 
 `query()` throws on an empty query string, prepares the statement, executes it with
-`(array) $data`, stores it as the last statement and returns it. `fetch()` and `fetchAll()`
-are one-line wrappers that call `->fetch()` and `->fetchAll()` on the result.
+`(array) $data`, stores it as the last statement and returns it. `fetch()` is a one-line
+wrapper that calls `->fetch()` on the result. `fetchAll()` puts its result through
+`array_values()`, so the returned list is renumbered from zero whatever the driver's own
+keys were.
 
 A `PDOStatement` is traversable, so `query()` doubles as the iterator form for large result
 sets:
@@ -143,28 +146,30 @@ statements: values go to the server separately from the SQL, and typed columns c
 typed rather than as strings.
 
 Values in the `$data` array of `insert()` and `update()`, and values in the conditions
-array of `update()` and `delete()`, are bound too - including every element of an array
-value, which expands to one `?` per element.
+array of `select()`, `update()` and `delete()`, are bound too - including every element of an
+array value, which expands to one `?` per element.
 
 ### Concatenated
 
 Everything else. In particular:
 
-- **The table name.** `insert()`, `update()` and `delete()` interpolate `$table` into the
-  query verbatim. It is not validated, not quoted, and not checked against anything. Never
-  build it from request data.
+- **The table name.** `select()`, `insert()`, `update()` and `delete()` interpolate `$table`
+  into the query verbatim. It is not validated, not quoted, and not checked against
+  anything. Never build it from request data.
 - **Column names.** They cannot be bound in SQL, so they are validated and quoted instead -
   see below.
 - **Any key prefixed with `!`** in the `$data` array of `insert()` or `update()`. The value
   is written into the query as SQL.
-- **A `$where` passed as a string** to `delete()`. It is appended after `WHERE` with no
-  escaping at all.
+- **A `$where` passed as a string** to `delete()` or `select()`. It is appended after `WHERE`
+  with no escaping at all. `update()` types its `$where` as `array`, so it cannot reach this.
+- **The `$columns` and `$table` arguments** of `select()`, both written into the statement as
+  given.
 - **The `$returning` argument** of `insert()`, appended to the statement as written.
 
 The `!` prefix and the string form of `$where` are documented in the source as deliberate
 escape hatches, each with an explicit warning never to build one from request data. The
-table name and `$returning` carry no such warning and need exactly the same care. All four
-are only safe for literals the application controls.
+table name, `$columns` and `$returning` carry no such warning and need exactly the same
+care. Every one of them is only safe for literals the application controls.
 
 ### Identifiers
 
@@ -179,11 +184,11 @@ Rejecting rather than escaping is the point: this is the only thing standing bet
 caller-supplied column name and SQL injection.
 
 One consequence of the lazy connect is worth knowing. `wrapColumn()` reads `wrap_column`
-out of the per-connection configuration cache that `init()` fills, and `insert()`,
-`update()` and `delete()` build their SQL *before* calling `query()`, which is what opens
-the connection. On the very first statement of a connection that was never explicitly
-opened, that cache is still empty and the fallback is an empty string. With `wrap_column`
-set to `"`:
+out of the per-connection configuration cache that `init()` fills, and `select()`,
+`insert()`, `update()` and `delete()` build their SQL *before* calling `query()`, which is
+what opens the connection. On the very first statement of a connection that was never
+explicitly opened, that cache is still empty and the fallback is an empty string. With
+`wrap_column` set to `"`:
 
 ```text
 insert #1 on a lazily opened connection: INSERT INTO t (name, age) VALUES (?, ?)
@@ -192,6 +197,34 @@ insert #2 and every one after it:        INSERT INTO t ("name", "age") VALUES (?
 
 It only matters when a column name needs quoting to be legal - a reserved word, say. Call
 `Db::init($name)` once at boot if that is a risk.
+
+## select()
+
+```php
+<?php
+
+public static function select(string $table, mixed $where, string $columns = '*', string $name = 'default'): array;
+```
+
+```php
+<?php
+
+Db::select('posts', ['id' => $id]);
+// SELECT * FROM posts WHERE `id` = ?;   then fetchAll()
+
+Db::select('posts', ['author_id' => [3, 4]], 'id, title');
+// SELECT id, title FROM posts WHERE `author_id` IN (?, ?);
+```
+
+It exists so that the audit trail can read the rows an update is about to change while
+resolving the condition exactly as the update will - a second implementation of the
+condition builder would audit different rows than it wrote. `$where` therefore takes the same
+shapes as [the conditions](/staticphp-core/database/db/#conditions) below, the raw string
+form included. `$table` and `$columns` are concatenated as given, so neither may come from
+request data.
+
+There is no empty-condition guard here, unlike in `delete()`: `Db::select('posts', [])`
+builds no `WHERE` at all and reads the whole table.
 
 ## insert()
 
@@ -267,8 +300,9 @@ Because `$where` is untyped, a string is accepted and appended verbatim:
 
 ## Conditions
 
-`update()` and `delete()` share one condition builder. A key is a column name optionally
-followed by whitespace and an operator; the operator is upper-cased and must be one of:
+`select()`, `update()` and `delete()` share one condition builder. A key is a column name
+optionally followed by whitespace and an operator; the operator is upper-cased and must be
+one of:
 
 ```text
 =  !=  <>  <  <=  >  >=  LIKE  NOT LIKE  ILIKE  NOT ILIKE  IS  IS NOT  IN  NOT IN

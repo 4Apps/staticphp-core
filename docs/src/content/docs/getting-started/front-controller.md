@@ -108,7 +108,7 @@ it is included.
 
 ## What the bootstrap does
 
-Requiring `Bootstrap::FILE` runs ten steps, in this order: the boot timestamp, the path
+Requiring `Bootstrap::FILE` runs eleven steps, in this order: the boot timestamp, the path
 constants and the application autoloader, the cli superglobals, `Config.php` and
 `Routing.php`, the debug decision, the extra config files, the error handlers, the view
 engine, the extra helpers, and finally `Router::init()`, which parses the url and calls a

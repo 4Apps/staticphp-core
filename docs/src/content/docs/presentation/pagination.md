@@ -66,8 +66,10 @@ object that never had `calculate()` called on it reports a nonsensical one-page 
 than an empty one. Always call `calculate()`.
 
 :::note[nextPage and prevPage are 0, not false]
-The source assigns `false` to both when there is no such page. They are typed `int`, so PHP
-coerces that to `0`. Test them with a plain falsy check, not `=== false`.
+The source assigns a literal `0` to both when there is no such page, and both properties are
+typed `int`. Test them with a plain falsy check, not `=== false`. The source comment says as
+much: "0 rather than false for 'there is no such page': both are falsy to the views that test
+these, and the properties are typed int".
 :::
 
 ## calculate()
@@ -142,17 +144,21 @@ builds the Bootstrap `<ul class="pagination">` out of it. It returns an empty st
 ```php
 <?php
 
-public function limitQuery()
+public function limitQuery(): string
 {
+    $pagination = $this->tableInstance->pagination
+        ?? throw new \LogicException('SQLPagination needs a table whose paging was initialised');
+
     return <<<EOL
-OFFSET {$this->tableInstance->pagination->limitFrom}
-LIMIT {$this->tableInstance->pagination->limitPerPage}
+OFFSET {$pagination->limitFrom}
+LIMIT {$pagination->limitPerPage}
 EOL;
 }
 ```
 
-Both values are integers computed by `calculate()`, never anything from the request, so the
-concatenation is safe. `OFFSET` before `LIMIT` is PostgreSQL syntax - see
+Calling it on a table whose `initData()` was given `null` for the page is that
+`LogicException` rather than a null property access. Both values are integers computed by
+`calculate()`, never anything from the request, so the concatenation is safe. `OFFSET` before `LIMIT` is PostgreSQL syntax - see
 [SQL tables](/staticphp-core/presentation/sql-tables/#the-dialect-is-postgresql).
 
 The order of operations in a controller is the awkward part: the count query has to run

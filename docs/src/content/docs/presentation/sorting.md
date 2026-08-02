@@ -124,16 +124,28 @@ sortData 'unknown=desc' currentColumn name  currentDirection 'ASC'  sortBy 'u.na
 | `sortBy()` | The database expression to order by |
 | `sortDirection()` | The direction to put in the query, which is not always the same thing |
 
-`sortBy()` returns the current column's `$sortBy`. It is declared `: string` and `$sortBy`
-defaults to `null`, so a column reachable as the sort column with no `$sortBy` set is a
-`TypeError`:
+`sortBy()` returns the current column's `$sortBy`, falling back to the column **id** when
+that property was never set - `return $column->sortBy ?? $column->id;`. So a column with no
+`$sortBy` orders by a bare identifier of its own name, which is right when the query selects
+that column unaliased and wrong the moment it does not. Set `$sortBy` explicitly on anything
+you sort on.
 
-```text
-TypeError: StaticPHP\Presentation\Models\Tables\Sort::sortBy(): Return value must be of type string, null returned
+The method is declared `: string` and starts by resolving the current column or throwing:
+
+```php
+<?php
+
+$column = $this->currentColumn
+    ?? throw new \LogicException('Sort has no current column');
 ```
 
-The value is used unescaped in an `ORDER BY`, so it must be a literal you wrote, never
-anything derived from the request.
+The constructor refuses to build a `Sort` with no default column, so within the framework's
+own path that `LogicException` is unreachable; it is there for a `Sort` whose state was
+tampered with afterwards.
+
+The returned value is used unescaped in an `ORDER BY`, so it must be a literal you wrote,
+never anything derived from the request. The id fallback is covered by that too: a column id
+built from a request parameter reaches the `ORDER BY` the same way a `$sortBy` would.
 
 ### A closure for sortBy
 
@@ -182,12 +194,16 @@ placeholder:
 ```php
 <?php
 
-$newDirection = ($forColumn->id === $this->tableInstance->sort->currentColumn()->id
-    && $this->tableInstance->sort->currentDirection() === SortDirection::ASC
+$sort = $this->tableInstance->sort ?? throw new Exception('Sort is not initialized');
+$current = $sort->currentColumn();
+
+$newDirection = ($forColumn->id === $current?->id
+    && $sort->currentDirection() === SortDirection::ASC
     ? 'desc' : 'asc'
 );
 $sortData = "{$forColumn->id}={$newDirection}";
-$url = str_replace('%sort', $sortData, $this->tableInstance->sort->url());
+$url = $sort->url();
+$url = str_replace('%sort', $sortData, $url);
 ```
 
 So clicking a column that is not the current one always sorts ascending first, and clicking
@@ -209,12 +225,13 @@ The values are the SQL keywords, uppercase, and `SQLSort` interpolates
 
 ## SortNulls
 
-`Enums/SortNulls.php`, a backed string enum with **2** cases:
+`Enums/SortNulls.php`, a backed string enum with **3** cases:
 
-| Case | Value |
-| --- | --- |
-| `FIRST` | `FIRST` |
-| `LAST` | `LAST` |
+| Case | Value | Emitted |
+| --- | --- | --- |
+| `NONE` | `NONE` | Nothing - null placement is left to the database |
+| `FIRST` | `FIRST` | `NULLS FIRST` |
+| `LAST` | `LAST` | `NULLS LAST` |
 
 This one is worth stopping on, because it is the only part of sorting that has no
 counterpart in the url or in the user interface. It is a per-column property,
@@ -232,21 +249,35 @@ always what is wanted from a "sort by due date" that has undated rows in it.
 ```php
 <?php
 
+private function sort(): Sort
+{
+    return $this->tableInstance->sort
+        ?? throw new \LogicException('SQLSort needs a table whose sorting was initialised');
+}
+
 public function sortNulls(): SortNulls
 {
-    $column = $this->tableInstance->sort->currentColumn();
+    $column = $this->sort()->currentColumn();
     return $column->sortNulls ?? SortNulls::FIRST;
 }
 
 public function sortQuery(): string
 {
-    $column = $this->tableInstance->sort->sortBy();
-    $direction = $this->tableInstance->sort->sortDirection()->value;
-    $nulls = $this->sortNulls();
-    $nulls = $nulls == SortNulls::FIRST ? 'NULLS FIRST' : 'NULLS LAST';
+    $column = $this->sort()->sortBy();
+    $direction = $this->sort()->sortDirection()->value;
+    $nulls = match ($this->sortNulls()) {
+        SortNulls::NONE => '',
+        SortNulls::FIRST => 'NULLS FIRST',
+        SortNulls::LAST => 'NULLS LAST',
+    };
+
     return " ORDER BY {$column} {$direction} {$nulls} ";
 }
 ```
+
+Both public methods reach the table's `Sort` through that private accessor, so calling
+either on an `SQLSort` whose table never had `initData()` run is a `LogicException` with a
+message that names the cause rather than a null property access.
 
 ### An explicit example
 
@@ -302,10 +333,10 @@ Three caveats:
 - The `?? SortNulls::FIRST` fallback in `sortNulls()` is unreachable. `$sortNulls` is a
   non-nullable typed property with a default, so it is never `null`. The effective default
   is the property's - `SortNulls::LAST`.
-- `NULLS FIRST` / `NULLS LAST` is standard SQL, and `SQLSort` always emits one of the two -
-  there is no branch that omits it. PostgreSQL accepts it, and so does the SQLite 3.46 build
-  these docs were checked against. MySQL does not. Check your engine before adopting
-  `sortQuery()`.
-- There is no way to switch it off. If your database does not support the syntax, do not use
-  `SQLSort::sortQuery()`; build the `ORDER BY` from `sortBy()` and `sortDirection()`
-  yourself.
+- `NULLS FIRST` / `NULLS LAST` is standard SQL that not every engine implements. PostgreSQL
+  accepts it, and so does the SQLite 3.46 build these docs were checked against. MySQL and
+  MariaDB do not - there the clause is a syntax error rather than a hint they ignore.
+- `SortNulls::NONE` is the way to switch it off. Its `match` arm emits the empty string, so
+  the clause disappears and null placement is left to the database. Set it on every column
+  of a table you sort on mysql or mariadb; the property default is `LAST`, so leaving a
+  column alone is what produces the unusable clause.

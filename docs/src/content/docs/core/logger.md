@@ -33,7 +33,8 @@ class Logger
     public const INFO = 'info';
     public const DEBUG = 'debug';
 
-    public static function contains(string $errorLevel1, string $errorLevel2): bool;
+    public static function above(string $eventLevel, string $currentLevel): bool;
+    public static function below(string $eventLevel, string $currentLevel): bool;
 
     public static function emergency(string $message, array $context = []): void;
     public static function alert(string $message, array $context = []): void;
@@ -71,30 +72,35 @@ The eight level methods all delegate to `log()`, which appends
 no threshold is applied at write time. Every message logged during a request is retained;
 the levels only matter when something reads them back.
 
-## contains()
+## above() and below()
 
 ```php
 <?php
 
-public static function contains(string $errorLevel1, string $errorLevel2): bool;
+public static function above(string $eventLevel, string $currentLevel): bool;
+public static function below(string $eventLevel, string $currentLevel): bool;
 ```
 
-Returns `ERROR_LEVELS[$errorLevel1] <= ERROR_LEVELS[$errorLevel2]`. Read it as "a threshold
-of `$errorLevel1` includes messages of severity `$errorLevel2`", which is how the error
-handlers use it:
+`above()` returns `ERROR_LEVELS[$eventLevel] >= ERROR_LEVELS[$currentLevel]`, and `below()`
+is its `<=` mirror. Read `above()` as "this event is at or over the configured threshold",
+which is how the error handlers use it:
 
 ```php
 <?php
 
-if (Logger::contains(sp_logging_level('log_level'), 'error')) {
+if (Logger::above('error', sp_logging_level('log_level'))) {
     sp_log_error($e);
 }
 ```
 
-Because the scale is inverted, a *lower* configured threshold is the more inclusive one.
-`'debug'` (100) includes errors; `'error'` (500) includes errors exactly; `'emergency'`
-(800) does not - it admits nothing below emergency. `'none'` (1000) admits nothing at all,
-which is what makes it the off switch.
+The parameter order is the point of the naming. Both arguments are level names and both are
+strings, so getting them the wrong way round was silent - the event being reported goes
+first, the configured threshold second.
+
+A *lower* configured threshold is the more inclusive one. `'debug'` (100) admits errors;
+`'error'` (500) admits errors exactly; `'emergency'` (800) does not - it admits nothing
+below emergency. `'none'` (1000) admits nothing at all, which is what makes it the off
+switch.
 
 An unknown level name on either side returns `false` rather than raising. That is
 deliberate: a mistyped level in the configuration used to produce a `TypeError` from inside

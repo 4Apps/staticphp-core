@@ -25,7 +25,7 @@ interface FiltersInterface
 
     public function parsedData(): array;
     public function hasFilter(string $key): bool;
-    public function filterValue(string $key);
+    public function filterValue(string $key): mixed;
 
     public function parse(?string $filterData = null, ?\Closure $callback = null): void;
 }
@@ -219,12 +219,8 @@ it:
 ```php
 <?php
 
-public function url(): ?string
+public function url(): string
 {
-    if ($this->urlPrefix === null) {
-        return null;
-    }
-
     return (strpos($this->urlPrefix, '%filter') === false ?
         $this->urlPrefix . '%filter' :
         $this->urlPrefix
@@ -238,25 +234,14 @@ and a prefix of `/users/`, that is `/users/%filter/age=desc`. Replace `%filter` 
 filter string and you have the url that applies it while keeping the current sort.
 
 Nothing in `src/` generates filter links; the filter row is a form and submitting it is the
-application's job. `setUrl()` replaces the prefix.
+application's job. `setUrl()` replaces the prefix, and it normalises a `null` argument to the
+empty string - `$this->urlPrefix = $setUrl ?? '';` - so the `?string` parameter is honest
+against a `protected string $urlPrefix = ''` property. `Sort::setUrl()` has the same shape.
 
-:::note[The null branch in url() cannot be reached]
-`$urlPrefix` is declared `protected string $urlPrefix = ''` - not nullable. `setUrl()`
-assigns its argument straight into it, so the `?string` in its signature buys nothing: passing
-`null` raises a `TypeError` at the assignment, not later.
-
-```text
-filter->setUrl(null): TypeError: Cannot assign null to property StaticPHP\Presentation\Models\Tables\Filters::$urlPrefix of type string
-sort->setUrl(null):   TypeError: Cannot assign null to property StaticPHP\Presentation\Models\Tables\Sort::$sortUrlPrefix of type string
-```
-
-Nothing else writes the property, so `$urlPrefix` is never `null` and the
-`if ($this->urlPrefix === null) return null;` guard at the top of `url()` is dead code.
-`url()` always returns a string, whatever its `?string` return type suggests.
-
-`Sort::setUrl()` has the same shape - `protected string $sortUrlPrefix = '/'` and a
-`?string` parameter assigned straight in - and, as the capture shows, the same `TypeError`.
-`Sort::url()` is declared `: string` and has no null branch to be dead.
+:::note[The interface still declares url() nullable]
+`FiltersInterface::url(): ?string` against a class `url(): string`. Narrowing a return type
+in an implementation is legal, so nothing breaks, but code written to the interface will
+carry a null check that can never fire. `url()` always returns a string.
 :::
 
 ## Writing to the filter state
