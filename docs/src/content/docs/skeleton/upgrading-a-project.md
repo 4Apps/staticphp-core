@@ -69,7 +69,7 @@ and has nothing to record, while your project does.
 ```json title=".staticphp/manifest.json"
 {
     "version": 1,
-    "origin": "https://github.com/gintsmurans/staticphp.git",
+    "origin": "https://github.com/4Apps/staticphp.git",
     "skeleton": "v2.0.332",
     "apps": {
         "Application": {
@@ -85,7 +85,7 @@ and has nothing to record, while your project does.
 
 | Field | Meaning |
 | --- | --- |
-| `origin` | Where to fetch releases from. Defaults to `https://github.com/gintsmurans/staticphp.git`; point it at a fork and the whole feature follows. |
+| `origin` | Where to fetch releases from. Defaults to `https://github.com/4Apps/staticphp.git`; point it at a fork and the whole feature follows. |
 | `skeleton` | The tag the root files are currently on. The merge base for `staticphp upgrade`. |
 | `apps.<Name>.preset` | Which preset the application was scaffolded from, so an upgrade knows which tree to compose. |
 | `apps.<Name>.version` | The tag that application's preset is currently on. |
@@ -97,7 +97,7 @@ Straight after `create-project`, both version fields are `null`:
 ```json title=".staticphp/manifest.json, as generated"
 {
     "version": 1,
-    "origin": "https://github.com/gintsmurans/staticphp.git",
+    "origin": "https://github.com/4Apps/staticphp.git",
     "skeleton": null,
     "apps": {
         "Application": {
@@ -294,7 +294,7 @@ The plan is grouped by outcome, conflicts last, paths sorted, and at most eight 
 group before the group is summarised. The shape of it, for an invented pair of releases:
 
 ```text
-Syncing https://github.com/gintsmurans/staticphp.git
+Syncing https://github.com/4Apps/staticphp.git
 
 Upgrading skeleton files v2.0.328 -> v2.0.332
 

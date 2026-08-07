@@ -14,7 +14,7 @@ Read the whole list before starting. Steps 1 and 2 are mechanical, step 3 is whe
 actually has to make decisions.
 
 This page is the migration path. What changed and why, release by release, is in
-[CHANGELOG.md](https://github.com/gintsmurans/staticphp-core/blob/master/CHANGELOG.md).
+[CHANGELOG.md](https://github.com/4Apps/staticphp-core/blob/master/CHANGELOG.md).
 
 ## 1. Depend on the package instead of vendoring the framework
 
@@ -54,7 +54,7 @@ working tree and read the diff; it is a text substitution, not a parser.
 The script lives in the repository rather than in the package. `.gitattributes` marks
 `scripts/` as `export-ignore`, so it is not in the dist archive `composer require` fetches -
 take it from
-[the repository](https://github.com/gintsmurans/staticphp-core/blob/master/scripts/upgrade_v2_namespaces.bash).
+[the repository](https://github.com/4Apps/staticphp-core/blob/master/scripts/upgrade_v2_namespaces.bash).
 
 Application namespaces are unchanged. A module is still its own root -
 `Pasta\Controllers\Quality` stays exactly as it is, and so does `Models\AppConfig` at the

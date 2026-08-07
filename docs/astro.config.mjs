@@ -6,7 +6,7 @@ export default defineConfig({
     // A GitHub Pages project page is served from a subdirectory, so `base` has to match
     // the repository name exactly or every asset and link 404s in production while
     // continuing to work in `astro dev`.
-    site: 'https://gintsmurans.github.io',
+    site: 'https://4apps.github.io',
     base: '/staticphp-core',
 
     integrations: [
@@ -18,12 +18,12 @@ export default defineConfig({
                 {
                     icon: 'github',
                     label: 'GitHub',
-                    href: 'https://github.com/gintsmurans/staticphp-core',
+                    href: 'https://github.com/4Apps/staticphp-core',
                 },
             ],
 
             editLink: {
-                baseUrl: 'https://github.com/gintsmurans/staticphp-core/edit/master/docs/',
+                baseUrl: 'https://github.com/4Apps/staticphp-core/edit/master/docs/',
             },
 
             // Starlight emits twitter:card=summary_large_image unconditionally, so a site
@@ -32,11 +32,11 @@ export default defineConfig({
             head: [
                 {
                     tag: 'meta',
-                    attrs: { property: 'og:image', content: 'https://gintsmurans.github.io/staticphp-core/og.png' },
+                    attrs: { property: 'og:image', content: 'https://4apps.github.io/staticphp-core/og.png' },
                 },
                 {
                     tag: 'meta',
-                    attrs: { name: 'twitter:image', content: 'https://gintsmurans.github.io/staticphp-core/og.png' },
+                    attrs: { name: 'twitter:image', content: 'https://4apps.github.io/staticphp-core/og.png' },
                 },
             ],
 

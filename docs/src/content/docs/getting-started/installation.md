@@ -77,11 +77,11 @@ plain php templates, and the `registerTwig()` helpers return quietly. If the lib
 installed but a particular application should not use it, `$config['disable_twig'] = true`
 skips building the environment.
 
-## Relationship to gintsmurans/staticphp
+## Relationship to 4Apps/staticphp
 
 This package is the library. The application skeleton - the demo app, the asset pipeline,
 the dev container, the `staticphp` cli - lives in
-[gintsmurans/staticphp](https://github.com/gintsmurans/staticphp) and is what
+[4Apps/staticphp](https://github.com/4Apps/staticphp) and is what
 `composer create-project` gives you.
 
 Starting a new project from that skeleton is the usual route; `composer require` is for

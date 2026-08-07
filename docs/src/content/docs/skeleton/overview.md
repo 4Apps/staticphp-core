@@ -66,7 +66,7 @@ checkout of core instead of at Packagist and composer symlinks it into `vendor/`
 in the core checkout are live:
 
 ```bash
-git clone git@github.com:gintsmurans/staticphp-core.git ../staticphp-core
+git clone git@github.com:4Apps/staticphp-core.git ../staticphp-core
 composer config repositories.core path ../staticphp-core
 composer require 4apps/staticphp-core:dev-develop
 ```

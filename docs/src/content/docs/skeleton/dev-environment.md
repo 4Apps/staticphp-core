@@ -308,7 +308,7 @@ manually rather than getting them from supervisord.
 For an actual deployment - as opposed to the built-in server - the skeleton's own README
 documents an nginx server block to put in front of a `php-fpm` pool such as the one the
 `production` Dockerfile stage sets up; see [Basic Nginx
-configuration](https://github.com/gintsmurans/staticphp#basic-nginx-configuration) in the
+configuration](https://github.com/4Apps/staticphp#basic-nginx-configuration) in the
 project README rather than adapting one from scratch.
 
 ## The pre-commit hook

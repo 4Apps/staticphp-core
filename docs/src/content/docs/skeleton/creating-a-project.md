@@ -98,7 +98,7 @@ site instead of describing the skeleton's own installation and contribution work
 ```md title="README.md (generated)"
 # Application
 
-Built on [StaticPHP](https://github.com/gintsmurans/staticphp) - framework documentation,
+Built on [StaticPHP](https://github.com/4Apps/staticphp) - framework documentation,
 configuration reference and upgrade notes live there.
 
 ## Running it

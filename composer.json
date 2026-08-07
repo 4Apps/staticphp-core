@@ -3,12 +3,18 @@
     "description": "A lightweight PHP framework",
     "license": "MIT",
     "type": "library",
+    "homepage": "https://4apps.github.io/staticphp-core/",
     "authors": [
         {
             "name": "Gints Murans",
             "email": "gm@gm.lv"
         }
     ],
+    "support": {
+        "docs": "https://4apps.github.io/staticphp-core/",
+        "issues": "https://github.com/4Apps/staticphp-core/issues",
+        "source": "https://github.com/4Apps/staticphp-core"
+    },
     "require": {
         "php": ">=8.4 <9",
         "ext-intl": "*",
